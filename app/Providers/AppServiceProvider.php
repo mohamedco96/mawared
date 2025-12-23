@@ -24,6 +24,8 @@ class AppServiceProvider extends ServiceProvider
         Relation::enforceMorphMap([
             'sales_invoice' => \App\Models\SalesInvoice::class,
             'purchase_invoice' => \App\Models\PurchaseInvoice::class,
+            'sales_return' => \App\Models\SalesReturn::class,
+            'purchase_return' => \App\Models\PurchaseReturn::class,
             'warehouse_transfer' => \App\Models\WarehouseTransfer::class,
             'stock_adjustment' => \App\Models\StockAdjustment::class,
             'expense' => \App\Models\Expense::class,

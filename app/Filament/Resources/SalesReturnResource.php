@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\SalesInvoiceResource\Pages;
+use App\Filament\Resources\SalesReturnResource\Pages;
 use App\Models\Product;
-use App\Models\SalesInvoice;
+use App\Models\SalesReturn;
 use App\Services\StockService;
 use App\Services\TreasuryService;
 use Filament\Forms;
@@ -18,27 +18,29 @@ use Filament\Tables\Table;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-class SalesInvoiceResource extends Resource
+class SalesReturnResource extends Resource
 {
-    protected static ?string $model = SalesInvoice::class;
+    protected static ?string $model = SalesReturn::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-shopping-cart';
+    protected static ?string $navigationIcon = 'heroicon-o-arrow-uturn-left';
 
-    protected static ?string $navigationLabel = 'فواتير البيع';
+    protected static ?string $navigationLabel = 'مرتجعات المبيعات';
 
-    protected static ?string $modelLabel = 'فاتورة بيع';
+    protected static ?string $modelLabel = 'مرتجع مبيعات';
 
-    protected static ?string $pluralModelLabel = 'فواتير البيع';
+    protected static ?string $pluralModelLabel = 'مرتجعات المبيعات';
+
+    protected static ?string $navigationGroup = 'المبيعات';
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('معلومات الفاتورة')
+                Forms\Components\Section::make('معلومات المرتجع')
                     ->schema([
-                        Forms\Components\TextInput::make('invoice_number')
-                            ->label('رقم الفاتورة')
-                            ->default(fn () => 'SI-'.now()->format('Ymd').'-'.Str::random(6))
+                        Forms\Components\TextInput::make('return_number')
+                            ->label('رقم المرتجع')
+                            ->default(fn () => 'RET-SALE-'.now()->format('Ymd').'-'.Str::random(6))
                             ->required()
                             ->unique(ignoreRecord: true)
                             ->maxLength(255),
@@ -81,7 +83,7 @@ class SalesInvoiceResource extends Resource
                     ])
                     ->columns(3),
 
-                Forms\Components\Section::make('أصناف الفاتورة')
+                Forms\Components\Section::make('أصناف المرتجع')
                     ->schema([
                         Forms\Components\Repeater::make('items')
                             ->relationship('items')
@@ -108,7 +110,7 @@ class SalesInvoiceResource extends Resource
                                             }
                                         }
                                     })
-                                    ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
+                                    ->disabled(fn ($record) => $record && $record->salesReturn && $record->salesReturn->isPosted()),
                                 Forms\Components\Select::make('unit_type')
                                     ->label('الوحدة')
                                     ->options(function (Get $get) {
@@ -142,7 +144,7 @@ class SalesInvoiceResource extends Resource
                                             }
                                         }
                                     })
-                                    ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
+                                    ->disabled(fn ($record) => $record && $record->salesReturn && $record->salesReturn->isPosted()),
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية')
                                     ->numeric()
@@ -155,7 +157,7 @@ class SalesInvoiceResource extends Resource
                                         $discount = $get('discount') ?? 0;
                                         $set('total', ($unitPrice * $state) - $discount);
                                     })
-                                    ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
+                                    ->disabled(fn ($record) => $record && $record->salesReturn && $record->salesReturn->isPosted()),
                                 Forms\Components\TextInput::make('unit_price')
                                     ->label('سعر الوحدة')
                                     ->numeric()
@@ -167,7 +169,7 @@ class SalesInvoiceResource extends Resource
                                         $discount = $get('discount') ?? 0;
                                         $set('total', ($state * $quantity) - $discount);
                                     })
-                                    ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
+                                    ->disabled(fn ($record) => $record && $record->salesReturn && $record->salesReturn->isPosted()),
                                 Forms\Components\TextInput::make('discount')
                                     ->label('الخصم')
                                     ->numeric()
@@ -179,7 +181,7 @@ class SalesInvoiceResource extends Resource
                                         $quantity = $get('quantity') ?? 1;
                                         $set('total', ($unitPrice * $quantity) - $state);
                                     })
-                                    ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
+                                    ->disabled(fn ($record) => $record && $record->salesReturn && $record->salesReturn->isPosted()),
                                 Forms\Components\TextInput::make('total')
                                     ->label('الإجمالي')
                                     ->numeric()
@@ -277,8 +279,8 @@ class SalesInvoiceResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('invoice_number')
-                    ->label('رقم الفاتورة')
+                Tables\Columns\TextColumn::make('return_number')
+                    ->label('رقم المرتجع')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('partner.name')
@@ -329,41 +331,41 @@ class SalesInvoiceResource extends Resource
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->action(function (SalesInvoice $record) {
+                    ->action(function (SalesReturn $record) {
                         try {
                             $stockService = app(StockService::class);
                             $treasuryService = app(TreasuryService::class);
 
                             DB::transaction(function () use ($record, $stockService, $treasuryService) {
                                 // Post stock movements
-                                $stockService->postSalesInvoice($record);
+                                $stockService->postSalesReturn($record);
 
                                 // Post treasury transactions
-                                $treasuryService->postSalesInvoice($record);
+                                $treasuryService->postSalesReturn($record);
 
-                                // Update invoice status
+                                // Update return status
                                 $record->update(['status' => 'posted']);
                             });
 
                             Notification::make()
                                 ->success()
-                                ->title('تم تأكيد الفاتورة بنجاح')
+                                ->title('تم تأكيد المرتجع بنجاح')
                                 ->body('تم تسجيل حركة المخزون والخزينة')
                                 ->send();
                         } catch (\Exception $e) {
                             Notification::make()
                                 ->danger()
-                                ->title('خطأ في تأكيد الفاتورة')
+                                ->title('خطأ في تأكيد المرتجع')
                                 ->body($e->getMessage())
                                 ->send();
                         }
                     })
-                    ->visible(fn (SalesInvoice $record) => $record->isDraft()),
+                    ->visible(fn (SalesReturn $record) => $record->isDraft()),
                 Tables\Actions\EditAction::make()
-                    ->visible(fn (SalesInvoice $record) => $record->isDraft()),
+                    ->visible(fn (SalesReturn $record) => $record->isDraft()),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\DeleteAction::make()
-                    ->visible(fn (SalesInvoice $record) => $record->isDraft()),
+                    ->visible(fn (SalesReturn $record) => $record->isDraft()),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -375,9 +377,9 @@ class SalesInvoiceResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListSalesInvoices::route('/'),
-            'create' => Pages\CreateSalesInvoice::route('/create'),
-            'edit' => Pages\EditSalesInvoice::route('/{record}/edit'),
+            'index' => Pages\ListSalesReturns::route('/'),
+            'create' => Pages\CreateSalesReturn::route('/create'),
+            'edit' => Pages\EditSalesReturn::route('/{record}/edit'),
         ];
     }
 }

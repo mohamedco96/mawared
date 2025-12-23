@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Product;
 use App\Models\SalesInvoice;
 use App\Models\PurchaseInvoice;
+use App\Models\SalesReturn;
+use App\Models\PurchaseReturn;
 use App\Models\StockAdjustment;
 use App\Models\StockMovement;
 use App\Models\WarehouseTransfer;
@@ -168,10 +170,10 @@ class StockService
         DB::transaction(function () use ($invoice) {
             foreach ($invoice->items as $item) {
                 $product = $item->product;
-                
+
                 // Convert to base unit
                 $baseQuantity = $this->convertToBaseUnit($product, $item->quantity, $item->unit_type);
-                
+
                 // Create positive stock movement (purchase)
                 $this->recordMovement(
                     $invoice->warehouse_id,
@@ -191,6 +193,78 @@ class StockService
 
             // Update average cost for all products in this invoice
             foreach ($invoice->items as $item) {
+                $this->updateProductAvgCost($item->product_id);
+            }
+        });
+    }
+
+    /**
+     * Post a sales return - creates stock movements (REVERSE of sale)
+     */
+    public function postSalesReturn(SalesReturn $return): void
+    {
+        if (!$return->isDraft()) {
+            throw new \Exception('المرتجع ليس في حالة مسودة');
+        }
+
+        DB::transaction(function () use ($return) {
+            foreach ($return->items as $item) {
+                $product = $item->product;
+
+                // Convert to base unit
+                $baseQuantity = $this->convertToBaseUnit($product, $item->quantity, $item->unit_type);
+
+                // Create POSITIVE stock movement (sale_return)
+                // REVERSE LOGIC: Sale removes stock (negative), return adds stock (positive)
+                $this->recordMovement(
+                    $return->warehouse_id,
+                    $product->id,
+                    'sale_return',
+                    $baseQuantity, // POSITIVE for return
+                    $product->avg_cost,
+                    'sales_return',
+                    $return->id
+                );
+            }
+        });
+    }
+
+    /**
+     * Post a purchase return - creates stock movements (REVERSE of purchase)
+     */
+    public function postPurchaseReturn(PurchaseReturn $return): void
+    {
+        if (!$return->isDraft()) {
+            throw new \Exception('المرتجع ليس في حالة مسودة');
+        }
+
+        DB::transaction(function () use ($return) {
+            foreach ($return->items as $item) {
+                $product = $item->product;
+
+                // Convert to base unit
+                $baseQuantity = $this->convertToBaseUnit($product, $item->quantity, $item->unit_type);
+
+                // Validate stock availability (we're removing stock)
+                if (!$this->validateStockAvailability($return->warehouse_id, $product->id, $baseQuantity)) {
+                    throw new \Exception("المخزون غير كافٍ للمنتج: {$product->name}");
+                }
+
+                // Create NEGATIVE stock movement (purchase_return)
+                // REVERSE LOGIC: Purchase adds stock (positive), return removes stock (negative)
+                $this->recordMovement(
+                    $return->warehouse_id,
+                    $product->id,
+                    'purchase_return',
+                    -$baseQuantity, // NEGATIVE for return
+                    $item->unit_cost,
+                    'purchase_return',
+                    $return->id
+                );
+            }
+
+            // Update average cost for all products in this return
+            foreach ($return->items as $item) {
                 $this->updateProductAvgCost($item->product_id);
             }
         });

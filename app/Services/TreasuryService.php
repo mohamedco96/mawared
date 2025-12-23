@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Partner;
 use App\Models\SalesInvoice;
 use App\Models\PurchaseInvoice;
+use App\Models\SalesReturn;
+use App\Models\PurchaseReturn;
 use App\Models\TreasuryTransaction;
 use App\Models\Expense;
 use App\Models\Revenue;
@@ -169,6 +171,92 @@ class TreasuryService
             // Update partner balance if credit
             if ($invoice->payment_method === 'credit' && $invoice->partner_id) {
                 $this->updatePartnerBalance($invoice->partner_id);
+            }
+        });
+    }
+
+    /**
+     * Post a sales return - creates treasury transactions (REFUND to customer)
+     */
+    public function postSalesReturn(SalesReturn $return, ?string $treasuryId = null): void
+    {
+        if (!$return->isDraft()) {
+            throw new \Exception('المرتجع ليس في حالة مسودة');
+        }
+
+        $treasuryId = $treasuryId ?? $this->getDefaultTreasury();
+
+        DB::transaction(function () use ($return, $treasuryId) {
+            if ($return->payment_method === 'cash') {
+                // Cash refund - create refund transaction (money leaves treasury)
+                $this->recordTransaction(
+                    $treasuryId,
+                    'refund',
+                    -$return->total, // NEGATIVE - money leaves treasury
+                    "مرتجع فاتورة بيع #{$return->return_number}",
+                    $return->partner_id,
+                    'sales_return',
+                    $return->id
+                );
+            } else {
+                // Credit refund - reduce partner's debt
+                $this->recordTransaction(
+                    $treasuryId,
+                    'refund',
+                    -$return->total, // NEGATIVE - reduces what customer owes us
+                    "مرتجع فاتورة بيع #{$return->return_number} (آجل)",
+                    $return->partner_id,
+                    'sales_return',
+                    $return->id
+                );
+            }
+
+            // Update partner balance if credit
+            if ($return->payment_method === 'credit' && $return->partner_id) {
+                $this->updatePartnerBalance($return->partner_id);
+            }
+        });
+    }
+
+    /**
+     * Post a purchase return - creates treasury transactions (REFUND from supplier)
+     */
+    public function postPurchaseReturn(PurchaseReturn $return, ?string $treasuryId = null): void
+    {
+        if (!$return->isDraft()) {
+            throw new \Exception('المرتجع ليس في حالة مسودة');
+        }
+
+        $treasuryId = $treasuryId ?? $this->getDefaultTreasury();
+
+        DB::transaction(function () use ($return, $treasuryId) {
+            if ($return->payment_method === 'cash') {
+                // Cash refund - create refund transaction (money returns to treasury)
+                $this->recordTransaction(
+                    $treasuryId,
+                    'refund',
+                    $return->total, // POSITIVE - money returns to treasury
+                    "مرتجع فاتورة شراء #{$return->return_number}",
+                    $return->partner_id,
+                    'purchase_return',
+                    $return->id
+                );
+            } else {
+                // Credit refund - reduce our debt to supplier
+                $this->recordTransaction(
+                    $treasuryId,
+                    'refund',
+                    $return->total, // POSITIVE - reduces what we owe supplier
+                    "مرتجع فاتورة شراء #{$return->return_number} (آجل)",
+                    $return->partner_id,
+                    'purchase_return',
+                    $return->id
+                );
+            }
+
+            // Update partner balance if credit
+            if ($return->payment_method === 'credit' && $return->partner_id) {
+                $this->updatePartnerBalance($return->partner_id);
             }
         });
     }
