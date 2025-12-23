@@ -16,11 +16,11 @@ class UserResource extends Resource
     protected static ?string $model = User::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-user-circle';
-    
+
     protected static ?string $navigationLabel = 'الموظفين';
-    
+
     protected static ?string $modelLabel = 'موظف';
-    
+
     protected static ?string $pluralModelLabel = 'الموظفين';
 
     public static function form(Form $form): Form
@@ -49,7 +49,7 @@ class UserResource extends Resource
                             ->maxLength(255),
                     ])
                     ->columns(2),
-                
+
                 Forms\Components\Section::make('معلومات الموظف')
                     ->schema([
                         Forms\Components\TextInput::make('national_id')
@@ -65,7 +65,6 @@ class UserResource extends Resource
                         Forms\Components\TextInput::make('salary_amount')
                             ->label('مبلغ الراتب')
                             ->numeric()
-                            ->prefix('ر.س')
                             ->step(0.0001),
                     ])
                     ->columns(3),

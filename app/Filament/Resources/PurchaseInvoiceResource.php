@@ -11,6 +11,7 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -22,11 +23,11 @@ class PurchaseInvoiceResource extends Resource
     protected static ?string $model = PurchaseInvoice::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-shopping-bag';
-    
+
     protected static ?string $navigationLabel = 'فواتير الشراء';
-    
+
     protected static ?string $modelLabel = 'فاتورة شراء';
-    
+
     protected static ?string $pluralModelLabel = 'فواتير الشراء';
 
     public static function form(Form $form): Form
@@ -137,7 +138,6 @@ class PurchaseInvoiceResource extends Resource
                                     ->label('تكلفة الوحدة')
                                     ->numeric()
                                     ->required()
-                                    ->prefix('ر.س')
                                     ->step(0.0001)
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
@@ -149,7 +149,6 @@ class PurchaseInvoiceResource extends Resource
                                 Forms\Components\TextInput::make('discount')
                                     ->label('خصم')
                                     ->numeric()
-                                    ->prefix('ر.س')
                                     ->default(0)
                                     ->step(0.0001)
                                     ->reactive()
@@ -163,14 +162,12 @@ class PurchaseInvoiceResource extends Resource
                                     ->label('سعر البيع الجديد')
                                     ->helperText('إذا تم تحديده، سيتم تحديث سعر المنتج تلقائياً')
                                     ->numeric()
-                                    ->prefix('ر.س')
                                     ->step(0.0001)
                                     ->nullable()
                                     ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
                                 Forms\Components\TextInput::make('total')
                                     ->label('الإجمالي')
                                     ->numeric()
-                                    ->prefix('ر.س')
                                     ->disabled()
                                     ->dehydrated(),
                             ])
@@ -194,7 +191,6 @@ class PurchaseInvoiceResource extends Resource
                         Forms\Components\TextInput::make('subtotal')
                             ->label('المجموع الفرعي')
                             ->numeric()
-                            ->prefix('ر.س')
                             ->default(0)
                             ->disabled()
                             ->dehydrated()
@@ -208,7 +204,6 @@ class PurchaseInvoiceResource extends Resource
                         Forms\Components\TextInput::make('discount')
                             ->label('الخصم الإجمالي')
                             ->numeric()
-                            ->prefix('ر.س')
                             ->default(0)
                             ->step(0.0001)
                             ->reactive()
@@ -222,7 +217,6 @@ class PurchaseInvoiceResource extends Resource
                         Forms\Components\TextInput::make('total')
                             ->label('الإجمالي النهائي')
                             ->numeric()
-                            ->prefix('ر.س')
                             ->required()
                             ->disabled()
                             ->dehydrated(),
@@ -294,26 +288,41 @@ class PurchaseInvoiceResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->action(function (PurchaseInvoice $record) {
-                        $stockService = app(StockService::class);
-                        $treasuryService = app(TreasuryService::class);
+                        try {
+                            $stockService = app(StockService::class);
+                            $treasuryService = app(TreasuryService::class);
 
-                        DB::transaction(function () use ($record, $stockService, $treasuryService) {
-                            // Post stock movements
-                            $stockService->postPurchaseInvoice($record);
+                            DB::transaction(function () use ($record, $stockService, $treasuryService) {
+                                // Post stock movements
+                                $stockService->postPurchaseInvoice($record);
 
-                            // Post treasury transactions
-                            $treasuryService->postPurchaseInvoice($record);
+                                // Post treasury transactions
+                                $treasuryService->postPurchaseInvoice($record);
 
-                            // Update product prices if new_selling_price is set
-                            foreach ($record->items as $item) {
-                                if ($item->new_selling_price !== null) {
-                                    $stockService->updateProductPrice($item->product, $item->new_selling_price, $item->unit_type);
+                                // Update product prices if new_selling_price is set
+                                foreach ($record->items as $item) {
+                                    if ($item->new_selling_price !== null) {
+                                        $stockService->updateProductPrice($item->product, $item->new_selling_price, $item->unit_type);
+                                    }
                                 }
-                            }
 
-                            // Update invoice status
-                            $record->update(['status' => 'posted']);
-                        });
+                                // Update invoice status (using saveQuietly to bypass model events)
+                                $record->status = 'posted';
+                                $record->saveQuietly();
+                            });
+
+                            Notification::make()
+                                ->success()
+                                ->title('تم تأكيد الفاتورة بنجاح')
+                                ->body('تم تسجيل حركة المخزون والخزينة')
+                                ->send();
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('خطأ في تأكيد الفاتورة')
+                                ->body($e->getMessage())
+                                ->send();
+                        }
                     })
                     ->visible(fn (PurchaseInvoice $record) => $record->isDraft()),
                 Tables\Actions\EditAction::make()

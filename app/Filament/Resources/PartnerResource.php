@@ -15,11 +15,11 @@ class PartnerResource extends Resource
     protected static ?string $model = Partner::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-users';
-    
+
     protected static ?string $navigationLabel = 'العملاء والموردين';
-    
+
     protected static ?string $modelLabel = 'شريك';
-    
+
     protected static ?string $pluralModelLabel = 'العملاء والموردين';
 
     public static function form(Form $form): Form
@@ -53,7 +53,7 @@ class PartnerResource extends Resource
                             ->maxLength(255),
                     ])
                     ->columns(2),
-                
+
                 Forms\Components\Section::make('الحالة')
                     ->schema([
                         Forms\Components\Toggle::make('is_banned')
@@ -62,7 +62,6 @@ class PartnerResource extends Resource
                         Forms\Components\TextInput::make('current_balance')
                             ->label('الرصيد الحالي')
                             ->numeric()
-                            ->prefix('ر.س')
                             ->disabled()
                             ->dehydrated()
                             ->default(0),
@@ -123,7 +122,7 @@ class PartnerResource extends Resource
                             ->orderBy('created_at', 'desc')
                             ->limit(100)
                             ->get();
-                        
+
                         $html = '<div class="space-y-4">';
                         $html .= '<div class="text-lg font-semibold">الرصيد الحالي: ' . number_format($record->current_balance, 2) . ' ر.س</div>';
                         $html .= '<table class="w-full text-sm">';
@@ -146,7 +145,7 @@ class PartnerResource extends Resource
                         }
                         $html .= '</tbody></table>';
                         $html .= '</div>';
-                        
+
                         return new \Illuminate\Support\HtmlString($html);
                     })
                     ->modalWidth('7xl')

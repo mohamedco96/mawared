@@ -7,6 +7,7 @@ use App\Models\StockMovement;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Filament\Forms\Form;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\DB;
 
@@ -15,16 +16,20 @@ class ProfitLossReport extends Page implements HasForms
     use InteractsWithForms;
 
     protected static ?string $navigationIcon = 'heroicon-o-chart-pie';
-    
+
     protected static string $view = 'filament.pages.profit-loss-report';
-    
+
     protected static ?string $navigationLabel = 'تقرير الربح والخسارة';
-    
+
     protected static ?string $title = 'تقرير الربح والخسارة';
-    
+
     protected static ?int $navigationSort = 2;
 
     public ?array $data = [];
+
+    public $from_date;
+
+    public $to_date;
 
     public function mount(): void
     {
@@ -34,22 +39,23 @@ class ProfitLossReport extends Page implements HasForms
         ]);
     }
 
-    protected function getFormSchema(): array
+    public function form(Form $form): Form
     {
-        return [
-            Forms\Components\Section::make('فترة التقرير')
-                ->schema([
-                    Forms\Components\DatePicker::make('from_date')
-                        ->label('من تاريخ')
-                        ->required()
-                        ->default(now()->startOfMonth()),
-                    Forms\Components\DatePicker::make('to_date')
-                        ->label('إلى تاريخ')
-                        ->required()
-                        ->default(now()->endOfMonth()),
-                ])
-                ->columns(2),
-        ];
+        return $form
+            ->schema([
+                Forms\Components\Section::make('فترة التقرير')
+                    ->schema([
+                        Forms\Components\DatePicker::make('from_date')
+                            ->label('من تاريخ')
+                            ->required()
+                            ->default(now()->startOfMonth()),
+                        Forms\Components\DatePicker::make('to_date')
+                            ->label('إلى تاريخ')
+                            ->required()
+                            ->default(now()->endOfMonth()),
+                    ])
+                    ->columns(2),
+            ]);
     }
 
     public $reportData = null;

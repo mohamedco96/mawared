@@ -20,11 +20,11 @@ class TreasuryTransactionResource extends Resource
     protected static ?string $model = TreasuryTransaction::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
-    
+
     protected static ?string $navigationLabel = 'المعاملات المالية';
-    
+
     protected static ?string $modelLabel = 'معاملة مالية';
-    
+
     protected static ?string $pluralModelLabel = 'المعاملات المالية';
 
     public static function form(Form $form): Form
@@ -83,7 +83,6 @@ class TreasuryTransactionResource extends Resource
                             ->label('المبلغ')
                             ->numeric()
                             ->required()
-                            ->prefix('ر.س')
                             ->step(0.0001)
                             ->minValue(0.0001)
                             ->reactive()
@@ -101,7 +100,6 @@ class TreasuryTransactionResource extends Resource
                         Forms\Components\TextInput::make('discount')
                             ->label('خصم')
                             ->numeric()
-                            ->prefix('ر.س')
                             ->default(0)
                             ->step(0.0001)
                             ->reactive()

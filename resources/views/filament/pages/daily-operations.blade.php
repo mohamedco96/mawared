@@ -1,16 +1,14 @@
 <x-filament-panels::page>
     <x-filament::tabs>
-        @php
-            $activeTab = request()->get('tab', 'sales');
-        @endphp
         @foreach($this->getTabs() as $key => $tab)
             <x-filament::tabs.item
-                :active="$activeTab === $key"
-                :badge="$tab->getBadge()"
-                :badge-color="$tab->getBadgeColor()"
-                :href="$this->getTabUrl($key)"
+                :active="$this->activeTab === $key"
+                :badge="$tab->badge"
+                :badge-color="$tab->badgeColor"
+                wire:click="setActiveTab('{{ $key }}')"
+                tag="button"
             >
-                {{ $tab->getLabel() }}
+                {{ $tab->label }}
             </x-filament::tabs.item>
         @endforeach
     </x-filament::tabs>

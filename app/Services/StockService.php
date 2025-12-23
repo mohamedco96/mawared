@@ -127,19 +127,19 @@ class StockService
     public function postSalesInvoice(SalesInvoice $invoice): void
     {
         if (!$invoice->isDraft()) {
-            throw new \Exception('Invoice is not in draft status');
+            throw new \Exception('الفاتورة ليست في حالة مسودة');
         }
 
         DB::transaction(function () use ($invoice) {
             foreach ($invoice->items as $item) {
                 $product = $item->product;
-                
+
                 // Convert to base unit
                 $baseQuantity = $this->convertToBaseUnit($product, $item->quantity, $item->unit_type);
-                
+
                 // Validate stock availability
                 if (!$this->validateStockAvailability($invoice->warehouse_id, $product->id, $baseQuantity)) {
-                    throw new \Exception("Insufficient stock for product: {$product->name}");
+                    throw new \Exception("المخزون غير كافٍ للمنتج: {$product->name}");
                 }
 
                 // Create negative stock movement (sale)
@@ -162,7 +162,7 @@ class StockService
     public function postPurchaseInvoice(PurchaseInvoice $invoice): void
     {
         if (!$invoice->isDraft()) {
-            throw new \Exception('Invoice is not in draft status');
+            throw new \Exception('الفاتورة ليست في حالة مسودة');
         }
 
         DB::transaction(function () use ($invoice) {
@@ -202,7 +202,7 @@ class StockService
     public function postStockAdjustment(StockAdjustment $adjustment): void
     {
         if (!$adjustment->isDraft()) {
-            throw new \Exception('Stock adjustment is not in draft status');
+            throw new \Exception('التسوية ليست في حالة مسودة');
         }
 
         DB::transaction(function () use ($adjustment) {

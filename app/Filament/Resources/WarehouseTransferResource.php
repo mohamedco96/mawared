@@ -10,6 +10,7 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -194,12 +195,26 @@ class WarehouseTransferResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->action(function (WarehouseTransfer $record) {
-                        $stockService = app(StockService::class);
+                        try {
+                            $stockService = app(StockService::class);
 
-                        DB::transaction(function () use ($record, $stockService) {
-                            // Post warehouse transfer (creates dual stock movements)
-                            $stockService->postWarehouseTransfer($record);
-                        });
+                            DB::transaction(function () use ($record, $stockService) {
+                                // Post warehouse transfer (creates dual stock movements)
+                                $stockService->postWarehouseTransfer($record);
+                            });
+
+                            Notification::make()
+                                ->success()
+                                ->title('تم تأكيد النقل بنجاح')
+                                ->body('تم تسجيل حركة المخزون')
+                                ->send();
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('خطأ في تأكيد النقل')
+                                ->body($e->getMessage())
+                                ->send();
+                        }
                     })
                     ->visible(fn (WarehouseTransfer $record) => $record->items()->count() > 0),
                 Tables\Actions\EditAction::make(),

@@ -17,11 +17,11 @@ class RevenueResource extends Resource
     protected static ?string $model = Revenue::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-arrow-trending-up';
-    
+
     protected static ?string $navigationLabel = 'الإيرادات';
-    
+
     protected static ?string $modelLabel = 'إيراد';
-    
+
     protected static ?string $pluralModelLabel = 'الإيرادات';
 
     public static function form(Form $form): Form
@@ -42,7 +42,6 @@ class RevenueResource extends Resource
                             ->label('المبلغ')
                             ->numeric()
                             ->required()
-                            ->prefix('ر.س')
                             ->step(0.0001)
                             ->minValue(0.0001),
                         Forms\Components\Select::make('treasury_id')

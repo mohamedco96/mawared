@@ -17,11 +17,11 @@ class ExpenseResource extends Resource
     protected static ?string $model = Expense::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-arrow-trending-down';
-    
+
     protected static ?string $navigationLabel = 'المصروفات';
-    
+
     protected static ?string $modelLabel = 'مصروف';
-    
+
     protected static ?string $pluralModelLabel = 'المصروفات';
 
     public static function form(Form $form): Form
@@ -42,7 +42,6 @@ class ExpenseResource extends Resource
                             ->label('المبلغ')
                             ->numeric()
                             ->required()
-                            ->prefix('ر.س')
                             ->step(0.0001)
                             ->minValue(0.0001),
                         Forms\Components\Select::make('treasury_id')

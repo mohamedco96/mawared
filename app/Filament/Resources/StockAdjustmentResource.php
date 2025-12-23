@@ -7,6 +7,7 @@ use App\Models\StockAdjustment;
 use App\Services\StockService;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -148,15 +149,29 @@ class StockAdjustmentResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->action(function (StockAdjustment $record) {
-                        $stockService = app(StockService::class);
+                        try {
+                            $stockService = app(StockService::class);
 
-                        DB::transaction(function () use ($record, $stockService) {
-                            // Post stock movement
-                            $stockService->postStockAdjustment($record);
+                            DB::transaction(function () use ($record, $stockService) {
+                                // Post stock movement
+                                $stockService->postStockAdjustment($record);
 
-                            // Update adjustment status
-                            $record->update(['status' => 'posted']);
-                        });
+                                // Update adjustment status
+                                $record->update(['status' => 'posted']);
+                            });
+
+                            Notification::make()
+                                ->success()
+                                ->title('تم تأكيد التسوية بنجاح')
+                                ->body('تم تسجيل حركة المخزون')
+                                ->send();
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('خطأ في تأكيد التسوية')
+                                ->body($e->getMessage())
+                                ->send();
+                        }
                     })
                     ->visible(fn (StockAdjustment $record) => $record->isDraft()),
                 Tables\Actions\EditAction::make()

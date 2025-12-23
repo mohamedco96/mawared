@@ -93,7 +93,7 @@ class TreasuryService
     public function postSalesInvoice(SalesInvoice $invoice, ?string $treasuryId = null): void
     {
         if (!$invoice->isDraft()) {
-            throw new \Exception('Invoice is not in draft status');
+            throw new \Exception('الفاتورة ليست في حالة مسودة');
         }
 
         $treasuryId = $treasuryId ?? $this->getDefaultTreasury();
@@ -136,7 +136,7 @@ class TreasuryService
     public function postPurchaseInvoice(PurchaseInvoice $invoice, ?string $treasuryId = null): void
     {
         if (!$invoice->isDraft()) {
-            throw new \Exception('Invoice is not in draft status');
+            throw new \Exception('الفاتورة ليست في حالة مسودة');
         }
 
         $treasuryId = $treasuryId ?? $this->getDefaultTreasury();

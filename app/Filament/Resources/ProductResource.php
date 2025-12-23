@@ -16,11 +16,11 @@ class ProductResource extends Resource
     protected static ?string $model = Product::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-cube';
-    
+
     protected static ?string $navigationLabel = 'المنتجات';
-    
+
     protected static ?string $modelLabel = 'منتج';
-    
+
     protected static ?string $pluralModelLabel = 'المنتجات';
 
     public static function form(Form $form): Form
@@ -49,7 +49,7 @@ class ProductResource extends Resource
                             ->required(),
                     ])
                     ->columns(3),
-                
+
                 Forms\Components\Section::make('نظام الوحدات المزدوج')
                     ->schema([
                         Forms\Components\Select::make('small_unit_id')
@@ -87,50 +87,45 @@ class ProductResource extends Resource
                             ->minValue(1),
                     ])
                     ->columns(3),
-                
+
                 Forms\Components\Section::make('الأسعار - الوحدة الصغيرة')
                     ->schema([
                         Forms\Components\TextInput::make('retail_price')
                             ->label('سعر التجزئة')
                             ->numeric()
-                            ->prefix('ر.س')
                             ->default(0)
                             ->required()
                             ->step(0.0001),
                         Forms\Components\TextInput::make('wholesale_price')
                             ->label('سعر الجملة')
                             ->numeric()
-                            ->prefix('ر.س')
                             ->default(0)
                             ->required()
                             ->step(0.0001),
                     ])
                     ->columns(2),
-                
+
                 Forms\Components\Section::make('الأسعار - الوحدة الكبيرة')
                     ->schema([
                         Forms\Components\TextInput::make('large_retail_price')
                             ->label('سعر التجزئة')
                             ->numeric()
-                            ->prefix('ر.س')
                             ->step(0.0001)
                             ->nullable(),
                         Forms\Components\TextInput::make('large_wholesale_price')
                             ->label('سعر الجملة')
                             ->numeric()
-                            ->prefix('ر.س')
                             ->step(0.0001)
                             ->nullable(),
                     ])
                     ->columns(2)
                     ->visible(fn (Forms\Get $get) => $get('large_unit_id') !== null),
-                
+
                 Forms\Components\Section::make('معلومات إضافية')
                     ->schema([
                         Forms\Components\TextInput::make('avg_cost')
                             ->label('متوسط التكلفة')
                             ->numeric()
-                            ->prefix('ر.س')
                             ->default(0)
                             ->disabled()
                             ->dehydrated(),

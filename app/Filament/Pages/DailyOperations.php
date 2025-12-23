@@ -16,41 +16,51 @@ class DailyOperations extends Page implements HasTable
     use InteractsWithTable;
 
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
-    
+
     protected static string $view = 'filament.pages.daily-operations';
-    
+
     protected static ?string $navigationLabel = 'العمليات اليومية';
-    
+
     protected static ?string $title = 'العمليات اليومية';
-    
+
     protected static ?int $navigationSort = 1;
+
+    public $activeTab = 'sales';
+
+    public function mount(): void
+    {
+        $this->activeTab = request()->get('tab', 'sales');
+    }
+
+    public function setActiveTab(string $tab): void
+    {
+        $this->activeTab = $tab;
+        $this->resetTable();
+    }
 
     public function getTabs(): array
     {
         return [
-            'sales' => Tables\Tabs\Tab::make('تدفق المبيعات')
-                ->badge(fn () => TreasuryTransaction::where('type', 'collection')
+            'sales' => (object) [
+                'label' => 'تدفق المبيعات',
+                'badge' => TreasuryTransaction::where('type', 'collection')
                     ->whereDate('created_at', today())
-                    ->count()),
-            'cashflow' => Tables\Tabs\Tab::make('التدفق النقدي')
-                ->badge(fn () => TreasuryTransaction::whereDate('created_at', today())
-                    ->count()),
-            'stock' => Tables\Tabs\Tab::make('سجل المخزون')
-                ->badge(fn () => StockMovement::whereDate('created_at', today())
-                    ->count()),
+                    ->count(),
+                'badgeColor' => null,
+            ],
+            'cashflow' => (object) [
+                'label' => 'التدفق النقدي',
+                'badge' => TreasuryTransaction::whereDate('created_at', today())
+                    ->count(),
+                'badgeColor' => null,
+            ],
+            'stock' => (object) [
+                'label' => 'سجل المخزون',
+                'badge' => StockMovement::whereDate('created_at', today())
+                    ->count(),
+                'badgeColor' => null,
+            ],
         ];
-    }
-
-    public function table(Table $table): Table
-    {
-        $activeTab = $this->activeTab ?? request()->get('tab', 'sales');
-
-        return $table
-            ->query($this->getTableQuery($activeTab))
-            ->columns($this->getTableColumns($activeTab))
-            ->filters($this->getTableFilters($activeTab))
-            ->defaultSort('created_at', 'desc')
-            ->poll('30s');
     }
 
     public function getTabUrl(string $tab): string
@@ -58,9 +68,19 @@ class DailyOperations extends Page implements HasTable
         return $this->getUrl(['tab' => $tab]);
     }
 
-    protected function getTableQuery(string $tab): Builder
+    public function table(Table $table): Table
     {
-        return match($tab) {
+        return $table
+            ->query($this->getTableQuery())
+            ->columns($this->getTableColumns())
+            ->filters($this->getTableFilters())
+            ->defaultSort('created_at', 'desc')
+            ->poll('30s');
+    }
+
+    protected function getTableQuery(): Builder
+    {
+        return match($this->activeTab) {
             'sales' => TreasuryTransaction::query()
                 ->where('type', 'collection')
                 ->with(['treasury', 'partner', 'reference']),
@@ -72,9 +92,9 @@ class DailyOperations extends Page implements HasTable
         };
     }
 
-    protected function getTableColumns(string $tab): array
+    protected function getTableColumns(): array
     {
-        return match($tab) {
+        return match($this->activeTab) {
             'sales' => [
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('التاريخ')
@@ -194,9 +214,9 @@ class DailyOperations extends Page implements HasTable
         };
     }
 
-    protected function getTableFilters(string $tab): array
+    protected function getTableFilters(): array
     {
-        return match($tab) {
+        return match($this->activeTab) {
             'sales', 'cashflow' => [
                 Tables\Filters\Filter::make('created_at')
                     ->form([

@@ -11,6 +11,7 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -159,7 +160,6 @@ class SalesInvoiceResource extends Resource
                                     ->label('سعر الوحدة')
                                     ->numeric()
                                     ->required()
-                                    ->prefix('ر.س')
                                     ->step(0.0001)
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
@@ -172,7 +172,6 @@ class SalesInvoiceResource extends Resource
                                     ->label('الخصم')
                                     ->numeric()
                                     ->default(0)
-                                    ->prefix('ر.س')
                                     ->step(0.0001)
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
@@ -184,12 +183,11 @@ class SalesInvoiceResource extends Resource
                                 Forms\Components\TextInput::make('total')
                                     ->label('الإجمالي')
                                     ->numeric()
-                                    ->prefix('ر.س')
                                     ->disabled()
                                     ->dehydrated(),
                                 Forms\Components\Placeholder::make('stock_info')
                                     ->label('المخزون المتاح')
-                                    ->content(function (Get $get, Get $parentGet) {
+                                    ->content(function (Get $get, callable $parentGet) {
                                         $productId = $get('product_id');
                                         $warehouseId = $parentGet('warehouse_id');
                                         if (! $productId || ! $warehouseId) {
@@ -232,7 +230,6 @@ class SalesInvoiceResource extends Resource
                         Forms\Components\TextInput::make('discount')
                             ->label('إجمالي الخصم')
                             ->numeric()
-                            ->prefix('ر.س')
                             ->default(0)
                             ->step(0.0001)
                             ->reactive()
@@ -333,19 +330,33 @@ class SalesInvoiceResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->action(function (SalesInvoice $record) {
-                        $stockService = app(StockService::class);
-                        $treasuryService = app(TreasuryService::class);
+                        try {
+                            $stockService = app(StockService::class);
+                            $treasuryService = app(TreasuryService::class);
 
-                        DB::transaction(function () use ($record, $stockService, $treasuryService) {
-                            // Post stock movements
-                            $stockService->postSalesInvoice($record);
+                            DB::transaction(function () use ($record, $stockService, $treasuryService) {
+                                // Post stock movements
+                                $stockService->postSalesInvoice($record);
 
-                            // Post treasury transactions
-                            $treasuryService->postSalesInvoice($record);
+                                // Post treasury transactions
+                                $treasuryService->postSalesInvoice($record);
 
-                            // Update invoice status
-                            $record->update(['status' => 'posted']);
-                        });
+                                // Update invoice status
+                                $record->update(['status' => 'posted']);
+                            });
+
+                            Notification::make()
+                                ->success()
+                                ->title('تم تأكيد الفاتورة بنجاح')
+                                ->body('تم تسجيل حركة المخزون والخزينة')
+                                ->send();
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('خطأ في تأكيد الفاتورة')
+                                ->body($e->getMessage())
+                                ->send();
+                        }
                     })
                     ->visible(fn (SalesInvoice $record) => $record->isDraft()),
                 Tables\Actions\EditAction::make()
