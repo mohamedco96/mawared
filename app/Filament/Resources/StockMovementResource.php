@@ -1,0 +1,179 @@
+<?php
+
+namespace App\Filament\Resources;
+
+use App\Filament\Resources\StockMovementResource\Pages;
+use App\Models\StockMovement;
+use Filament\Forms;
+use Filament\Forms\Form;
+use Filament\Resources\Resource;
+use Filament\Tables;
+use Filament\Tables\Table;
+
+class StockMovementResource extends Resource
+{
+    protected static ?string $model = StockMovement::class;
+
+    protected static ?string $navigationIcon = 'heroicon-o-arrow-path';
+    
+    protected static ?string $navigationLabel = 'حركات المخزون';
+    
+    protected static ?string $modelLabel = 'حركة مخزون';
+    
+    protected static ?string $pluralModelLabel = 'حركات المخزون';
+    
+    protected static bool $shouldRegisterNavigation = false; // Hide from navigation, use as report
+
+    public static function form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                Forms\Components\Select::make('warehouse_id')
+                    ->label('المخزن')
+                    ->relationship('warehouse', 'name')
+                    ->required()
+                    ->searchable()
+                    ->preload(),
+                Forms\Components\Select::make('product_id')
+                    ->label('المنتج')
+                    ->relationship('product', 'name')
+                    ->required()
+                    ->searchable(['name', 'barcode', 'sku'])
+                    ->preload(),
+                Forms\Components\Select::make('type')
+                    ->label('النوع')
+                    ->options([
+                        'sale' => 'بيع',
+                        'purchase' => 'شراء',
+                        'adjustment_in' => 'إضافة',
+                        'adjustment_out' => 'خصم',
+                        'transfer' => 'نقل',
+                    ])
+                    ->required()
+                    ->native(false),
+                Forms\Components\TextInput::make('quantity')
+                    ->label('الكمية')
+                    ->numeric()
+                    ->required(),
+                Forms\Components\TextInput::make('cost_at_time')
+                    ->label('التكلفة')
+                    ->numeric()
+                    ->prefix('ر.س')
+                    ->step(0.0001)
+                    ->required(),
+                Forms\Components\Textarea::make('notes')
+                    ->label('ملاحظات')
+                    ->rows(3)
+                    ->columnSpanFull(),
+            ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('التاريخ')
+                    ->dateTime()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('warehouse.name')
+                    ->label('المخزن')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('product.name')
+                    ->label('المنتج')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('type')
+                    ->label('النوع')
+                    ->formatStateUsing(fn (string $state): string => match($state) {
+                        'sale' => 'بيع',
+                        'purchase' => 'شراء',
+                        'adjustment_in' => 'إضافة',
+                        'adjustment_out' => 'خصم',
+                        'transfer' => 'نقل',
+                        default => $state,
+                    })
+                    ->badge()
+                    ->color(fn (string $state): string => match($state) {
+                        'sale', 'adjustment_out' => 'danger',
+                        'purchase', 'adjustment_in' => 'success',
+                        'transfer' => 'info',
+                        default => 'gray',
+                    }),
+                Tables\Columns\TextColumn::make('quantity')
+                    ->label('الكمية')
+                    ->sortable()
+                    ->badge()
+                    ->color(fn ($state) => $state >= 0 ? 'success' : 'danger'),
+                Tables\Columns\TextColumn::make('cost_at_time')
+                    ->label('التكلفة')
+                    ->money('SAR')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('reference_type')
+                    ->label('المصدر')
+                    ->formatStateUsing(fn (?string $state): string => match($state) {
+                        'sales_invoice' => 'فاتورة بيع',
+                        'purchase_invoice' => 'فاتورة شراء',
+                        'stock_adjustment' => 'تسوية',
+                        'warehouse_transfer' => 'نقل',
+                        default => $state ?? '—',
+                    })
+                    ->badge(),
+                Tables\Columns\TextColumn::make('notes')
+                    ->label('ملاحظات')
+                    ->limit(30)
+                    ->tooltip(fn (StockMovement $record): string => $record->notes ?? ''),
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('product_id')
+                    ->label('المنتج')
+                    ->relationship('product', 'name')
+                    ->searchable()
+                    ->preload(),
+                Tables\Filters\SelectFilter::make('warehouse_id')
+                    ->label('المخزن')
+                    ->relationship('warehouse', 'name')
+                    ->searchable()
+                    ->preload(),
+                Tables\Filters\SelectFilter::make('type')
+                    ->label('النوع')
+                    ->options([
+                        'sale' => 'بيع',
+                        'purchase' => 'شراء',
+                        'adjustment_in' => 'إضافة',
+                        'adjustment_out' => 'خصم',
+                        'transfer' => 'نقل',
+                    ])
+                    ->native(false),
+                Tables\Filters\Filter::make('created_at')
+                    ->form([
+                        Forms\Components\DatePicker::make('from')
+                            ->label('من تاريخ'),
+                        Forms\Components\DatePicker::make('until')
+                            ->label('إلى تاريخ'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when(
+                                $data['from'],
+                                fn ($query, $date) => $query->whereDate('created_at', '>=', $date),
+                            )
+                            ->when(
+                                $data['until'],
+                                fn ($query, $date) => $query->whereDate('created_at', '<=', $date),
+                            );
+                    }),
+            ])
+            ->actions([
+                Tables\Actions\ViewAction::make(),
+            ])
+            ->defaultSort('created_at', 'desc');
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\ListStockMovements::route('/'),
+        ];
+    }
+}

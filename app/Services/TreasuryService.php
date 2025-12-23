@@ -1,0 +1,251 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Partner;
+use App\Models\SalesInvoice;
+use App\Models\PurchaseInvoice;
+use App\Models\TreasuryTransaction;
+use App\Models\Expense;
+use App\Models\Revenue;
+use Illuminate\Support\Facades\DB;
+
+class TreasuryService
+{
+    /**
+     * Record a treasury transaction (only called when invoice is posted)
+     */
+    public function recordTransaction(
+        string $treasuryId,
+        string $type,
+        string $amount,
+        string $description,
+        ?string $partnerId = null,
+        ?string $referenceType = null,
+        ?string $referenceId = null
+    ): TreasuryTransaction {
+        return DB::transaction(function () use ($treasuryId, $type, $amount, $description, $partnerId, $referenceType, $referenceId) {
+            return TreasuryTransaction::create([
+                'treasury_id' => $treasuryId,
+                'type' => $type,
+                'amount' => $amount,
+                'description' => $description,
+                'partner_id' => $partnerId,
+                'reference_type' => $referenceType,
+                'reference_id' => $referenceId,
+            ]);
+        });
+    }
+
+    /**
+     * Update partner balance from treasury transactions
+     */
+    public function updatePartnerBalance(string $partnerId): void
+    {
+        DB::transaction(function () use ($partnerId) {
+            $partner = Partner::findOrFail($partnerId);
+            
+            // Calculate balance from all treasury transactions
+            $balance = TreasuryTransaction::where('partner_id', $partnerId)
+                ->sum('amount');
+
+            $partner->update(['current_balance' => $balance]);
+        });
+    }
+
+    /**
+     * Get treasury balance from transactions
+     */
+    public function getTreasuryBalance(string $treasuryId): string
+    {
+        return TreasuryTransaction::where('treasury_id', $treasuryId)
+            ->sum('amount');
+    }
+
+    /**
+     * Get partner balance from treasury transactions (for display)
+     */
+    public function getPartnerBalance(string $partnerId): string
+    {
+        return TreasuryTransaction::where('partner_id', $partnerId)
+            ->sum('amount');
+    }
+
+    /**
+     * Get default treasury (first treasury or create one)
+     */
+    private function getDefaultTreasury(): string
+    {
+        $treasury = \App\Models\Treasury::first();
+        if (!$treasury) {
+            // Create default treasury if none exists
+            $treasury = \App\Models\Treasury::create([
+                'name' => 'الخزينة الرئيسية',
+                'type' => 'cash',
+            ]);
+        }
+        return $treasury->id;
+    }
+
+    /**
+     * Post a sales invoice - creates treasury transactions
+     */
+    public function postSalesInvoice(SalesInvoice $invoice, ?string $treasuryId = null): void
+    {
+        if (!$invoice->isDraft()) {
+            throw new \Exception('Invoice is not in draft status');
+        }
+
+        $treasuryId = $treasuryId ?? $this->getDefaultTreasury();
+
+        DB::transaction(function () use ($invoice, $treasuryId) {
+            if ($invoice->payment_method === 'cash') {
+                // Cash payment - create collection transaction
+                $this->recordTransaction(
+                    $treasuryId,
+                    'collection',
+                    $invoice->total,
+                    "Sales Invoice #{$invoice->invoice_number}",
+                    $invoice->partner_id,
+                    'sales_invoice',
+                    $invoice->id
+                );
+            } else {
+                // Credit payment - create collection transaction (affects partner balance)
+                $this->recordTransaction(
+                    $treasuryId,
+                    'collection',
+                    $invoice->total,
+                    "Sales Invoice #{$invoice->invoice_number} (Credit)",
+                    $invoice->partner_id,
+                    'sales_invoice',
+                    $invoice->id
+                );
+            }
+
+            // Update partner balance if credit
+            if ($invoice->payment_method === 'credit' && $invoice->partner_id) {
+                $this->updatePartnerBalance($invoice->partner_id);
+            }
+        });
+    }
+
+    /**
+     * Post a purchase invoice - creates treasury transactions
+     */
+    public function postPurchaseInvoice(PurchaseInvoice $invoice, ?string $treasuryId = null): void
+    {
+        if (!$invoice->isDraft()) {
+            throw new \Exception('Invoice is not in draft status');
+        }
+
+        $treasuryId = $treasuryId ?? $this->getDefaultTreasury();
+
+        DB::transaction(function () use ($invoice, $treasuryId) {
+            if ($invoice->payment_method === 'cash') {
+                // Cash payment - create payment transaction
+                $this->recordTransaction(
+                    $treasuryId,
+                    'payment',
+                    -$invoice->total, // Negative for payment
+                    "Purchase Invoice #{$invoice->invoice_number}",
+                    $invoice->partner_id,
+                    'purchase_invoice',
+                    $invoice->id
+                );
+            } else {
+                // Credit payment - create payment transaction (affects partner balance)
+                $this->recordTransaction(
+                    $treasuryId,
+                    'payment',
+                    -$invoice->total, // Negative for payment
+                    "Purchase Invoice #{$invoice->invoice_number} (Credit)",
+                    $invoice->partner_id,
+                    'purchase_invoice',
+                    $invoice->id
+                );
+            }
+
+            // Update partner balance if credit
+            if ($invoice->payment_method === 'credit' && $invoice->partner_id) {
+                $this->updatePartnerBalance($invoice->partner_id);
+            }
+        });
+    }
+
+    /**
+     * Record a financial transaction (collection/payment)
+     */
+    public function recordFinancialTransaction(
+        string $treasuryId,
+        string $type, // 'collection' or 'payment'
+        string $amount,
+        string $description,
+        ?string $partnerId = null,
+        ?string $discount = null
+    ): TreasuryTransaction {
+        return DB::transaction(function () use ($treasuryId, $type, $amount, $description, $partnerId, $discount) {
+            $finalAmount = $type === 'payment' ? -abs($amount) : abs($amount);
+            
+            if ($discount) {
+                $finalAmount = $type === 'payment' 
+                    ? -abs($amount) + abs($discount) 
+                    : abs($amount) - abs($discount);
+            }
+
+            $transaction = $this->recordTransaction(
+                $treasuryId,
+                $type,
+                $finalAmount,
+                $description,
+                $partnerId,
+                'financial_transaction',
+                null
+            );
+
+            // Update partner balance if partner is involved
+            if ($partnerId) {
+                $this->updatePartnerBalance($partnerId);
+            }
+
+            return $transaction;
+        });
+    }
+
+    /**
+     * Post an expense - creates treasury transaction
+     */
+    public function postExpense(Expense $expense): void
+    {
+        DB::transaction(function () use ($expense) {
+            $this->recordTransaction(
+                $expense->treasury_id,
+                'expense',
+                -abs($expense->amount), // Negative for expense
+                $expense->title . ($expense->description ? ': ' . $expense->description : ''),
+                null,
+                'expense',
+                $expense->id
+            );
+        });
+    }
+
+    /**
+     * Post a revenue - creates treasury transaction
+     */
+    public function postRevenue(Revenue $revenue): void
+    {
+        DB::transaction(function () use ($revenue) {
+            $this->recordTransaction(
+                $revenue->treasury_id,
+                'income',
+                abs($revenue->amount), // Positive for income
+                $revenue->title . ($revenue->description ? ': ' . $revenue->description : ''),
+                null,
+                'revenue',
+                $revenue->id
+            );
+        });
+    }
+}
+
