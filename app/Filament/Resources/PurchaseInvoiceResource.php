@@ -30,6 +30,10 @@ class PurchaseInvoiceResource extends Resource
 
     protected static ?string $pluralModelLabel = 'فواتير الشراء';
 
+    protected static ?string $navigationGroup = 'المشتريات';
+
+    protected static ?int $navigationSort = 1;
+
     public static function form(Form $form): Form
     {
         return $form

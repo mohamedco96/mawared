@@ -30,6 +30,10 @@ class SalesInvoiceResource extends Resource
 
     protected static ?string $pluralModelLabel = 'فواتير البيع';
 
+    protected static ?string $navigationGroup = 'المبيعات';
+
+    protected static ?int $navigationSort = 1;
+
     public static function form(Form $form): Form
     {
         return $form

@@ -27,6 +27,10 @@ class TreasuryTransactionResource extends Resource
 
     protected static ?string $pluralModelLabel = 'المعاملات المالية';
 
+    protected static ?string $navigationGroup = 'المالية والشركاء';
+
+    protected static ?int $navigationSort = 1;
+
     public static function form(Form $form): Form
     {
         return $form

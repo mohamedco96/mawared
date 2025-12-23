@@ -15,12 +15,16 @@ class UnitResource extends Resource
     protected static ?string $model = Unit::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-cube';
-    
+
     protected static ?string $navigationLabel = 'وحدات القياس';
-    
+
     protected static ?string $modelLabel = 'وحدة قياس';
-    
+
     protected static ?string $pluralModelLabel = 'وحدات القياس';
+
+    protected static ?string $navigationGroup = 'إدارة المخزون';
+
+    protected static ?int $navigationSort = 4;
 
     public static function form(Form $form): Form
     {

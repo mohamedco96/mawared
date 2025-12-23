@@ -30,6 +30,29 @@ class AdminPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Amber,
             ])
+            ->navigationGroups([
+                'نظرة عامة',        // Overview
+                'إدارة المخزون',    // Inventory Management
+                'المبيعات',         // Sales
+                'المشتريات',        // Purchases
+                'المالية والشركاء', // Finance & Partners
+                'الإدارة',          // Administration
+            ])
+            ->sidebarCollapsibleOnDesktop()
+            ->renderHook(
+                'panels::head.end',
+                fn (): string => '<style>
+                    /* Hide scrollbar for Chrome, Safari and Opera */
+                    .fi-sidebar-nav::-webkit-scrollbar {
+                        display: none;
+                    }
+                    /* Hide scrollbar for IE, Edge and Firefox */
+                    .fi-sidebar-nav {
+                        -ms-overflow-style: none;  /* IE and Edge */
+                        scrollbar-width: none;  /* Firefox */
+                    }
+                </style>',
+            )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([

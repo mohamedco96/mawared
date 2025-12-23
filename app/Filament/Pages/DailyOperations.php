@@ -23,6 +23,8 @@ class DailyOperations extends Page implements HasTable
 
     protected static ?string $title = 'العمليات اليومية';
 
+    protected static ?string $navigationGroup = 'نظرة عامة';
+
     protected static ?int $navigationSort = 1;
 
     public $activeTab = 'sales';

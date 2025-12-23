@@ -22,6 +22,10 @@ class PartnerResource extends Resource
 
     protected static ?string $pluralModelLabel = 'العملاء والموردين';
 
+    protected static ?string $navigationGroup = 'المالية والشركاء';
+
+    protected static ?int $navigationSort = 2;
+
     public static function form(Form $form): Form
     {
         return $form

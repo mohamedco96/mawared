@@ -22,12 +22,16 @@ class WarehouseTransferResource extends Resource
     protected static ?string $model = WarehouseTransfer::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-truck';
-    
+
     protected static ?string $navigationLabel = 'نقل المخزون';
-    
+
     protected static ?string $modelLabel = 'نقل مخزون';
-    
+
     protected static ?string $pluralModelLabel = 'نقل المخزون';
+
+    protected static ?string $navigationGroup = 'إدارة المخزون';
+
+    protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
     {

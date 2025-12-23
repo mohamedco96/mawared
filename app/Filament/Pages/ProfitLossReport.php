@@ -23,7 +23,9 @@ class ProfitLossReport extends Page implements HasForms
 
     protected static ?string $title = 'تقرير الربح والخسارة';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?string $navigationGroup = 'المالية والشركاء';
+
+    protected static ?int $navigationSort = 3;
 
     public ?array $data = [];
 
