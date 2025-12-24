@@ -13,6 +13,7 @@ use App\Models\SalesInvoice;
 use App\Models\SalesReturn;
 use App\Models\StockMovement;
 use App\Models\Treasury;
+use App\Models\TreasuryTransaction;
 use Illuminate\Support\Facades\DB;
 
 class FinancialReportService
@@ -23,7 +24,7 @@ class FinancialReportService
     public function generateReport($fromDate, $toDate): array
     {
         // Get settings
-        $initialCapital = (float) GeneralSetting::getValue('initial_capital', '0');
+        $shareholderCapital = $this->calculateShareholderCapital();
         $fixedAssetsValue = (float) GeneralSetting::getValue('fixed_assets_value', '0');
 
         // Inventory calculations
@@ -52,12 +53,16 @@ class FinancialReportService
 
         // Financial Position calculations
         $totalAssets = $fixedAssetsValue + $endingInventory + $totalDebtors + $totalCash;
-        $totalLiabilities = $initialCapital + $netProfit + $totalCreditors;
+        $shareholderDrawings = $this->calculateShareholderDrawings();
+        $equity = $shareholderCapital + $netProfit - $shareholderDrawings;
+        $totalLiabilities = $equity + $totalCreditors;
 
         return [
             'from_date' => $fromDate,
             'to_date' => $toDate,
-            'initial_capital' => $initialCapital,
+            'shareholder_capital' => $shareholderCapital,
+            'shareholder_drawings' => $shareholderDrawings,
+            'equity' => $equity,
             'fixed_assets_value' => $fixedAssetsValue,
             'beginning_inventory' => $beginningInventory,
             'ending_inventory' => $endingInventory,
@@ -203,6 +208,24 @@ class FinancialReportService
     {
         return Revenue::whereBetween('revenue_date', [$fromDate, $toDate])
             ->sum('amount');
+    }
+
+    /**
+     * Calculate total shareholder capital from capital_deposit transactions
+     */
+    protected function calculateShareholderCapital(): float
+    {
+        return TreasuryTransaction::where('type', 'capital_deposit')
+            ->sum('amount');
+    }
+
+    /**
+     * Calculate total shareholder drawings from partner_drawing transactions
+     */
+    protected function calculateShareholderDrawings(): float
+    {
+        return abs(TreasuryTransaction::where('type', 'partner_drawing')
+            ->sum('amount'));
     }
 }
 

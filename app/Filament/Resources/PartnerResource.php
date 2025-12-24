@@ -42,6 +42,7 @@ class PartnerResource extends Resource
                             ->options([
                                 'customer' => 'عميل',
                                 'supplier' => 'مورد',
+                                'shareholder' => 'شريك (مساهم)',
                             ])
                             ->required()
                             ->native(false),
@@ -85,8 +86,18 @@ class PartnerResource extends Resource
                 Tables\Columns\TextColumn::make('type')
                     ->label('النوع')
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => $state === 'customer' ? 'عميل' : 'مورد')
-                    ->color(fn (string $state): string => $state === 'customer' ? 'success' : 'info'),
+                    ->formatStateUsing(fn (string $state): string => match($state) {
+                        'customer' => 'عميل',
+                        'supplier' => 'مورد',
+                        'shareholder' => 'شريك (مساهم)',
+                        default => $state,
+                    })
+                    ->color(fn (string $state): string => match($state) {
+                        'customer' => 'success',
+                        'supplier' => 'info',
+                        'shareholder' => 'warning',
+                        default => 'gray',
+                    }),
                 Tables\Columns\TextColumn::make('phone')
                     ->label('الهاتف')
                     ->searchable(),
@@ -118,6 +129,7 @@ class PartnerResource extends Resource
                     ->options([
                         'customer' => 'عميل',
                         'supplier' => 'مورد',
+                        'shareholder' => 'شريك (مساهم)',
                     ])
                     ->native(false),
                 Tables\Filters\TernaryFilter::make('is_banned')
@@ -200,6 +212,8 @@ class PartnerResource extends Resource
                                 'payment' => 'دفع',
                                 'income' => 'إيراد',
                                 'expense' => 'مصروف',
+                                'capital_deposit' => 'إيداع رأس المال',
+                                'partner_drawing' => 'سحب',
                                 default => $transaction->type,
                             };
                             $html .= '<tr class="border-b">';

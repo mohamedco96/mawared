@@ -31,12 +31,12 @@ class Product extends Model
     {
         return [
             'min_stock' => 'integer',
-            'avg_cost' => 'decimal:4',
+            'avg_cost' => 'decimal:2',
             'factor' => 'integer',
-            'retail_price' => 'decimal:4',
-            'wholesale_price' => 'decimal:4',
-            'large_retail_price' => 'decimal:4',
-            'large_wholesale_price' => 'decimal:4',
+            'retail_price' => 'decimal:2',
+            'wholesale_price' => 'decimal:2',
+            'large_retail_price' => 'decimal:2',
+            'large_wholesale_price' => 'decimal:2',
         ];
     }
 

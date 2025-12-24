@@ -10,7 +10,9 @@ use App\Models\PurchaseReturn;
 use App\Models\TreasuryTransaction;
 use App\Models\Expense;
 use App\Models\Revenue;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class TreasuryService
 {
@@ -340,6 +342,36 @@ class TreasuryService
                 'revenue',
                 $revenue->id
             );
+        });
+    }
+
+    /**
+     * Record employee advance payment
+     */
+    public function recordEmployeeAdvance(
+        string $treasuryId,
+        string $amount,
+        string $description,
+        string $employeeId
+    ): TreasuryTransaction {
+        return DB::transaction(function () use ($treasuryId, $amount, $description, $employeeId) {
+            $transaction = TreasuryTransaction::create([
+                'treasury_id' => $treasuryId,
+                'type' => 'employee_advance',
+                'amount' => -abs($amount), // Negative - money leaves treasury
+                'description' => $description,
+                'employee_id' => $employeeId,
+                'reference_type' => 'employee_advance',
+                'reference_id' => null,
+            ]);
+
+            // Update employee advance balance
+            $user = User::findOrFail($employeeId);
+            if (Schema::hasColumn('users', 'advance_balance')) {
+                $user->increment('advance_balance', abs($amount));
+            }
+
+            return $transaction;
         });
     }
 }

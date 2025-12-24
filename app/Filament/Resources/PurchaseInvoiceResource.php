@@ -142,7 +142,7 @@ class PurchaseInvoiceResource extends Resource
                                     ->label('تكلفة الوحدة')
                                     ->numeric()
                                     ->required()
-                                    ->step(0.0001)
+                                    ->step(0.01)
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $quantity = $get('quantity') ?? 1;
@@ -154,7 +154,7 @@ class PurchaseInvoiceResource extends Resource
                                     ->label('خصم')
                                     ->numeric()
                                     ->default(0)
-                                    ->step(0.0001)
+                                    ->step(0.01)
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $unitCost = $get('unit_cost') ?? 0;
@@ -166,7 +166,7 @@ class PurchaseInvoiceResource extends Resource
                                     ->label('سعر البيع الجديد')
                                     ->helperText('إذا تم تحديده، سيتم تحديث سعر المنتج تلقائياً')
                                     ->numeric()
-                                    ->step(0.0001)
+                                    ->step(0.01)
                                     ->nullable()
                                     ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
                                 Forms\Components\TextInput::make('total')
@@ -209,7 +209,7 @@ class PurchaseInvoiceResource extends Resource
                             ->label('الخصم الإجمالي')
                             ->numeric()
                             ->default(0)
-                            ->step(0.0001)
+                            ->step(0.01)
                             ->reactive()
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 $items = $get('items') ?? [];

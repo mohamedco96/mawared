@@ -26,7 +26,7 @@ class Partner extends Model
     {
         return [
             'is_banned' => 'boolean',
-            'current_balance' => 'decimal:4',
+            'current_balance' => 'decimal:2',
         ];
     }
 
@@ -55,5 +55,10 @@ class Partner extends Model
     public function scopeSuppliers($query)
     {
         return $query->where('type', 'supplier');
+    }
+
+    public function scopeShareholders($query)
+    {
+        return $query->where('type', 'shareholder');
     }
 }

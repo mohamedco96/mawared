@@ -99,13 +99,13 @@ class ProductResource extends Resource
                             ->numeric()
                             ->default(0)
                             ->required()
-                            ->step(0.0001),
+                            ->step(0.01),
                         Forms\Components\TextInput::make('wholesale_price')
                             ->label('سعر الجملة')
                             ->numeric()
                             ->default(0)
                             ->required()
-                            ->step(0.0001),
+                            ->step(0.01),
                     ])
                     ->columns(2),
 
@@ -114,12 +114,12 @@ class ProductResource extends Resource
                         Forms\Components\TextInput::make('large_retail_price')
                             ->label('سعر التجزئة')
                             ->numeric()
-                            ->step(0.0001)
+                            ->step(0.01)
                             ->nullable(),
                         Forms\Components\TextInput::make('large_wholesale_price')
                             ->label('سعر الجملة')
                             ->numeric()
-                            ->step(0.0001)
+                            ->step(0.01)
                             ->nullable(),
                     ])
                     ->columns(2)

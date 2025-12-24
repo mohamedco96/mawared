@@ -164,7 +164,7 @@ class SalesReturnResource extends Resource
                                     ->label('سعر الوحدة')
                                     ->numeric()
                                     ->required()
-                                    ->step(0.0001)
+                                    ->step(0.01)
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $quantity = $get('quantity') ?? 1;
@@ -176,7 +176,7 @@ class SalesReturnResource extends Resource
                                     ->label('الخصم')
                                     ->numeric()
                                     ->default(0)
-                                    ->step(0.0001)
+                                    ->step(0.01)
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $unitPrice = $get('unit_price') ?? 0;
@@ -235,7 +235,7 @@ class SalesReturnResource extends Resource
                             ->label('إجمالي الخصم')
                             ->numeric()
                             ->default(0)
-                            ->step(0.0001)
+                            ->step(0.01)
                             ->reactive()
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 $items = $get('items') ?? [];

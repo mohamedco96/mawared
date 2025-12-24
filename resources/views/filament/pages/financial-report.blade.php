@@ -18,7 +18,8 @@
             
             // Financial Position calculations
             $assetsTotal = $report['fixed_assets_value'] + $report['ending_inventory'] + $report['total_debtors'] + $report['total_cash'];
-            $liabilitiesTotal = $report['initial_capital'] + $netProfit + $report['total_creditors'];
+            $equity = $report['shareholder_capital'] + $netProfit - $report['shareholder_drawings'];
+            $liabilitiesTotal = $equity + $report['total_creditors'];
         @endphp
 
         <div class="mt-8 space-y-8" dir="rtl">
@@ -142,14 +143,22 @@
                         </div>
                         <div class="space-y-3">
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                                <span class="text-gray-700">رأس المال</span>
-                                <span class="font-semibold text-gray-900">{{ number_format($report['initial_capital'], 2) }} ر.س</span>
+                                <span class="text-gray-700">رأس مال الشركاء</span>
+                                <span class="font-semibold text-gray-900">{{ number_format($report['shareholder_capital'], 2) }} ر.س</span>
                             </div>
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-gray-700">صافي الربح</span>
                                 <span class="font-semibold {{ $netProfit >= 0 ? 'text-green-600' : 'text-red-600' }}">
                                     {{ number_format($netProfit, 2) }} ر.س
                                 </span>
+                            </div>
+                            <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                                <span class="text-gray-700">سحوبات الشركاء</span>
+                                <span class="font-semibold text-red-600">({{ number_format($report['shareholder_drawings'], 2) }}) ر.س</span>
+                            </div>
+                            <div class="flex justify-between items-center py-2 border-b border-gray-100 bg-gray-50">
+                                <span class="text-gray-700 font-semibold">حقوق الملكية</span>
+                                <span class="font-semibold text-gray-900">{{ number_format($equity, 2) }} ر.س</span>
                             </div>
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-gray-700">رصيد الدائنين</span>

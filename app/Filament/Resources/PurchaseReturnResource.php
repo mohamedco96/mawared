@@ -145,7 +145,7 @@ class PurchaseReturnResource extends Resource
                                     ->label('التكلفة')
                                     ->numeric()
                                     ->required()
-                                    ->step(0.0001)
+                                    ->step(0.01)
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $quantity = $get('quantity') ?? 1;
@@ -157,7 +157,7 @@ class PurchaseReturnResource extends Resource
                                     ->label('الخصم')
                                     ->numeric()
                                     ->default(0)
-                                    ->step(0.0001)
+                                    ->step(0.01)
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $unitCost = $get('unit_cost') ?? 0;
@@ -195,7 +195,7 @@ class PurchaseReturnResource extends Resource
                             ->label('إجمالي الخصم')
                             ->numeric()
                             ->default(0)
-                            ->step(0.0001)
+                            ->step(0.01)
                             ->reactive()
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 $items = $get('items') ?? [];

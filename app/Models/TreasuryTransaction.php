@@ -19,6 +19,7 @@ class TreasuryTransaction extends Model
         'amount',
         'description',
         'partner_id',
+        'employee_id',
         'reference_type',
         'reference_id',
     ];
@@ -26,7 +27,7 @@ class TreasuryTransaction extends Model
     protected function casts(): array
     {
         return [
-            'amount' => 'decimal:4',
+            'amount' => 'decimal:2',
         ];
     }
 
@@ -44,5 +45,10 @@ class TreasuryTransaction extends Model
     public function reference(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'employee_id');
     }
 }

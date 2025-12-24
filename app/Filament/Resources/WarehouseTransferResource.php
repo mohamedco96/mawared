@@ -52,9 +52,9 @@ class WarehouseTransferResource extends Resource
                             ->searchable()
                             ->preload()
                             ->reactive()
-                            ->afterStateUpdated(function ($state, Set $set) {
+                            ->afterStateUpdated(function ($state, Get $get, Set $set) {
                                 // Clear to_warehouse if same as from_warehouse
-                                $toWarehouse = $set('to_warehouse_id');
+                                $toWarehouse = $get('to_warehouse_id');
                                 if ($state === $toWarehouse) {
                                     $set('to_warehouse_id', null);
                                 }

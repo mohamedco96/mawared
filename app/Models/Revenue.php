@@ -24,7 +24,7 @@ class Revenue extends Model
     protected function casts(): array
     {
         return [
-            'amount' => 'decimal:4',
+            'amount' => 'decimal:2',
             'revenue_date' => 'date',
         ];
     }

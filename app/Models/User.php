@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -25,6 +26,7 @@ class User extends Authenticatable
         'national_id',
         'salary_type',
         'salary_amount',
+        'advance_balance',
     ];
 
     /**
@@ -47,7 +49,13 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'salary_amount' => 'decimal:4',
+            'salary_amount' => 'decimal:2',
+            'advance_balance' => 'decimal:2',
         ];
+    }
+
+    public function treasuryTransactions(): HasMany
+    {
+        return $this->hasMany(TreasuryTransaction::class, 'employee_id');
     }
 }

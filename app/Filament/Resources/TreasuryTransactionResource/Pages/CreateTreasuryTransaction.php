@@ -20,13 +20,13 @@ class CreateTreasuryTransaction extends CreateRecord
         }
         
         // Set amount sign based on type
-        if ($data['type'] === 'payment') {
+        if (in_array($data['type'], ['payment', 'partner_drawing', 'employee_advance'])) {
             $data['amount'] = -abs($data['amount']);
         } else {
             $data['amount'] = abs($data['amount']);
         }
-        
-        unset($data['final_amount'], $data['discount']);
+
+        unset($data['final_amount'], $data['discount'], $data['current_balance_display'], $data['employee_advance_balance_display']);
         
         return $data;
     }
@@ -34,11 +34,21 @@ class CreateTreasuryTransaction extends CreateRecord
     protected function afterCreate(): void
     {
         $treasuryService = app(TreasuryService::class);
-        
+
         // Update partner balance if partner is involved
         if ($this->record->partner_id) {
             DB::transaction(function () use ($treasuryService) {
                 $treasuryService->updatePartnerBalance($this->record->partner_id);
+            });
+        }
+
+        // Update employee advance balance if employee is involved
+        if ($this->record->employee_id && $this->record->type === 'employee_advance') {
+            DB::transaction(function () {
+                $user = \App\Models\User::findOrFail($this->record->employee_id);
+                if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'advance_balance')) {
+                    $user->increment('advance_balance', abs($this->record->amount));
+                }
             });
         }
     }
