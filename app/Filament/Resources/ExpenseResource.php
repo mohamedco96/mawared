@@ -46,7 +46,7 @@ class ExpenseResource extends Resource
                             ->label('المبلغ')
                             ->numeric()
                             ->required()
-                            ->step(0.0001)
+                            ->step(0.01)
                             ->minValue(0.0001),
                         Forms\Components\Select::make('treasury_id')
                             ->label('الخزينة')

@@ -58,7 +58,7 @@ class StockMovementResource extends Resource
                 Forms\Components\TextInput::make('cost_at_time')
                     ->label('التكلفة')
                     ->numeric()
-                    ->step(0.0001)
+                    ->step(0.01)
                     ->required(),
                 Forms\Components\Textarea::make('notes')
                     ->label('ملاحظات')

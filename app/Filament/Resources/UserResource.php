@@ -69,7 +69,7 @@ class UserResource extends Resource
                         Forms\Components\TextInput::make('salary_amount')
                             ->label('مبلغ الراتب')
                             ->numeric()
-                            ->step(0.0001),
+                            ->step(0.01),
                     ])
                     ->columns(3),
             ]);
