@@ -163,11 +163,11 @@ class ProductResource extends Resource
                     ->default('—'),
                 Tables\Columns\TextColumn::make('retail_price')
                     ->label('سعر التجزئة')
-                    ->money('SAR')
+                    ->numeric(decimalPlaces: 2)
                     ->sortable(),
                 Tables\Columns\TextColumn::make('avg_cost')
                     ->label('متوسط التكلفة')
-                    ->money('SAR')
+                    ->numeric(decimalPlaces: 2)
                     ->sortable(),
                 Tables\Columns\TextColumn::make('total_stock')
                     ->label('إجمالي المخزون')
@@ -191,6 +191,56 @@ class ProductResource extends Resource
                     ->relationship('smallUnit', 'name')
                     ->searchable()
                     ->preload(),
+                Tables\Filters\Filter::make('stock_level')
+                    ->label('مستوى المخزون')
+                    ->form([
+                        Forms\Components\Select::make('level')
+                            ->label('المستوى')
+                            ->options([
+                                'out_of_stock' => 'نفذ من المخزون',
+                                'low_stock' => 'مخزون منخفض',
+                                'in_stock' => 'متوفر',
+                            ])
+                            ->native(false),
+                    ])
+                    ->query(function ($query, array $data) {
+                        if (!isset($data['level'])) {
+                            return $query;
+                        }
+
+                        return $query->whereHas('stockMovements', function ($q) use ($data) {
+                            $q->select('product_id')
+                                ->selectRaw('SUM(quantity) as total_stock')
+                                ->groupBy('product_id')
+                                ->havingRaw(match($data['level']) {
+                                    'out_of_stock' => 'SUM(quantity) <= 0',
+                                    'low_stock' => 'SUM(quantity) > 0 AND SUM(quantity) < products.min_stock',
+                                    'in_stock' => 'SUM(quantity) > 0',
+                                    default => '1=1'
+                                });
+                        });
+                    }),
+                Tables\Filters\Filter::make('price_range')
+                    ->label('نطاق السعر')
+                    ->form([
+                        Forms\Components\TextInput::make('from')
+                            ->label('من')
+                            ->numeric()
+                            ->step(0.01),
+                        Forms\Components\TextInput::make('until')
+                            ->label('إلى')
+                            ->numeric()
+                            ->step(0.01),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'], fn ($q, $price) => $q->where('retail_price', '>=', $price))
+                            ->when($data['until'], fn ($q, $price) => $q->where('retail_price', '<=', $price));
+                    }),
+                Tables\Filters\Filter::make('has_large_unit')
+                    ->label('وحدة كبيرة')
+                    ->toggle()
+                    ->query(fn ($query) => $query->whereNotNull('large_unit_id')),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

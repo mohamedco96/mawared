@@ -76,7 +76,7 @@ class TreasuryTransactionResource extends Resource
                                         $balance = $partner->current_balance;
                                         $color = $balance < 0 ? 'text-red-600' : ($balance > 0 ? 'text-green-600' : 'text-gray-600');
                                         return new \Illuminate\Support\HtmlString(
-                                            '<span class="' . $color . ' font-bold text-lg">' . number_format($balance, 2) . ' ر.س</span>'
+                                            '<span class="' . $color . ' font-bold text-lg">' . number_format($balance, 2) . '</span>'
                                         );
                                     }
                                 }
@@ -157,7 +157,7 @@ class TreasuryTransactionResource extends Resource
                     ->default('—'),
                 Tables\Columns\TextColumn::make('amount')
                     ->label('المبلغ')
-                    ->money('SAR')
+                    ->numeric(decimalPlaces: 2)
                     ->sortable()
                     ->color(fn ($state) => $state >= 0 ? 'success' : 'danger'),
                 Tables\Columns\TextColumn::make('description')
@@ -180,6 +180,41 @@ class TreasuryTransactionResource extends Resource
                     ->relationship('treasury', 'name')
                     ->searchable()
                     ->preload(),
+                Tables\Filters\SelectFilter::make('partner_id')
+                    ->label('الشريك')
+                    ->relationship('partner', 'name')
+                    ->searchable()
+                    ->preload(),
+                Tables\Filters\Filter::make('created_at')
+                    ->label('تاريخ الإنشاء')
+                    ->form([
+                        Forms\Components\DatePicker::make('from')
+                            ->label('من تاريخ'),
+                        Forms\Components\DatePicker::make('until')
+                            ->label('إلى تاريخ'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'], fn ($q, $date) => $q->whereDate('created_at', '>=', $date))
+                            ->when($data['until'], fn ($q, $date) => $q->whereDate('created_at', '<=', $date));
+                    }),
+                Tables\Filters\Filter::make('amount')
+                    ->label('المبلغ')
+                    ->form([
+                        Forms\Components\TextInput::make('from')
+                            ->label('من')
+                            ->numeric()
+                            ->step(0.01),
+                        Forms\Components\TextInput::make('until')
+                            ->label('إلى')
+                            ->numeric()
+                            ->step(0.01),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'], fn ($q, $amount) => $q->where('amount', '>=', $amount))
+                            ->when($data['until'], fn ($q, $amount) => $q->where('amount', '<=', $amount));
+                    }),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),

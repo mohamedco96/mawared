@@ -98,7 +98,7 @@ class UserResource extends Resource
                     ->color(fn (?string $state): string => $state === 'daily' ? 'info' : 'success'),
                 Tables\Columns\TextColumn::make('salary_amount')
                     ->label('الراتب')
-                    ->money('SAR')
+                    ->numeric(decimalPlaces: 2)
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('تاريخ الإنشاء')
@@ -114,6 +114,23 @@ class UserResource extends Resource
                         'monthly' => 'شهري',
                     ])
                     ->native(false),
+                Tables\Filters\Filter::make('salary_amount')
+                    ->label('مبلغ الراتب')
+                    ->form([
+                        Forms\Components\TextInput::make('from')
+                            ->label('من')
+                            ->numeric()
+                            ->step(0.01),
+                        Forms\Components\TextInput::make('until')
+                            ->label('إلى')
+                            ->numeric()
+                            ->step(0.01),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'], fn ($q, $amount) => $q->where('salary_amount', '>=', $amount))
+                            ->when($data['until'], fn ($q, $amount) => $q->where('salary_amount', '<=', $amount));
+                    }),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

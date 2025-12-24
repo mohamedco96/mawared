@@ -15,7 +15,7 @@ return new class extends Migration
             $table->ulid('id')->primary();
             $table->foreignUlid('warehouse_id')->constrained('warehouses')->onDelete('restrict');
             $table->foreignUlid('product_id')->constrained('products')->onDelete('restrict');
-            $table->enum('type', ['sale', 'purchase', 'adjustment_in', 'adjustment_out', 'transfer'])->index();
+            $table->enum('type', ['sale', 'purchase', 'adjustment_in', 'adjustment_out', 'transfer', 'sale_return', 'purchase_return'])->index();
             $table->integer('quantity')->comment('Positive for in, negative for out. Always in base unit (small_unit)');
             $table->decimal('cost_at_time', 18, 4)->comment('Product cost at the time of movement');
             

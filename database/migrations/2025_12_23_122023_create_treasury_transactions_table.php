@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('treasury_transactions', function (Blueprint $table) {
             $table->ulid('id')->primary();
             $table->foreignUlid('treasury_id')->constrained('treasuries')->onDelete('restrict');
-            $table->enum('type', ['income', 'expense', 'collection', 'payment'])->index();
+            $table->enum('type', ['income', 'expense', 'collection', 'payment', 'refund'])->index();
             $table->decimal('amount', 18, 4)->comment('Positive for income/collection, negative for expense/payment');
             $table->text('description');
             

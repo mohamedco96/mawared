@@ -58,7 +58,6 @@ class StockMovementResource extends Resource
                 Forms\Components\TextInput::make('cost_at_time')
                     ->label('التكلفة')
                     ->numeric()
-                    ->prefix('ر.س')
                     ->step(0.0001)
                     ->required(),
                 Forms\Components\Textarea::make('notes')
@@ -107,7 +106,7 @@ class StockMovementResource extends Resource
                     ->color(fn ($state) => $state >= 0 ? 'success' : 'danger'),
                 Tables\Columns\TextColumn::make('cost_at_time')
                     ->label('التكلفة')
-                    ->money('SAR')
+                    ->numeric(decimalPlaces: 2)
                     ->sortable(),
                 Tables\Columns\TextColumn::make('reference_type')
                     ->label('المصدر')
@@ -145,7 +144,17 @@ class StockMovementResource extends Resource
                         'transfer' => 'نقل',
                     ])
                     ->native(false),
+                Tables\Filters\SelectFilter::make('reference_type')
+                    ->label('المصدر')
+                    ->options([
+                        'sales_invoice' => 'فاتورة بيع',
+                        'purchase_invoice' => 'فاتورة شراء',
+                        'stock_adjustment' => 'تسوية',
+                        'warehouse_transfer' => 'نقل',
+                    ])
+                    ->native(false),
                 Tables\Filters\Filter::make('created_at')
+                    ->label('تاريخ الإنشاء')
                     ->form([
                         Forms\Components\DatePicker::make('from')
                             ->label('من تاريخ'),
@@ -162,6 +171,28 @@ class StockMovementResource extends Resource
                                 $data['until'],
                                 fn ($query, $date) => $query->whereDate('created_at', '<=', $date),
                             );
+                    }),
+                Tables\Filters\Filter::make('quantity')
+                    ->label('الكمية')
+                    ->form([
+                        Forms\Components\Select::make('direction')
+                            ->label('الاتجاه')
+                            ->options([
+                                'positive' => 'إضافة (موجب)',
+                                'negative' => 'خصم (سالب)',
+                            ])
+                            ->native(false),
+                    ])
+                    ->query(function ($query, array $data) {
+                        if (!isset($data['direction'])) {
+                            return $query;
+                        }
+
+                        return $query->when(
+                            $data['direction'] === 'positive',
+                            fn ($q) => $q->where('quantity', '>', 0),
+                            fn ($q) => $q->where('quantity', '<', 0)
+                        );
                     }),
             ])
             ->actions([

@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -10,8 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Add 'sale_return' and 'purchase_return' to stock_movements type enum
-        DB::statement("ALTER TABLE stock_movements MODIFY COLUMN type ENUM('sale', 'purchase', 'adjustment_in', 'adjustment_out', 'transfer', 'sale_return', 'purchase_return') NOT NULL");
+        // SQLite doesn't support ALTER COLUMN with ENUM
+        // The type field is already a string in SQLite, so no migration needed for testing
+        // In production MySQL, this would add the enum values
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE stock_movements MODIFY COLUMN type ENUM('sale', 'purchase', 'adjustment_in', 'adjustment_out', 'transfer', 'sale_return', 'purchase_return') NOT NULL");
+        }
     }
 
     /**
@@ -19,7 +24,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Remove 'sale_return' and 'purchase_return' from enum
-        DB::statement("ALTER TABLE stock_movements MODIFY COLUMN type ENUM('sale', 'purchase', 'adjustment_in', 'adjustment_out', 'transfer') NOT NULL");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE stock_movements MODIFY COLUMN type ENUM('sale', 'purchase', 'adjustment_in', 'adjustment_out', 'transfer') NOT NULL");
+        }
     }
 };

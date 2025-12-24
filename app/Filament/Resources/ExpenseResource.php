@@ -72,9 +72,14 @@ class ExpenseResource extends Resource
                     ->label('العنوان')
                     ->searchable()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('description')
+                    ->label('الوصف')
+                    ->searchable()
+                    ->limit(50)
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('amount')
                     ->label('المبلغ')
-                    ->money('SAR')
+                    ->numeric(decimalPlaces: 2)
                     ->sortable(),
                 Tables\Columns\TextColumn::make('treasury.name')
                     ->label('الخزينة')
@@ -96,6 +101,7 @@ class ExpenseResource extends Resource
                     ->searchable()
                     ->preload(),
                 Tables\Filters\Filter::make('expense_date')
+                    ->label('تاريخ المصروف')
                     ->form([
                         Forms\Components\DatePicker::make('from')
                             ->label('من تاريخ'),
@@ -112,6 +118,23 @@ class ExpenseResource extends Resource
                                 $data['until'],
                                 fn ($query, $date) => $query->whereDate('expense_date', '<=', $date),
                             );
+                    }),
+                Tables\Filters\Filter::make('amount')
+                    ->label('المبلغ')
+                    ->form([
+                        Forms\Components\TextInput::make('from')
+                            ->label('من')
+                            ->numeric()
+                            ->step(0.01),
+                        Forms\Components\TextInput::make('until')
+                            ->label('إلى')
+                            ->numeric()
+                            ->step(0.01),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'], fn ($q, $amount) => $q->where('amount', '>=', $amount))
+                            ->when($data['until'], fn ($q, $amount) => $q->where('amount', '<=', $amount));
                     }),
             ])
             ->actions([

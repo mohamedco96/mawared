@@ -229,7 +229,7 @@ class SalesInvoiceResource extends Resource
                                     $subtotal += $item['total'] ?? 0;
                                 }
 
-                                return number_format($subtotal, 2).' ر.س';
+                                return number_format($subtotal, 2);
                             }),
                         Forms\Components\TextInput::make('discount')
                             ->label('إجمالي الخصم')
@@ -258,7 +258,7 @@ class SalesInvoiceResource extends Resource
                                 $discount = $get('discount') ?? 0;
                                 $total = $subtotal - $discount;
 
-                                return number_format($total, 2).' ر.س';
+                                return number_format($total, 2);
                             }),
                         Forms\Components\Hidden::make('subtotal')
                             ->default(0)
@@ -304,7 +304,7 @@ class SalesInvoiceResource extends Resource
                     ->color(fn (string $state): string => $state === 'cash' ? 'success' : 'info'),
                 Tables\Columns\TextColumn::make('total')
                     ->label('الإجمالي')
-                    ->money('SAR')
+                    ->numeric(decimalPlaces: 2)
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('التاريخ')
@@ -326,6 +326,51 @@ class SalesInvoiceResource extends Resource
                         'credit' => 'آجل',
                     ])
                     ->native(false),
+                Tables\Filters\SelectFilter::make('warehouse_id')
+                    ->label('المخزن')
+                    ->relationship('warehouse', 'name')
+                    ->searchable()
+                    ->preload(),
+                Tables\Filters\SelectFilter::make('partner_id')
+                    ->label('العميل')
+                    ->relationship('partner', 'name')
+                    ->searchable()
+                    ->preload(),
+                Tables\Filters\Filter::make('created_at')
+                    ->label('تاريخ الإنشاء')
+                    ->form([
+                        Forms\Components\DatePicker::make('from')
+                            ->label('من تاريخ'),
+                        Forms\Components\DatePicker::make('until')
+                            ->label('إلى تاريخ'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'], fn ($q, $date) => $q->whereDate('created_at', '>=', $date))
+                            ->when($data['until'], fn ($q, $date) => $q->whereDate('created_at', '<=', $date));
+                    }),
+                Tables\Filters\Filter::make('total')
+                    ->label('الإجمالي')
+                    ->form([
+                        Forms\Components\TextInput::make('from')
+                            ->label('من')
+                            ->numeric()
+                            ->step(0.01),
+                        Forms\Components\TextInput::make('until')
+                            ->label('إلى')
+                            ->numeric()
+                            ->step(0.01),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'], fn ($q, $amount) => $q->where('total', '>=', $amount))
+                            ->when($data['until'], fn ($q, $amount) => $q->where('total', '<=', $amount));
+                    }),
+                Tables\Filters\SelectFilter::make('created_by')
+                    ->label('المستخدم')
+                    ->relationship('creator', 'name')
+                    ->searchable()
+                    ->preload(),
             ])
             ->actions([
                 Tables\Actions\Action::make('post')

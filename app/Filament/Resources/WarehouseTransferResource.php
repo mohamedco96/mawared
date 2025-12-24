@@ -191,6 +191,24 @@ class WarehouseTransferResource extends Resource
                     ->relationship('toWarehouse', 'name')
                     ->searchable()
                     ->preload(),
+                Tables\Filters\Filter::make('created_at')
+                    ->label('تاريخ الإنشاء')
+                    ->form([
+                        Forms\Components\DatePicker::make('from')
+                            ->label('من تاريخ'),
+                        Forms\Components\DatePicker::make('until')
+                            ->label('إلى تاريخ'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'], fn ($q, $date) => $q->whereDate('created_at', '>=', $date))
+                            ->when($data['until'], fn ($q, $date) => $q->whereDate('created_at', '<=', $date));
+                    }),
+                Tables\Filters\SelectFilter::make('created_by')
+                    ->label('المستخدم')
+                    ->relationship('creator', 'name')
+                    ->searchable()
+                    ->preload(),
             ])
             ->actions([
                 Tables\Actions\Action::make('post')

@@ -10,8 +10,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Add 'refund' to treasury_transactions type enum
-        DB::statement("ALTER TABLE treasury_transactions MODIFY COLUMN type ENUM('income', 'expense', 'collection', 'payment', 'refund') NOT NULL");
+        // SQLite doesn't support ALTER COLUMN with ENUM
+        // The type field is already a string in SQLite, so no migration needed for testing
+        // In production MySQL, this would add the enum values
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE treasury_transactions MODIFY COLUMN type ENUM('income', 'expense', 'collection', 'payment', 'refund') NOT NULL");
+        }
     }
 
     /**
@@ -19,7 +23,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Remove 'refund' from enum
-        DB::statement("ALTER TABLE treasury_transactions MODIFY COLUMN type ENUM('income', 'expense', 'collection', 'payment') NOT NULL");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE treasury_transactions MODIFY COLUMN type ENUM('income', 'expense', 'collection', 'payment') NOT NULL");
+        }
     }
 };

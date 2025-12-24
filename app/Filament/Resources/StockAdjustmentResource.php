@@ -145,6 +145,51 @@ class StockAdjustmentResource extends Resource
                         'other' => 'أخرى',
                     ])
                     ->native(false),
+                Tables\Filters\SelectFilter::make('warehouse_id')
+                    ->label('المخزن')
+                    ->relationship('warehouse', 'name')
+                    ->searchable()
+                    ->preload(),
+                Tables\Filters\SelectFilter::make('product_id')
+                    ->label('المنتج')
+                    ->relationship('product', 'name')
+                    ->searchable()
+                    ->preload(),
+                Tables\Filters\Filter::make('created_at')
+                    ->label('تاريخ الإنشاء')
+                    ->form([
+                        Forms\Components\DatePicker::make('from')
+                            ->label('من تاريخ'),
+                        Forms\Components\DatePicker::make('until')
+                            ->label('إلى تاريخ'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'], fn ($q, $date) => $q->whereDate('created_at', '>=', $date))
+                            ->when($data['until'], fn ($q, $date) => $q->whereDate('created_at', '<=', $date));
+                    }),
+                Tables\Filters\Filter::make('quantity')
+                    ->label('الكمية')
+                    ->form([
+                        Forms\Components\Select::make('type')
+                            ->label('النوع')
+                            ->options([
+                                'positive' => 'إضافة',
+                                'negative' => 'خصم',
+                            ])
+                            ->native(false),
+                    ])
+                    ->query(function ($query, array $data) {
+                        if (!isset($data['type'])) {
+                            return $query;
+                        }
+
+                        return $query->when(
+                            $data['type'] === 'positive',
+                            fn ($q) => $q->where('quantity', '>', 0),
+                            fn ($q) => $q->where('quantity', '<', 0)
+                        );
+                    }),
             ])
             ->actions([
                 Tables\Actions\Action::make('post')

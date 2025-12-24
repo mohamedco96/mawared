@@ -90,9 +90,17 @@ class PartnerResource extends Resource
                 Tables\Columns\TextColumn::make('phone')
                     ->label('الهاتف')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('gov_id')
+                    ->label('الهوية الوطنية')
+                    ->searchable()
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('region')
+                    ->label('المنطقة')
+                    ->searchable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('current_balance')
                     ->label('الرصيد')
-                    ->money('SAR')
+                    ->numeric(decimalPlaces: 2)
                     ->sortable()
                     ->color(fn ($state) => $state < 0 ? 'danger' : ($state > 0 ? 'success' : 'gray')),
                 Tables\Columns\IconColumn::make('is_banned')
@@ -114,6 +122,60 @@ class PartnerResource extends Resource
                     ->native(false),
                 Tables\Filters\TernaryFilter::make('is_banned')
                     ->label('محظور'),
+                Tables\Filters\SelectFilter::make('region')
+                    ->label('المنطقة')
+                    ->options(function () {
+                        return Partner::query()
+                            ->whereNotNull('region')
+                            ->distinct()
+                            ->pluck('region', 'region')
+                            ->toArray();
+                    })
+                    ->searchable(),
+                Tables\Filters\Filter::make('current_balance')
+                    ->label('الرصيد')
+                    ->form([
+                        Forms\Components\TextInput::make('from')
+                            ->label('من')
+                            ->numeric()
+                            ->step(0.01),
+                        Forms\Components\TextInput::make('until')
+                            ->label('إلى')
+                            ->numeric()
+                            ->step(0.01),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'], fn ($q, $balance) => $q->where('current_balance', '>=', $balance))
+                            ->when($data['until'], fn ($q, $balance) => $q->where('current_balance', '<=', $balance));
+                    }),
+                Tables\Filters\Filter::make('balance_status')
+                    ->label('حالة الرصيد')
+                    ->form([
+                        Forms\Components\Select::make('status')
+                            ->label('الحالة')
+                            ->options([
+                                'debit' => 'مدين (رصيد موجب)',
+                                'credit' => 'دائن (رصيد سالب)',
+                                'zero' => 'متوازن (صفر)',
+                            ])
+                            ->native(false),
+                    ])
+                    ->query(function ($query, array $data) {
+                        if (!isset($data['status'])) {
+                            return $query;
+                        }
+
+                        return $query->when(
+                            $data['status'] === 'debit',
+                            fn ($q) => $q->where('current_balance', '>', 0),
+                            fn ($q) => $query->when(
+                                $data['status'] === 'credit',
+                                fn ($q2) => $q2->where('current_balance', '<', 0),
+                                fn ($q2) => $q2->where('current_balance', '=', 0)
+                            )
+                        );
+                    }),
             ])
             ->actions([
                 Tables\Actions\Action::make('statement')
@@ -128,7 +190,7 @@ class PartnerResource extends Resource
                             ->get();
 
                         $html = '<div class="space-y-4">';
-                        $html .= '<div class="text-lg font-semibold">الرصيد الحالي: ' . number_format($record->current_balance, 2) . ' ر.س</div>';
+                        $html .= '<div class="text-lg font-semibold">الرصيد الحالي: ' . number_format($record->current_balance, 2) . '</div>';
                         $html .= '<table class="w-full text-sm">';
                         $html .= '<thead><tr class="border-b"><th class="text-right p-2">التاريخ</th><th class="text-right p-2">النوع</th><th class="text-right p-2">المبلغ</th><th class="text-right p-2">الوصف</th></tr></thead>';
                         $html .= '<tbody>';
@@ -143,7 +205,7 @@ class PartnerResource extends Resource
                             $html .= '<tr class="border-b">';
                             $html .= '<td class="p-2">' . $transaction->created_at->format('Y-m-d H:i') . '</td>';
                             $html .= '<td class="p-2">' . $typeLabel . '</td>';
-                            $html .= '<td class="p-2 ' . ($transaction->amount >= 0 ? 'text-green-600' : 'text-red-600') . '">' . number_format($transaction->amount, 2) . ' ر.س</td>';
+                            $html .= '<td class="p-2 ' . ($transaction->amount >= 0 ? 'text-green-600' : 'text-red-600') . '">' . number_format($transaction->amount, 2) . '</td>';
                             $html .= '<td class="p-2">' . $transaction->description . '</td>';
                             $html .= '</tr>';
                         }

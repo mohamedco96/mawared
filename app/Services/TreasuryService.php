@@ -273,18 +273,25 @@ class TreasuryService
         ?string $discount = null
     ): TreasuryTransaction {
         return DB::transaction(function () use ($treasuryId, $type, $amount, $description, $partnerId, $discount) {
-            $finalAmount = $type === 'payment' ? -abs($amount) : abs($amount);
-            
+            // Financial transactions reduce partner balances (opposite of invoices)
+            // Collection from customer: treasury +, partner - (reduces debt)
+            // Payment to supplier: treasury -, partner + (reduces what we owe, but their balance is negative so it becomes less negative)
+
+            $treasuryAmount = $type === 'payment' ? -abs($amount) : abs($amount);
+
             if ($discount) {
-                $finalAmount = $type === 'payment' 
-                    ? -abs($amount) + abs($discount) 
+                $treasuryAmount = $type === 'payment'
+                    ? -abs($amount) + abs($discount)
                     : abs($amount) - abs($discount);
             }
+
+            // Partner amount is opposite of treasury amount for financial transactions
+            $partnerAmount = -$treasuryAmount;
 
             $transaction = $this->recordTransaction(
                 $treasuryId,
                 $type,
-                $finalAmount,
+                $partnerAmount,
                 $description,
                 $partnerId,
                 'financial_transaction',
