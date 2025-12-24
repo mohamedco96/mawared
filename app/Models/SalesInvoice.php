@@ -82,7 +82,11 @@ class SalesInvoice extends Model
     protected static function booted(): void
     {
         static::updating(function (SalesInvoice $invoice) {
-            if ($invoice->isPosted() && $invoice->isDirty()) {
+            // Get the original status before changes
+            $originalStatus = $invoice->getOriginal('status');
+
+            // If already posted, prevent any updates
+            if ($originalStatus === 'posted' && $invoice->isDirty()) {
                 throw new \Exception('Cannot update a posted invoice');
             }
         });

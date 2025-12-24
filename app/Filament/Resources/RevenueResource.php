@@ -47,7 +47,7 @@ class RevenueResource extends Resource
                             ->numeric()
                             ->required()
                             ->step(0.01)
-                            ->minValue(0.0001),
+                            ->minValue(0.01),
                         Forms\Components\Select::make('treasury_id')
                             ->label('الخزينة')
                             ->relationship('treasury', 'name')

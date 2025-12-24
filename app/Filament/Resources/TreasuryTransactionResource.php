@@ -119,7 +119,7 @@ class TreasuryTransactionResource extends Resource
                                         $balance = $employee->advance_balance;
                                         $color = $balance > 0 ? 'text-red-600' : 'text-gray-600';
                                         return new \Illuminate\Support\HtmlString(
-                                            '<span class="' . $color . ' font-bold text-lg">' . number_format($balance, 2) . ' ر.س</span>'
+                                            '<span class="' . $color . ' font-bold text-lg">' . number_format($balance, 2) . ' ج.م</span>'
                                         );
                                     }
                                 }
@@ -131,7 +131,7 @@ class TreasuryTransactionResource extends Resource
                             ->numeric()
                             ->required()
                             ->step(0.01)
-                            ->minValue(0.0001)
+                            ->minValue(0.01)
                             ->reactive()
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 // Calculate final amount with discount

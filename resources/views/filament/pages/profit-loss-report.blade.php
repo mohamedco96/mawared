@@ -19,7 +19,7 @@
                         إجمالي المبيعات
                     </x-slot>
                     <div class="text-3xl font-bold text-green-600">
-                        {{ number_format($report['total_sales'], 2) }} ر.س
+                        {{ number_format($report['total_sales'], 2) }} 
                     </div>
                     <div class="text-sm text-gray-500 mt-2">
                         عدد الفواتير: {{ $report['sales_count'] }}
@@ -31,7 +31,7 @@
                         تكلفة البضاعة المباعة (COGS)
                     </x-slot>
                     <div class="text-3xl font-bold text-red-600">
-                        {{ number_format($report['total_cogs'], 2) }} ر.س
+                        {{ number_format($report['total_cogs'], 2) }} 
                     </div>
                 </x-filament::section>
 
@@ -40,7 +40,7 @@
                         الربح الإجمالي
                     </x-slot>
                     <div class="text-3xl font-bold {{ $report['gross_profit'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
-                        {{ number_format($report['gross_profit'], 2) }} ر.س
+                        {{ number_format($report['gross_profit'], 2) }} 
                     </div>
                     <div class="text-sm text-gray-500 mt-2">
                         هامش الربح: {{ number_format($report['profit_margin'], 2) }}%
@@ -54,7 +54,7 @@
                         المصروفات
                     </x-slot>
                     <div class="text-2xl font-bold text-orange-600">
-                        {{ number_format($report['expenses'], 2) }} ر.س
+                        {{ number_format($report['expenses'], 2) }} 
                     </div>
                 </x-filament::section>
 
@@ -63,7 +63,7 @@
                         صافي الربح
                     </x-slot>
                     <div class="text-3xl font-bold {{ $report['net_profit'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
-                        {{ number_format($report['net_profit'], 2) }} ر.س
+                        {{ number_format($report['net_profit'], 2) }} 
                     </div>
                 </x-filament::section>
             </div>

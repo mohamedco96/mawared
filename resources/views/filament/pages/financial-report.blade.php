@@ -38,23 +38,23 @@
                         <div class="space-y-3">
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-gray-700">بضاعة أول المدة</span>
-                                <span class="font-semibold text-gray-900">{{ number_format($report['beginning_inventory'], 2) }} ر.س</span>
+                                <span class="font-semibold text-gray-900">{{ number_format($report['beginning_inventory'], 2) }} ج.م</span>
                             </div>
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-gray-700">مشتريات</span>
-                                <span class="font-semibold text-gray-900">{{ number_format($report['total_purchases'], 2) }} ر.س</span>
+                                <span class="font-semibold text-gray-900">{{ number_format($report['total_purchases'], 2) }} ج.م</span>
                             </div>
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-gray-700">مردودات مبيعات</span>
-                                <span class="font-semibold text-gray-900">{{ number_format($report['sales_returns'], 2) }} ر.س</span>
+                                <span class="font-semibold text-gray-900">{{ number_format($report['sales_returns'], 2) }} ج.م</span>
                             </div>
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-gray-700">مصروفات</span>
-                                <span class="font-semibold text-gray-900">{{ number_format($report['expenses'], 2) }} ر.س</span>
+                                <span class="font-semibold text-gray-900">{{ number_format($report['expenses'], 2) }} ج.م</span>
                             </div>
                             <div class="flex justify-between items-center py-3 mt-4 pt-3 border-t-2 border-gray-400">
                                 <span class="text-lg font-bold text-gray-900">الإجمالي</span>
-                                <span class="text-lg font-bold text-gray-900">{{ number_format($incomeDebitTotal, 2) }} ر.س</span>
+                                <span class="text-lg font-bold text-gray-900">{{ number_format($incomeDebitTotal, 2) }} ج.م</span>
                             </div>
                         </div>
                     </div>
@@ -67,23 +67,23 @@
                         <div class="space-y-3">
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-gray-700">بضاعة آخر المدة</span>
-                                <span class="font-semibold text-gray-900">{{ number_format($report['ending_inventory'], 2) }} ر.س</span>
+                                <span class="font-semibold text-gray-900">{{ number_format($report['ending_inventory'], 2) }} ج.م</span>
                             </div>
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-gray-700">مبيعات</span>
-                                <span class="font-semibold text-gray-900">{{ number_format($report['total_sales'], 2) }} ر.س</span>
+                                <span class="font-semibold text-gray-900">{{ number_format($report['total_sales'], 2) }} ج.م</span>
                             </div>
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-gray-700">مردودات مشتريات</span>
-                                <span class="font-semibold text-gray-900">{{ number_format($report['purchase_returns'], 2) }} ر.س</span>
+                                <span class="font-semibold text-gray-900">{{ number_format($report['purchase_returns'], 2) }} ج.م</span>
                             </div>
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-gray-700">إيرادات</span>
-                                <span class="font-semibold text-gray-900">{{ number_format($report['revenues'], 2) }} ر.س</span>
+                                <span class="font-semibold text-gray-900">{{ number_format($report['revenues'], 2) }} ج.م</span>
                             </div>
                             <div class="flex justify-between items-center py-3 mt-4 pt-3 border-t-2 border-gray-400">
                                 <span class="text-lg font-bold text-gray-900">الإجمالي</span>
-                                <span class="text-lg font-bold text-gray-900">{{ number_format($incomeCreditTotal, 2) }} ر.س</span>
+                                <span class="text-lg font-bold text-gray-900">{{ number_format($incomeCreditTotal, 2) }} ج.م</span>
                             </div>
                         </div>
                     </div>
@@ -94,7 +94,7 @@
                     <div class="flex justify-between items-center">
                         <span class="text-lg font-bold text-gray-900">صافي الربح</span>
                         <span class="text-xl font-bold {{ $netProfit >= 0 ? 'text-green-600' : 'text-red-600' }}">
-                            {{ number_format($netProfit, 2) }} ر.س
+                            {{ number_format($netProfit, 2) }} ج.م
                         </span>
                     </div>
                 </div>
@@ -115,23 +115,23 @@
                         <div class="space-y-3">
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-gray-700">أصول ثابتة</span>
-                                <span class="font-semibold text-gray-900">{{ number_format($report['fixed_assets_value'], 2) }} ر.س</span>
+                                <span class="font-semibold text-gray-900">{{ number_format($report['fixed_assets_value'], 2) }} ج.م</span>
                             </div>
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-gray-700">بضاعة آخر المدة</span>
-                                <span class="font-semibold text-gray-900">{{ number_format($report['ending_inventory'], 2) }} ر.س</span>
+                                <span class="font-semibold text-gray-900">{{ number_format($report['ending_inventory'], 2) }} ج.م</span>
                             </div>
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-gray-700">رصيد المدينين</span>
-                                <span class="font-semibold text-gray-900">{{ number_format($report['total_debtors'], 2) }} ر.س</span>
+                                <span class="font-semibold text-gray-900">{{ number_format($report['total_debtors'], 2) }} ج.م</span>
                             </div>
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-gray-700">الخزينة والبنك</span>
-                                <span class="font-semibold text-gray-900">{{ number_format($report['total_cash'], 2) }} ر.س</span>
+                                <span class="font-semibold text-gray-900">{{ number_format($report['total_cash'], 2) }} ج.م</span>
                             </div>
                             <div class="flex justify-between items-center py-3 mt-4 pt-3 border-t-2 border-gray-400">
                                 <span class="text-lg font-bold text-gray-900">إجمالي الأصول</span>
-                                <span class="text-lg font-bold text-gray-900">{{ number_format($assetsTotal, 2) }} ر.س</span>
+                                <span class="text-lg font-bold text-gray-900">{{ number_format($assetsTotal, 2) }} ج.م</span>
                             </div>
                         </div>
                     </div>
@@ -144,29 +144,29 @@
                         <div class="space-y-3">
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-gray-700">رأس مال الشركاء</span>
-                                <span class="font-semibold text-gray-900">{{ number_format($report['shareholder_capital'], 2) }} ر.س</span>
+                                <span class="font-semibold text-gray-900">{{ number_format($report['shareholder_capital'], 2) }} ج.م</span>
                             </div>
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-gray-700">صافي الربح</span>
                                 <span class="font-semibold {{ $netProfit >= 0 ? 'text-green-600' : 'text-red-600' }}">
-                                    {{ number_format($netProfit, 2) }} ر.س
+                                    {{ number_format($netProfit, 2) }} ج.م
                                 </span>
                             </div>
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-gray-700">سحوبات الشركاء</span>
-                                <span class="font-semibold text-red-600">({{ number_format($report['shareholder_drawings'], 2) }}) ر.س</span>
+                                <span class="font-semibold text-red-600">({{ number_format($report['shareholder_drawings'], 2) }}) ج.م</span>
                             </div>
                             <div class="flex justify-between items-center py-2 border-b border-gray-100 bg-gray-50">
                                 <span class="text-gray-700 font-semibold">حقوق الملكية</span>
-                                <span class="font-semibold text-gray-900">{{ number_format($equity, 2) }} ر.س</span>
+                                <span class="font-semibold text-gray-900">{{ number_format($equity, 2) }} ج.م</span>
                             </div>
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-gray-700">رصيد الدائنين</span>
-                                <span class="font-semibold text-gray-900">{{ number_format($report['total_creditors'], 2) }} ر.س</span>
+                                <span class="font-semibold text-gray-900">{{ number_format($report['total_creditors'], 2) }} ج.م</span>
                             </div>
                             <div class="flex justify-between items-center py-3 mt-4 pt-3 border-t-2 border-gray-400">
                                 <span class="text-lg font-bold text-gray-900">إجمالي الخصوم</span>
-                                <span class="text-lg font-bold text-gray-900">{{ number_format($liabilitiesTotal, 2) }} ر.س</span>
+                                <span class="text-lg font-bold text-gray-900">{{ number_format($liabilitiesTotal, 2) }} ج.م</span>
                             </div>
                         </div>
                     </div>
@@ -177,16 +177,16 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div class="flex justify-between items-center">
                             <span class="text-lg font-bold text-gray-900">إجمالي الأصول</span>
-                            <span class="text-xl font-bold text-gray-900">{{ number_format($assetsTotal, 2) }} ر.س</span>
+                            <span class="text-xl font-bold text-gray-900">{{ number_format($assetsTotal, 2) }} ج.م</span>
                         </div>
                         <div class="flex justify-between items-center">
                             <span class="text-lg font-bold text-gray-900">إجمالي الخصوم</span>
-                            <span class="text-xl font-bold text-gray-900">{{ number_format($liabilitiesTotal, 2) }} ر.س</span>
+                            <span class="text-xl font-bold text-gray-900">{{ number_format($liabilitiesTotal, 2) }} ج.م</span>
                         </div>
                     </div>
                     @if(abs($assetsTotal - $liabilitiesTotal) > 0.01)
                         <div class="mt-2 text-sm text-red-600">
-                            ملاحظة: يوجد فرق قدره {{ number_format(abs($assetsTotal - $liabilitiesTotal), 2) }} ر.س
+                            ملاحظة: يوجد فرق قدره {{ number_format(abs($assetsTotal - $liabilitiesTotal), 2) }} ج.م
                         </div>
                     @else
                         <div class="mt-2 text-sm text-green-600">

@@ -82,7 +82,11 @@ class SalesReturn extends Model
     protected static function booted(): void
     {
         static::updating(function (SalesReturn $return) {
-            if ($return->isPosted() && $return->isDirty()) {
+            // Get the original status before changes
+            $originalStatus = $return->getOriginal('status');
+
+            // If already posted, prevent any updates
+            if ($originalStatus === 'posted' && $return->isDirty()) {
                 throw new \Exception('Cannot update a posted return');
             }
         });

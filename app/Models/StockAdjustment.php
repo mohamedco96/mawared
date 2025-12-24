@@ -65,7 +65,11 @@ class StockAdjustment extends Model
     protected static function booted(): void
     {
         static::updating(function (StockAdjustment $adjustment) {
-            if ($adjustment->isPosted() && $adjustment->isDirty()) {
+            // Get the original status before changes
+            $originalStatus = $adjustment->getOriginal('status');
+
+            // If already posted, prevent any updates
+            if ($originalStatus === 'posted' && $adjustment->isDirty()) {
                 throw new \Exception('Cannot update a posted stock adjustment');
             }
         });

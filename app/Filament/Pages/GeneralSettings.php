@@ -47,7 +47,7 @@ class GeneralSettings extends Page implements HasForms
                             ->numeric()
                             ->default(0)
                             ->required()
-                            ->prefix('ر.س')
+                            ->prefix('ج.م')
                             ->step(0.01)
                             ->helperText('مثل: الأثاث، المعدات، وغيرها'),
                     ])
