@@ -27,9 +27,11 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->brandName('Mawared ERP')
             ->colors([
-                'primary' => Color::Amber,
+                'primary' => Color::Teal,
             ])
+            ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
             ->navigationGroups([
                 'نظرة عامة',        // Overview
                 'إدارة المخزون',    // Inventory Management
@@ -39,19 +41,33 @@ class AdminPanelProvider extends PanelProvider
                 'الإدارة',          // Administration
             ])
             ->sidebarCollapsibleOnDesktop()
+            ->font('Cairo')
             ->renderHook(
                 'panels::head.end',
-                fn (): string => '<style>
-                    /* Hide scrollbar for Chrome, Safari and Opera */
-                    .fi-sidebar-nav::-webkit-scrollbar {
-                        display: none;
-                    }
-                    /* Hide scrollbar for IE, Edge and Firefox */
-                    .fi-sidebar-nav {
-                        -ms-overflow-style: none;  /* IE and Edge */
-                        scrollbar-width: none;  /* Firefox */
-                    }
-                </style>',
+                fn (): string => '
+                    <link rel="preconnect" href="https://fonts.googleapis.com">
+                    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet">
+                    <style>
+                        :root {
+                            --font-family-sans: \'Cairo\', sans-serif;
+                            --font-family-mono: \'Fira Code\', monospace;
+                        }
+                        /* Apply to everything */
+                        body, .fi-body, .fi-header, .fi-sidebar, .fi-main {
+                            font-family: \'Cairo\', sans-serif !important;
+                        }
+                        /* Hide scrollbar for Chrome, Safari and Opera */
+                        .fi-sidebar-nav::-webkit-scrollbar {
+                            display: none;
+                        }
+                        /* Hide scrollbar for IE, Edge and Firefox */
+                        .fi-sidebar-nav {
+                            -ms-overflow-style: none;  /* IE and Edge */
+                            scrollbar-width: none;  /* Firefox */
+                        }
+                    </style>
+                ',
             )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
