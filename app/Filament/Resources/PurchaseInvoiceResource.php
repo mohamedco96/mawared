@@ -78,6 +78,29 @@ class PurchaseInvoiceResource extends Resource
                             ])
                             ->default('cash')
                             ->required()
+                            ->reactive()
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                // Auto-fill paid_amount based on payment method
+                                $items = $get('items') ?? [];
+                                $subtotal = collect($items)->sum('total');
+                                $discountType = $get('discount_type') ?? 'fixed';
+                                $discountValue = $get('discount_value') ?? 0;
+
+                                // Calculate discount
+                                $totalDiscount = $discountType === 'percentage'
+                                    ? $subtotal * ($discountValue / 100)
+                                    : $discountValue;
+
+                                $netTotal = $subtotal - $totalDiscount;
+
+                                if ($state === 'cash') {
+                                    $set('paid_amount', $netTotal);
+                                    $set('remaining_amount', 0);
+                                } else {
+                                    $set('paid_amount', 0);
+                                    $set('remaining_amount', $netTotal);
+                                }
+                            })
                             ->native(false)
                             ->disabled(fn ($record) => $record && $record->isPosted()),
                     ])
@@ -179,50 +202,125 @@ class PurchaseInvoiceResource extends Resource
                             ->defaultItems(1)
                             ->collapsible()
                             ->itemLabel(fn (array $state): ?string => $state['product_id'] ? Product::find($state['product_id'])?->name : null)
-                            ->disabled(fn ($record) => $record && $record->isPosted())
+                            ->reactive()
                             ->afterStateUpdated(function (Set $set, Get $get) {
-                                // Recalculate totals when items change
-                                $items = $get('items') ?? [];
-                                $subtotal = collect($items)->sum('total');
-                                $discount = $get('discount') ?? 0;
-                                $set('subtotal', $subtotal);
-                                $set('total', $subtotal - $discount);
-                            }),
+                                static::recalculateTotals($set, $get);
+                            })
+                            ->disabled(fn ($record) => $record && $record->isPosted()),
                     ]),
 
                 Forms\Components\Section::make('الإجماليات')
                     ->schema([
-                        Forms\Components\TextInput::make('subtotal')
+                        Forms\Components\Placeholder::make('calculated_subtotal')
                             ->label('المجموع الفرعي')
-                            ->numeric()
-                            ->default(0)
-                            ->disabled()
-                            ->dehydrated()
-                            ->afterStateUpdated(function (Set $set, Get $get) {
+                            ->content(function (Get $get) {
                                 $items = $get('items') ?? [];
                                 $subtotal = collect($items)->sum('total');
-                                $discount = $get('discount') ?? 0;
-                                $set('subtotal', $subtotal);
-                                $set('total', $subtotal - $discount);
+
+                                return number_format($subtotal, 2);
                             }),
-                        Forms\Components\TextInput::make('discount')
-                            ->label('الخصم الإجمالي')
+                        Forms\Components\Select::make('discount_type')
+                            ->label('نوع الخصم')
+                            ->options([
+                                'fixed' => 'مبلغ ثابت',
+                                'percentage' => 'نسبة مئوية',
+                            ])
+                            ->default('fixed')
+                            ->required()
+                            ->reactive()
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                static::recalculateTotals($set, $get);
+                            })
+                            ->disabled(fn ($record) => $record && $record->isPosted()),
+                        Forms\Components\TextInput::make('discount_value')
+                            ->label(function (Get $get) {
+                                return $get('discount_type') === 'percentage'
+                                    ? 'نسبة الخصم (%)'
+                                    : 'قيمة الخصم';
+                            })
                             ->numeric()
                             ->default(0)
                             ->step(0.01)
+                            ->minValue(0)
+                            ->maxValue(function (Get $get) {
+                                return $get('discount_type') === 'percentage' ? 100 : null;
+                            })
+                            ->suffix(fn (Get $get) => $get('discount_type') === 'percentage' ? '%' : '')
+                            ->reactive()
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                static::recalculateTotals($set, $get);
+                            })
+                            ->disabled(fn ($record) => $record && $record->isPosted()),
+                        Forms\Components\Placeholder::make('calculated_discount_display')
+                            ->label('الخصم المحسوب')
+                            ->content(function (Get $get) {
+                                $items = $get('items') ?? [];
+                                $subtotal = collect($items)->sum('total');
+                                $discountType = $get('discount_type') ?? 'fixed';
+                                $discountValue = $get('discount_value') ?? 0;
+
+                                $totalDiscount = $discountType === 'percentage'
+                                    ? $subtotal * ($discountValue / 100)
+                                    : $discountValue;
+
+                                return number_format($totalDiscount, 2);
+                            }),
+                        Forms\Components\Placeholder::make('calculated_total')
+                            ->label('الإجمالي النهائي')
+                            ->content(function (Get $get) {
+                                $items = $get('items') ?? [];
+                                $subtotal = collect($items)->sum('total');
+                                $discountType = $get('discount_type') ?? 'fixed';
+                                $discountValue = $get('discount_value') ?? 0;
+
+                                $totalDiscount = $discountType === 'percentage'
+                                    ? $subtotal * ($discountValue / 100)
+                                    : $discountValue;
+
+                                $total = $subtotal - $totalDiscount;
+
+                                return number_format($total, 2);
+                            }),
+                        Forms\Components\TextInput::make('paid_amount')
+                            ->label('المبلغ المدفوع')
+                            ->numeric()
+                            ->default(0)
+                            ->step(0.01)
+                            ->minValue(0)
                             ->reactive()
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 $items = $get('items') ?? [];
                                 $subtotal = collect($items)->sum('total');
+                                $discountType = $get('discount_type') ?? 'fixed';
+                                $discountValue = $get('discount_value') ?? 0;
+
+                                $totalDiscount = $discountType === 'percentage'
+                                    ? $subtotal * ($discountValue / 100)
+                                    : $discountValue;
+
+                                $netTotal = $subtotal - $totalDiscount;
+                                $paidAmount = floatval($state ?? 0);
+
+                                $set('remaining_amount', max(0, $netTotal - $paidAmount));
                                 $set('subtotal', $subtotal);
-                                $set('total', $subtotal - $state);
+                                $set('total', $netTotal);
                             })
+                            ->helperText('يتم ملؤه تلقائياً حسب طريقة الدفع أو يمكن تعديله يدوياً')
                             ->disabled(fn ($record) => $record && $record->isPosted()),
-                        Forms\Components\TextInput::make('total')
-                            ->label('الإجمالي النهائي')
+                        Forms\Components\TextInput::make('remaining_amount')
+                            ->label('المبلغ المتبقي')
                             ->numeric()
-                            ->required()
+                            ->default(0)
                             ->disabled()
+                            ->dehydrated(),
+                        Forms\Components\Hidden::make('subtotal')
+                            ->default(0)
+                            ->dehydrated(),
+                        Forms\Components\Hidden::make('total')
+                            ->default(0)
+                            ->dehydrated(),
+                        Forms\Components\Hidden::make('discount')
+                            ->default(0)
                             ->dehydrated(),
                     ])
                     ->columns(3),
@@ -233,6 +331,47 @@ class PurchaseInvoiceResource extends Resource
                     ->rows(3)
                     ->disabled(fn ($record) => $record && $record->isPosted()),
             ]);
+    }
+
+    /**
+     * Recalculate all totals when items or discount changes
+     */
+    protected static function recalculateTotals(Set $set, Get $get): void
+    {
+        $items = $get('items') ?? [];
+        $subtotal = collect($items)->sum('total');
+        $discountType = $get('discount_type') ?? 'fixed';
+        $discountValue = floatval($get('discount_value') ?? 0);
+        $paymentMethod = $get('payment_method') ?? 'cash';
+
+        // Calculate discount
+        $totalDiscount = $discountType === 'percentage'
+            ? $subtotal * ($discountValue / 100)
+            : $discountValue;
+
+        $netTotal = $subtotal - $totalDiscount;
+
+        // Update hidden fields
+        $set('subtotal', $subtotal);
+        $set('discount', $totalDiscount); // OLD field for backward compatibility
+        $set('total', $netTotal);
+
+        // Auto-fill paid_amount based on payment method
+        $currentPaidAmount = floatval($get('paid_amount') ?? 0);
+
+        // Only auto-fill if payment method is cash or if current paid amount exceeds net total
+        if ($paymentMethod === 'cash') {
+            $set('paid_amount', $netTotal);
+            $set('remaining_amount', 0);
+        } else {
+            // For credit, only reset if current paid_amount exceeds net total
+            if ($currentPaidAmount > $netTotal) {
+                $set('paid_amount', 0);
+                $set('remaining_amount', $netTotal);
+            } else {
+                $set('remaining_amount', max(0, $netTotal - $currentPaidAmount));
+            }
+        }
     }
 
     public static function table(Table $table): Table

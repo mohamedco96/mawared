@@ -20,9 +20,13 @@ class PurchaseInvoice extends Model
         'partner_id',
         'status',
         'payment_method',
+        'discount_type',
+        'discount_value',
         'subtotal',
         'discount',
         'total',
+        'paid_amount',
+        'remaining_amount',
         'notes',
         'created_by',
     ];
@@ -32,7 +36,10 @@ class PurchaseInvoice extends Model
         return [
             'subtotal' => 'decimal:4',
             'discount' => 'decimal:4',
+            'discount_value' => 'decimal:4',
             'total' => 'decimal:4',
+            'paid_amount' => 'decimal:4',
+            'remaining_amount' => 'decimal:4',
         ];
     }
 
@@ -76,6 +83,42 @@ class PurchaseInvoice extends Model
     public function isDraft(): bool
     {
         return $this->status === 'draft';
+    }
+
+    /**
+     * Calculate the actual discount amount based on type
+     */
+    public function getCalculatedDiscountAttribute(): float
+    {
+        if ($this->discount_type === 'percentage') {
+            return $this->subtotal * ($this->discount_value / 100);
+        }
+        return (float) $this->discount_value;
+    }
+
+    /**
+     * Calculate net total (subtotal - calculated discount)
+     */
+    public function getNetTotalAttribute(): float
+    {
+        return $this->subtotal - $this->calculated_discount;
+    }
+
+    /**
+     * Check if invoice is fully paid
+     */
+    public function isFullyPaid(): bool
+    {
+        return bccomp((string) $this->remaining_amount, '0', 4) === 0;
+    }
+
+    /**
+     * Check if invoice is partially paid
+     */
+    public function isPartiallyPaid(): bool
+    {
+        return bccomp((string) $this->paid_amount, '0', 4) === 1
+            && bccomp((string) $this->remaining_amount, '0', 4) === 1;
     }
 
     // Immutable Logic: Prevent updates/deletes when posted
