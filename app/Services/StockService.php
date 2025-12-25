@@ -69,6 +69,41 @@ class StockService
     }
 
     /**
+     * Get stock availability with descriptive message for validation
+     */
+    public function getStockValidationMessage(
+        string $warehouseId,
+        string $productId,
+        int $requiredQuantity,
+        string $unitType = 'small'
+    ): array {
+        $currentStock = $this->getCurrentStock($warehouseId, $productId);
+
+        // Convert stock to display unit if needed
+        $displayStock = $currentStock;
+        $displayRequired = $requiredQuantity;
+
+        if ($unitType === 'large' && $productId) {
+            $product = Product::find($productId);
+            if ($product && $product->factor > 1) {
+                $displayStock = intval($currentStock / $product->factor);
+                $displayRequired = intval($requiredQuantity / $product->factor);
+            }
+        }
+
+        $isAvailable = $currentStock >= $requiredQuantity;
+
+        return [
+            'is_available' => $isAvailable,
+            'current_stock' => $currentStock,
+            'display_stock' => $displayStock,
+            'message' => $isAvailable
+                ? null
+                : "المخزون المتاح: {$displayStock} وحدة، الكمية المطلوبة: {$displayRequired}"
+        ];
+    }
+
+    /**
      * Update product average cost after purchase
      */
     public function updateProductAvgCost(string $productId): void
@@ -104,21 +139,27 @@ class StockService
     /**
      * Update product selling prices when new_selling_price is set
      */
-    public function updateProductPrice(Product $product, ?string $newSellingPrice, string $unitType): void
+    public function updateProductPrice(Product $product, ?string $newSellingPrice, string $unitType, ?string $newLargeSellingPrice = null): void
     {
-        if ($newSellingPrice === null) {
+        if ($newSellingPrice === null && $newLargeSellingPrice === null) {
             return;
         }
 
-        DB::transaction(function () use ($product, $newSellingPrice, $unitType) {
-            if ($unitType === 'small') {
-                $product->update([
-                    'retail_price' => $newSellingPrice,
-                ]);
-            } elseif ($unitType === 'large' && $product->large_unit_id) {
-                $product->update([
-                    'large_retail_price' => $newSellingPrice,
-                ]);
+        DB::transaction(function () use ($product, $newSellingPrice, $unitType, $newLargeSellingPrice) {
+            $updateData = [];
+
+            // Update small unit price
+            if ($newSellingPrice !== null) {
+                $updateData['retail_price'] = $newSellingPrice;
+            }
+
+            // Update large unit price if provided
+            if ($newLargeSellingPrice !== null && $product->large_unit_id) {
+                $updateData['large_retail_price'] = $newLargeSellingPrice;
+            }
+
+            if (!empty($updateData)) {
+                $product->update($updateData);
             }
         });
     }
@@ -281,15 +322,32 @@ class StockService
 
         DB::transaction(function () use ($adjustment) {
             $product = $adjustment->product;
-            $movementType = $adjustment->type === 'damage' || $adjustment->type === 'gift' 
-                ? 'adjustment_out' 
-                : 'adjustment_in';
+
+            // Determine movement type and quantity direction based on adjustment type
+            $quantity = abs($adjustment->quantity); // Always work with absolute value
+
+            // Types that SUBTRACT from stock (negative quantity)
+            $subtractionTypes = ['subtraction', 'damage', 'gift'];
+
+            if (in_array($adjustment->type, $subtractionTypes)) {
+                $movementType = 'adjustment_out';
+                $quantity = -$quantity; // Make it negative for subtraction
+
+                // Validate stock availability for subtraction
+                if (!$this->validateStockAvailability($adjustment->warehouse_id, $product->id, abs($quantity))) {
+                    throw new \Exception("المخزون غير كافٍ للمنتج: {$product->name}");
+                }
+            } else {
+                // Types that ADD to stock (positive quantity): 'addition', 'opening', 'other'
+                $movementType = 'adjustment_in';
+                $quantity = $quantity; // Keep it positive
+            }
 
             $this->recordMovement(
                 $adjustment->warehouse_id,
                 $product->id,
                 $movementType,
-                $adjustment->quantity, // Can be positive or negative
+                $quantity,
                 $product->avg_cost,
                 'stock_adjustment',
                 $adjustment->id,

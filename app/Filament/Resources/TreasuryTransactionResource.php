@@ -129,6 +129,7 @@ class TreasuryTransactionResource extends Resource
                         Forms\Components\TextInput::make('amount')
                             ->label('المبلغ')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->required()
                             ->step(0.01)
                             ->minValue(0.01)
@@ -147,6 +148,7 @@ class TreasuryTransactionResource extends Resource
                         Forms\Components\TextInput::make('discount')
                             ->label('خصم')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->default(0)
                             ->step(0.01)
                             ->reactive()
@@ -263,10 +265,12 @@ class TreasuryTransactionResource extends Resource
                         Forms\Components\TextInput::make('from')
                             ->label('من')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->step(0.01),
                         Forms\Components\TextInput::make('until')
                             ->label('إلى')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->step(0.01),
                     ])
                     ->query(function ($query, array $data) {

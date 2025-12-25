@@ -69,6 +69,10 @@ class AdminPanelProvider extends PanelProvider
                     </style>
                 ',
             )
+            ->renderHook(
+                'panels::body.end',
+                fn (): string => '<script src="' . asset('js/filament/fix-arabic-numbers.js') . '"></script>',
+            )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([

@@ -67,6 +67,7 @@ class PartnerResource extends Resource
                         Forms\Components\TextInput::make('current_balance')
                             ->label('الرصيد الحالي')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->disabled()
                             ->dehydrated()
                             ->default(0),
@@ -150,10 +151,12 @@ class PartnerResource extends Resource
                         Forms\Components\TextInput::make('from')
                             ->label('من')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->step(0.01),
                         Forms\Components\TextInput::make('until')
                             ->label('إلى')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->step(0.01),
                     ])
                     ->query(function ($query, array $data) {

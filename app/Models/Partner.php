@@ -46,6 +46,122 @@ class Partner extends Model
         return $this->hasMany(TreasuryTransaction::class);
     }
 
+    public function salesReturns(): HasMany
+    {
+        return $this->hasMany(SalesReturn::class);
+    }
+
+    public function purchaseReturns(): HasMany
+    {
+        return $this->hasMany(PurchaseReturn::class);
+    }
+
+    public function invoicePayments(): HasMany
+    {
+        return $this->hasMany(InvoicePayment::class);
+    }
+
+    // Balance Calculation Methods
+
+    /**
+     * Calculate partner balance from invoices, returns, and payments
+     * This is the SOURCE OF TRUTH for partner balances
+     */
+    public function calculateBalance(): float
+    {
+        if ($this->type === 'customer') {
+            // Customer owes us money (positive balance means they owe us)
+
+            // What they bought
+            $salesTotal = $this->salesInvoices()
+                ->where('status', 'posted')
+                ->sum('total');
+
+            // What they returned
+            $returnsTotal = $this->salesReturns()
+                ->where('status', 'posted')
+                ->sum('total');
+
+            // What they paid (collection transactions from posted invoices + financial transactions)
+            $collections = $this->treasuryTransactions()
+                ->where('type', 'collection')
+                ->where(function ($q) {
+                    $q->whereIn('reference_type', ['sales_invoice', 'financial_transaction'])
+                      ->orWhereNull('reference_type');
+                })
+                ->sum('amount');
+
+            // Cash refunds we gave them (negative in DB)
+            $refunds = $this->treasuryTransactions()
+                ->where('type', 'refund')
+                ->whereIn('reference_type', ['sales_return', 'financial_transaction'])
+                ->sum('amount'); // Already negative
+
+            return $salesTotal - $returnsTotal - $collections + abs($refunds);
+
+        } elseif ($this->type === 'supplier') {
+            // Supplier is owed money by us (negative balance means we owe them)
+
+            // What we bought
+            $purchaseTotal = $this->purchaseInvoices()
+                ->where('status', 'posted')
+                ->sum('total');
+
+            // What we returned
+            $returnsTotal = $this->purchaseReturns()
+                ->where('status', 'posted')
+                ->sum('total');
+
+            // What we paid them (payment transactions - already negative in DB)
+            $payments = $this->treasuryTransactions()
+                ->where('type', 'payment')
+                ->where(function ($q) {
+                    $q->whereIn('reference_type', ['purchase_invoice', 'financial_transaction'])
+                      ->orWhereNull('reference_type');
+                })
+                ->sum('amount'); // Already negative
+
+            // Cash refunds they gave us (positive in DB)
+            $refunds = $this->treasuryTransactions()
+                ->where('type', 'refund')
+                ->whereIn('reference_type', ['purchase_return', 'financial_transaction'])
+                ->sum('amount'); // Already positive
+
+            // Return negative value (we owe them)
+            return -1 * ($purchaseTotal - $returnsTotal + $payments - $refunds);
+
+        } else { // shareholder
+            // Shareholders track capital deposits, drawings, etc. via treasury transactions only
+            return $this->treasuryTransactions()->sum('amount');
+        }
+    }
+
+    /**
+     * Recalculate and update the current_balance field
+     */
+    public function recalculateBalance(): void
+    {
+        $this->update(['current_balance' => $this->calculateBalance()]);
+    }
+
+    /**
+     * Get the formatted balance for display
+     */
+    public function getFormattedBalanceAttribute(): string
+    {
+        $balance = $this->current_balance;
+
+        if ($this->type === 'customer') {
+            return $balance >= 0
+                ? 'له ' . number_format(abs($balance), 2)
+                : 'عليه ' . number_format(abs($balance), 2);
+        } else {
+            return $balance <= 0
+                ? 'له ' . number_format(abs($balance), 2)
+                : 'عليه ' . number_format(abs($balance), 2);
+        }
+    }
+
     // Scopes
     public function scopeCustomers($query)
     {

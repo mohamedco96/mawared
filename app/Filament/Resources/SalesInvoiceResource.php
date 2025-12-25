@@ -3,8 +3,10 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\SalesInvoiceResource\Pages;
+use App\Filament\Resources\SalesInvoiceResource\RelationManagers;
 use App\Models\Product;
 use App\Models\SalesInvoice;
+use App\Models\Treasury;
 use App\Services\StockService;
 use App\Services\TreasuryService;
 use Filament\Forms;
@@ -45,7 +47,9 @@ class SalesInvoiceResource extends Resource
                             ->default(fn () => 'SI-'.now()->format('Ymd').'-'.Str::random(6))
                             ->required()
                             ->unique(ignoreRecord: true)
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->disabled()
+                            ->dehydrated(),
                         Forms\Components\Select::make('status')
                             ->label('الحالة')
                             ->options([
@@ -112,6 +116,7 @@ class SalesInvoiceResource extends Resource
                     ->schema([
                         Forms\Components\Repeater::make('items')
                             ->relationship('items')
+                            ->addActionLabel('إضافة صنف')
                             ->schema([
                                 Forms\Components\Select::make('product_id')
                                     ->label('المنتج')
@@ -133,6 +138,12 @@ class SalesInvoiceResource extends Resource
                                                 $set('discount', 0);
                                                 $set('total', $price);
                                             }
+                                        }
+
+                                        // Trigger quantity re-validation when product changes
+                                        $quantity = $get('quantity');
+                                        if ($quantity) {
+                                            $set('quantity', $quantity);
                                         }
                                     })
                                     ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
@@ -168,24 +179,62 @@ class SalesInvoiceResource extends Resource
                                                 $set('total', ($price * $quantity) - $discount);
                                             }
                                         }
+
+                                        // Trigger quantity re-validation when unit type changes
+                                        $quantity = $get('quantity');
+                                        if ($quantity) {
+                                            $set('quantity', $quantity);
+                                        }
                                     })
                                     ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية')
                                     ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->required()
                                     ->default(1)
                                     ->minValue(1)
-                                    ->reactive()
+                                    ->live(debounce: 500)
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $unitPrice = $get('unit_price') ?? 0;
                                         $discount = $get('discount') ?? 0;
                                         $set('total', ($unitPrice * $state) - $discount);
                                     })
+                                    ->rules([
+                                        fn (Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                            $productId = $get('product_id');
+                                            $warehouseId = $get('../../warehouse_id');
+                                            $unitType = $get('unit_type') ?? 'small';
+
+                                            if (!$productId || !$warehouseId || !$value) {
+                                                return;
+                                            }
+
+                                            $product = \App\Models\Product::find($productId);
+                                            if (!$product) {
+                                                return;
+                                            }
+
+                                            $stockService = app(\App\Services\StockService::class);
+                                            $baseQuantity = $stockService->convertToBaseUnit($product, intval($value), $unitType);
+
+                                            $validation = $stockService->getStockValidationMessage(
+                                                $warehouseId,
+                                                $productId,
+                                                $baseQuantity,
+                                                $unitType
+                                            );
+
+                                            if (!$validation['is_available']) {
+                                                $fail($validation['message']);
+                                            }
+                                        },
+                                    ])
                                     ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
                                 Forms\Components\TextInput::make('unit_price')
                                     ->label('سعر الوحدة')
                                     ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->required()
                                     ->step(0.01)
                                     ->reactive()
@@ -198,6 +247,7 @@ class SalesInvoiceResource extends Resource
                                 Forms\Components\TextInput::make('discount')
                                     ->label('الخصم')
                                     ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->default(0)
                                     ->step(0.01)
                                     ->reactive()
@@ -210,6 +260,7 @@ class SalesInvoiceResource extends Resource
                                 Forms\Components\TextInput::make('total')
                                     ->label('الإجمالي')
                                     ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->disabled()
                                     ->dehydrated(),
                                 Forms\Components\Placeholder::make('stock_info')
@@ -275,6 +326,7 @@ class SalesInvoiceResource extends Resource
                                     : 'قيمة الخصم';
                             })
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->default(0)
                             ->step(0.01)
                             ->minValue(0)
@@ -293,7 +345,7 @@ class SalesInvoiceResource extends Resource
                                 $items = $get('items') ?? [];
                                 $subtotal = collect($items)->sum('total');
                                 $discountType = $get('discount_type') ?? 'fixed';
-                                $discountValue = $get('discount_value') ?? 0;
+                                $discountValue = floatval($get('discount_value') ?? 0);
 
                                 $totalDiscount = $discountType === 'percentage'
                                     ? $subtotal * ($discountValue / 100)
@@ -307,7 +359,7 @@ class SalesInvoiceResource extends Resource
                                 $items = $get('items') ?? [];
                                 $subtotal = collect($items)->sum('total');
                                 $discountType = $get('discount_type') ?? 'fixed';
-                                $discountValue = $get('discount_value') ?? 0;
+                                $discountValue = floatval($get('discount_value') ?? 0);
 
                                 $totalDiscount = $discountType === 'percentage'
                                     ? $subtotal * ($discountValue / 100)
@@ -320,6 +372,7 @@ class SalesInvoiceResource extends Resource
                         Forms\Components\TextInput::make('paid_amount')
                             ->label('المبلغ المدفوع')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->default(0)
                             ->step(0.01)
                             ->minValue(0)
@@ -346,6 +399,7 @@ class SalesInvoiceResource extends Resource
                         Forms\Components\TextInput::make('remaining_amount')
                             ->label('المبلغ المتبقي')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->default(0)
                             ->disabled()
                             ->dehydrated(),
@@ -488,10 +542,12 @@ class SalesInvoiceResource extends Resource
                         Forms\Components\TextInput::make('from')
                             ->label('من')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->step(0.01),
                         Forms\Components\TextInput::make('until')
                             ->label('إلى')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->step(0.01),
                     ])
                     ->query(function ($query, array $data) {
@@ -541,6 +597,73 @@ class SalesInvoiceResource extends Resource
                         }
                     })
                     ->visible(fn (SalesInvoice $record) => $record->isDraft()),
+                Tables\Actions\Action::make('add_payment')
+                    ->label('تسجيل دفعة')
+                    ->icon('heroicon-o-currency-dollar')
+                    ->color('success')
+                    ->modalHeading('تسجيل دفعة جديدة')
+                    ->modalWidth('lg')
+                    ->form([
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\TextInput::make('amount')
+                                    ->label('المبلغ')
+                                    ->numeric()
+                                    ->required()
+                                    ->minValue(0.01)
+                                    ->suffix('ج.م')
+                                    ->step(0.01),
+
+                                Forms\Components\DatePicker::make('payment_date')
+                                    ->label('تاريخ الدفع')
+                                    ->required()
+                                    ->default(now())
+                                    ->maxDate(now()),
+
+                                Forms\Components\TextInput::make('discount')
+                                    ->label('خصم التسوية')
+                                    ->numeric()
+                                    ->default(0)
+                                    ->minValue(0)
+                                    ->suffix('ج.م')
+                                    ->step(0.01),
+
+                                Forms\Components\Select::make('treasury_id')
+                                    ->label('الخزينة')
+                                    ->options(Treasury::pluck('name', 'id'))
+                                    ->required()
+                                    ->searchable()
+                                    ->default(fn () => Treasury::first()?->id),
+                            ]),
+
+                        Forms\Components\Textarea::make('notes')
+                            ->label('ملاحظات')
+                            ->maxLength(500)
+                            ->rows(3)
+                            ->columnSpanFull(),
+                    ])
+                    ->action(function (array $data, SalesInvoice $record) {
+                        $treasuryService = app(TreasuryService::class);
+
+                        $treasuryService->recordInvoicePayment(
+                            $record,
+                            floatval($data['amount']),
+                            floatval($data['discount'] ?? 0),
+                            $data['treasury_id'],
+                            $data['notes'] ?? null
+                        );
+
+                        Notification::make()
+                            ->success()
+                            ->title('تم تسجيل الدفعة بنجاح')
+                            ->body('تم إضافة الدفعة وتحديث رصيد العميل والخزينة')
+                            ->send();
+                    })
+                    ->visible(fn (SalesInvoice $record) =>
+                        $record->isPosted() &&
+                        ($record->current_remaining ?? $record->remaining_amount) > 0
+                    ),
+
                 Tables\Actions\EditAction::make()
                     ->visible(fn (SalesInvoice $record) => $record->isDraft()),
                 Tables\Actions\ViewAction::make(),
@@ -549,7 +672,22 @@ class SalesInvoiceResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->before(function ($records) {
+                            foreach ($records as $record) {
+                                if ($record->stockMovements()->exists() ||
+                                    $record->treasuryTransactions()->exists() ||
+                                    $record->payments()->exists()) {
+                                    Notification::make()
+                                        ->danger()
+                                        ->title('خطأ في الحذف')
+                                        ->body("الفاتورة {$record->invoice_number} لديها حركات مرتبطة ولا يمكن حذفها")
+                                        ->send();
+
+                                    throw new \Filament\Notifications\HaltActionException();
+                                }
+                            }
+                        }),
                 ]),
             ]);
     }
@@ -560,6 +698,13 @@ class SalesInvoiceResource extends Resource
             'index' => Pages\ListSalesInvoices::route('/'),
             'create' => Pages\CreateSalesInvoice::route('/create'),
             'edit' => Pages\EditSalesInvoice::route('/{record}/edit'),
+        ];
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            RelationManagers\PaymentsRelationManager::class,
         ];
     }
 }

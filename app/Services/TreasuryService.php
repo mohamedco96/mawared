@@ -42,18 +42,14 @@ class TreasuryService
     }
 
     /**
-     * Update partner balance from treasury transactions
+     * Update partner balance using new calculation method
+     * This recalculates from invoices, returns, and actual payments
      */
     public function updatePartnerBalance(string $partnerId): void
     {
         DB::transaction(function () use ($partnerId) {
             $partner = Partner::findOrFail($partnerId);
-            
-            // Calculate balance from all treasury transactions
-            $balance = TreasuryTransaction::where('partner_id', $partnerId)
-                ->sum('amount');
-
-            $partner->update(['current_balance' => $balance]);
+            $partner->recalculateBalance();
         });
     }
 
@@ -76,6 +72,67 @@ class TreasuryService
     }
 
     /**
+     * Record a subsequent payment on an invoice
+     *
+     * @param SalesInvoice|PurchaseInvoice $invoice
+     * @param float $amount Amount being paid
+     * @param float $discount Discount given with this payment
+     * @param string|null $treasuryId Treasury to record the transaction in
+     * @param string|null $notes Optional notes for this payment
+     * @return \App\Models\InvoicePayment
+     */
+    public function recordInvoicePayment(
+        $invoice,
+        float $amount,
+        float $discount = 0,
+        ?string $treasuryId = null,
+        ?string $notes = null
+    ): \App\Models\InvoicePayment {
+        if (!$invoice->isPosted()) {
+            throw new \Exception('Cannot record payment on draft invoice');
+        }
+
+        $treasuryId = $treasuryId ?? $this->getDefaultTreasury();
+
+        return DB::transaction(function () use ($invoice, $amount, $discount, $treasuryId, $notes) {
+            $isSales = $invoice instanceof SalesInvoice;
+            $transactionType = $isSales ? 'collection' : 'payment';
+            $transactionAmount = $isSales ? $amount : -$amount;
+
+            // Create treasury transaction for the actual cash movement
+            $treasuryTransaction = $this->recordTransaction(
+                $treasuryId,
+                $transactionType,
+                $transactionAmount,
+                ($isSales ? "تسديد فاتورة بيع " : "تسديد فاتورة شراء ") . "#{$invoice->invoice_number}",
+                $invoice->partner_id,
+                'financial_transaction',
+                null
+            );
+
+            // Create invoice payment record
+            $payment = \App\Models\InvoicePayment::create([
+                'payable_type' => get_class($invoice),
+                'payable_id' => $invoice->id,
+                'amount' => $amount,
+                'discount' => $discount,
+                'payment_date' => now(),
+                'notes' => $notes,
+                'treasury_transaction_id' => $treasuryTransaction->id,
+                'partner_id' => $invoice->partner_id,
+                'created_by' => auth()->id(),
+            ]);
+
+            // Update partner balance
+            if ($invoice->partner_id) {
+                $this->updatePartnerBalance($invoice->partner_id);
+            }
+
+            return $payment;
+        });
+    }
+
+    /**
      * Get default treasury (first treasury or create one)
      */
     private function getDefaultTreasury(): string
@@ -92,7 +149,7 @@ class TreasuryService
     }
 
     /**
-     * Post a sales invoice - creates treasury transactions
+     * Post a sales invoice - creates treasury transaction ONLY for paid_amount
      */
     public function postSalesInvoice(SalesInvoice $invoice, ?string $treasuryId = null): void
     {
@@ -104,59 +161,29 @@ class TreasuryService
 
         DB::transaction(function () use ($invoice, $treasuryId) {
             $paidAmount = floatval($invoice->paid_amount ?? 0);
-            $remainingAmount = floatval($invoice->remaining_amount ?? 0);
 
-            if ($invoice->payment_method === 'cash') {
-                // Cash payment - record paid amount only
-                if ($paidAmount > 0) {
-                    $this->recordTransaction(
-                        $treasuryId,
-                        'collection',
-                        $paidAmount,
-                        "Sales Invoice #{$invoice->invoice_number}",
-                        $invoice->partner_id,
-                        'sales_invoice',
-                        $invoice->id
-                    );
-                }
-            } else {
-                // Credit payment - record paid amount and update balance for remaining
-                if ($paidAmount > 0) {
-                    // Record cash portion if any
-                    $this->recordTransaction(
-                        $treasuryId,
-                        'collection',
-                        $paidAmount,
-                        "Sales Invoice #{$invoice->invoice_number} (Paid Portion)",
-                        $invoice->partner_id,
-                        'sales_invoice',
-                        $invoice->id
-                    );
-                }
-
-                if ($remainingAmount > 0) {
-                    // Record credit portion (affects partner balance)
-                    $this->recordTransaction(
-                        $treasuryId,
-                        'collection',
-                        $remainingAmount,
-                        "Sales Invoice #{$invoice->invoice_number} (Credit)",
-                        $invoice->partner_id,
-                        'sales_invoice',
-                        $invoice->id
-                    );
-                }
+            // ONLY create treasury transaction if actual cash was received
+            if ($paidAmount > 0) {
+                $this->recordTransaction(
+                    $treasuryId,
+                    'collection',
+                    $paidAmount,
+                    "Sales Invoice #{$invoice->invoice_number}",
+                    $invoice->partner_id,
+                    'sales_invoice',
+                    $invoice->id
+                );
             }
 
-            // Always update partner balance when there's remaining amount
-            if ($remainingAmount > 0 && $invoice->partner_id) {
+            // Update partner balance based on new calculation
+            if ($invoice->partner_id) {
                 $this->updatePartnerBalance($invoice->partner_id);
             }
         });
     }
 
     /**
-     * Post a purchase invoice - creates treasury transactions
+     * Post a purchase invoice - creates treasury transaction ONLY for paid_amount
      */
     public function postPurchaseInvoice(PurchaseInvoice $invoice, ?string $treasuryId = null): void
     {
@@ -168,59 +195,29 @@ class TreasuryService
 
         DB::transaction(function () use ($invoice, $treasuryId) {
             $paidAmount = floatval($invoice->paid_amount ?? 0);
-            $remainingAmount = floatval($invoice->remaining_amount ?? 0);
 
-            if ($invoice->payment_method === 'cash') {
-                // Cash payment - record paid amount only
-                if ($paidAmount > 0) {
-                    $this->recordTransaction(
-                        $treasuryId,
-                        'payment',
-                        -$paidAmount, // Negative for payment
-                        "Purchase Invoice #{$invoice->invoice_number}",
-                        $invoice->partner_id,
-                        'purchase_invoice',
-                        $invoice->id
-                    );
-                }
-            } else {
-                // Credit payment - record paid amount and update balance for remaining
-                if ($paidAmount > 0) {
-                    // Record cash portion if any
-                    $this->recordTransaction(
-                        $treasuryId,
-                        'payment',
-                        -$paidAmount, // Negative for payment
-                        "Purchase Invoice #{$invoice->invoice_number} (Paid Portion)",
-                        $invoice->partner_id,
-                        'purchase_invoice',
-                        $invoice->id
-                    );
-                }
-
-                if ($remainingAmount > 0) {
-                    // Record credit portion (affects partner balance)
-                    $this->recordTransaction(
-                        $treasuryId,
-                        'payment',
-                        -$remainingAmount, // Negative for payment
-                        "Purchase Invoice #{$invoice->invoice_number} (Credit)",
-                        $invoice->partner_id,
-                        'purchase_invoice',
-                        $invoice->id
-                    );
-                }
+            // ONLY create treasury transaction if actual cash was paid
+            if ($paidAmount > 0) {
+                $this->recordTransaction(
+                    $treasuryId,
+                    'payment',
+                    -$paidAmount, // Negative for payment
+                    "Purchase Invoice #{$invoice->invoice_number}",
+                    $invoice->partner_id,
+                    'purchase_invoice',
+                    $invoice->id
+                );
             }
 
-            // Always update partner balance when there's remaining amount
-            if ($remainingAmount > 0 && $invoice->partner_id) {
+            // Update partner balance based on new calculation
+            if ($invoice->partner_id) {
                 $this->updatePartnerBalance($invoice->partner_id);
             }
         });
     }
 
     /**
-     * Post a sales return - creates treasury transactions (REFUND to customer)
+     * Post a sales return - creates treasury transaction ONLY for cash refunds
      */
     public function postSalesReturn(SalesReturn $return, ?string $treasuryId = null): void
     {
@@ -231,8 +228,8 @@ class TreasuryService
         $treasuryId = $treasuryId ?? $this->getDefaultTreasury();
 
         DB::transaction(function () use ($return, $treasuryId) {
+            // ONLY create treasury transaction if cash refund
             if ($return->payment_method === 'cash') {
-                // Cash refund - create refund transaction (money leaves treasury)
                 $this->recordTransaction(
                     $treasuryId,
                     'refund',
@@ -242,28 +239,20 @@ class TreasuryService
                     'sales_return',
                     $return->id
                 );
-            } else {
-                // Credit refund - reduce partner's debt
-                $this->recordTransaction(
-                    $treasuryId,
-                    'refund',
-                    -$return->total, // NEGATIVE - reduces what customer owes us
-                    "مرتجع فاتورة بيع #{$return->return_number} (آجل)",
-                    $return->partner_id,
-                    'sales_return',
-                    $return->id
-                );
             }
 
-            // Update partner balance if credit
-            if ($return->payment_method === 'credit' && $return->partner_id) {
+            // For credit returns, no treasury transaction needed
+            // The return reduces what customer owes (calculated in Partner model)
+
+            // Update partner balance
+            if ($return->partner_id) {
                 $this->updatePartnerBalance($return->partner_id);
             }
         });
     }
 
     /**
-     * Post a purchase return - creates treasury transactions (REFUND from supplier)
+     * Post a purchase return - creates treasury transaction ONLY for cash refunds
      */
     public function postPurchaseReturn(PurchaseReturn $return, ?string $treasuryId = null): void
     {
@@ -274,8 +263,8 @@ class TreasuryService
         $treasuryId = $treasuryId ?? $this->getDefaultTreasury();
 
         DB::transaction(function () use ($return, $treasuryId) {
+            // ONLY create treasury transaction if cash refund
             if ($return->payment_method === 'cash') {
-                // Cash refund - create refund transaction (money returns to treasury)
                 $this->recordTransaction(
                     $treasuryId,
                     'refund',
@@ -285,21 +274,13 @@ class TreasuryService
                     'purchase_return',
                     $return->id
                 );
-            } else {
-                // Credit refund - reduce our debt to supplier
-                $this->recordTransaction(
-                    $treasuryId,
-                    'refund',
-                    $return->total, // POSITIVE - reduces what we owe supplier
-                    "مرتجع فاتورة شراء #{$return->return_number} (آجل)",
-                    $return->partner_id,
-                    'purchase_return',
-                    $return->id
-                );
             }
 
-            // Update partner balance if credit
-            if ($return->payment_method === 'credit' && $return->partner_id) {
+            // For credit returns, no treasury transaction needed
+            // The return reduces what we owe supplier (calculated in Partner model)
+
+            // Update partner balance
+            if ($return->partner_id) {
                 $this->updatePartnerBalance($return->partner_id);
             }
         });

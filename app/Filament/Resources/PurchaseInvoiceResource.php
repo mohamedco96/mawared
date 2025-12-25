@@ -3,8 +3,10 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\PurchaseInvoiceResource\Pages;
+use App\Filament\Resources\PurchaseInvoiceResource\RelationManagers;
 use App\Models\Product;
 use App\Models\PurchaseInvoice;
+use App\Models\Treasury;
 use App\Services\StockService;
 use App\Services\TreasuryService;
 use Filament\Forms;
@@ -45,7 +47,9 @@ class PurchaseInvoiceResource extends Resource
                             ->default(fn () => 'PI-'.now()->format('Ymd').'-'.Str::random(6))
                             ->required()
                             ->unique(ignoreRecord: true)
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->disabled()
+                            ->dehydrated(),
                         Forms\Components\Select::make('status')
                             ->label('الحالة')
                             ->options([
@@ -110,6 +114,7 @@ class PurchaseInvoiceResource extends Resource
                     ->schema([
                         Forms\Components\Repeater::make('items')
                             ->relationship('items')
+                            ->addActionLabel('إضافة صنف')
                             ->schema([
                                 Forms\Components\Select::make('product_id')
                                     ->label('المنتج')
@@ -151,10 +156,11 @@ class PurchaseInvoiceResource extends Resource
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية')
                                     ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->required()
                                     ->default(1)
                                     ->minValue(1)
-                                    ->reactive()
+                                    ->live(onBlur: true)
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $unitCost = $get('unit_cost') ?? 0;
                                         $discount = $get('discount') ?? 0;
@@ -164,9 +170,10 @@ class PurchaseInvoiceResource extends Resource
                                 Forms\Components\TextInput::make('unit_cost')
                                     ->label('تكلفة الوحدة')
                                     ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->required()
                                     ->step(0.01)
-                                    ->reactive()
+                                    ->live(onBlur: true)
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $quantity = $get('quantity') ?? 1;
                                         $discount = $get('discount') ?? 0;
@@ -176,9 +183,10 @@ class PurchaseInvoiceResource extends Resource
                                 Forms\Components\TextInput::make('discount')
                                     ->label('خصم')
                                     ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->default(0)
                                     ->step(0.01)
-                                    ->reactive()
+                                    ->live(onBlur: true)
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $unitCost = $get('unit_cost') ?? 0;
                                         $quantity = $get('quantity') ?? 1;
@@ -186,15 +194,42 @@ class PurchaseInvoiceResource extends Resource
                                     })
                                     ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
                                 Forms\Components\TextInput::make('new_selling_price')
-                                    ->label('سعر البيع الجديد')
+                                    ->label('سعر البيع الجديد (صغير)')
                                     ->helperText('إذا تم تحديده، سيتم تحديث سعر المنتج تلقائياً')
                                     ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->step(0.01)
                                     ->nullable()
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                        $productId = $get('product_id');
+                                        if ($productId && $state !== null && $state !== '') {
+                                            $product = Product::find($productId);
+                                            if ($product && $product->large_unit_id && $product->factor > 0) {
+                                                $calculatedPrice = floatval($state) * intval($product->factor);
+                                                $set('new_large_selling_price', number_format($calculatedPrice, 2, '.', ''));
+                                            }
+                                        }
+                                    })
+                                    ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
+                                Forms\Components\TextInput::make('new_large_selling_price')
+                                    ->label('سعر البيع الجديد (كبير)')
+                                    ->helperText('يتم حسابه تلقائياً (سعر الوحدة الصغيرة × معامل التحويل)، يمكن تعديله يدوياً')
+                                    ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                    ->step(0.01)
+                                    ->nullable()
+                                    ->visible(function (Get $get) {
+                                        $productId = $get('product_id');
+                                        if (!$productId) return false;
+                                        $product = Product::find($productId);
+                                        return $product && $product->large_unit_id;
+                                    })
                                     ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
                                 Forms\Components\TextInput::make('total')
                                     ->label('الإجمالي')
                                     ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->disabled()
                                     ->dehydrated(),
                             ])
@@ -239,6 +274,7 @@ class PurchaseInvoiceResource extends Resource
                                     : 'قيمة الخصم';
                             })
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->default(0)
                             ->step(0.01)
                             ->minValue(0)
@@ -257,7 +293,7 @@ class PurchaseInvoiceResource extends Resource
                                 $items = $get('items') ?? [];
                                 $subtotal = collect($items)->sum('total');
                                 $discountType = $get('discount_type') ?? 'fixed';
-                                $discountValue = $get('discount_value') ?? 0;
+                                $discountValue = floatval($get('discount_value') ?? 0);
 
                                 $totalDiscount = $discountType === 'percentage'
                                     ? $subtotal * ($discountValue / 100)
@@ -271,7 +307,7 @@ class PurchaseInvoiceResource extends Resource
                                 $items = $get('items') ?? [];
                                 $subtotal = collect($items)->sum('total');
                                 $discountType = $get('discount_type') ?? 'fixed';
-                                $discountValue = $get('discount_value') ?? 0;
+                                $discountValue = floatval($get('discount_value') ?? 0);
 
                                 $totalDiscount = $discountType === 'percentage'
                                     ? $subtotal * ($discountValue / 100)
@@ -284,6 +320,7 @@ class PurchaseInvoiceResource extends Resource
                         Forms\Components\TextInput::make('paid_amount')
                             ->label('المبلغ المدفوع')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->default(0)
                             ->step(0.01)
                             ->minValue(0)
@@ -310,6 +347,7 @@ class PurchaseInvoiceResource extends Resource
                         Forms\Components\TextInput::make('remaining_amount')
                             ->label('المبلغ المتبقي')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->default(0)
                             ->disabled()
                             ->dehydrated(),
@@ -452,10 +490,12 @@ class PurchaseInvoiceResource extends Resource
                         Forms\Components\TextInput::make('from')
                             ->label('من')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->step(0.01),
                         Forms\Components\TextInput::make('until')
                             ->label('إلى')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->step(0.01),
                     ])
                     ->query(function ($query, array $data) {
@@ -489,8 +529,13 @@ class PurchaseInvoiceResource extends Resource
 
                                 // Update product prices if new_selling_price is set
                                 foreach ($record->items as $item) {
-                                    if ($item->new_selling_price !== null) {
-                                        $stockService->updateProductPrice($item->product, $item->new_selling_price, $item->unit_type);
+                                    if ($item->new_selling_price !== null || $item->new_large_selling_price !== null) {
+                                        $stockService->updateProductPrice(
+                                            $item->product,
+                                            $item->new_selling_price,
+                                            $item->unit_type,
+                                            $item->new_large_selling_price
+                                        );
                                     }
                                 }
 
@@ -513,6 +558,73 @@ class PurchaseInvoiceResource extends Resource
                         }
                     })
                     ->visible(fn (PurchaseInvoice $record) => $record->isDraft()),
+                Tables\Actions\Action::make('add_payment')
+                    ->label('تسجيل دفعة')
+                    ->icon('heroicon-o-currency-dollar')
+                    ->color('warning')
+                    ->modalHeading('تسجيل دفعة جديدة')
+                    ->modalWidth('lg')
+                    ->form([
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\TextInput::make('amount')
+                                    ->label('المبلغ')
+                                    ->numeric()
+                                    ->required()
+                                    ->minValue(0.01)
+                                    ->suffix('ج.م')
+                                    ->step(0.01),
+
+                                Forms\Components\DatePicker::make('payment_date')
+                                    ->label('تاريخ الدفع')
+                                    ->required()
+                                    ->default(now())
+                                    ->maxDate(now()),
+
+                                Forms\Components\TextInput::make('discount')
+                                    ->label('خصم التسوية')
+                                    ->numeric()
+                                    ->default(0)
+                                    ->minValue(0)
+                                    ->suffix('ج.م')
+                                    ->step(0.01),
+
+                                Forms\Components\Select::make('treasury_id')
+                                    ->label('الخزينة')
+                                    ->options(Treasury::pluck('name', 'id'))
+                                    ->required()
+                                    ->searchable()
+                                    ->default(fn () => Treasury::first()?->id),
+                            ]),
+
+                        Forms\Components\Textarea::make('notes')
+                            ->label('ملاحظات')
+                            ->maxLength(500)
+                            ->rows(3)
+                            ->columnSpanFull(),
+                    ])
+                    ->action(function (array $data, PurchaseInvoice $record) {
+                        $treasuryService = app(TreasuryService::class);
+
+                        $treasuryService->recordInvoicePayment(
+                            $record,
+                            floatval($data['amount']),
+                            floatval($data['discount'] ?? 0),
+                            $data['treasury_id'],
+                            $data['notes'] ?? null
+                        );
+
+                        Notification::make()
+                            ->success()
+                            ->title('تم تسجيل الدفعة بنجاح')
+                            ->body('تم إضافة الدفعة وتحديث رصيد المورد والخزينة')
+                            ->send();
+                    })
+                    ->visible(fn (PurchaseInvoice $record) =>
+                        $record->isPosted() &&
+                        ($record->current_remaining ?? $record->remaining_amount) > 0
+                    ),
+
                 Tables\Actions\EditAction::make()
                     ->visible(fn (PurchaseInvoice $record) => $record->isDraft()),
                 Tables\Actions\ViewAction::make(),
@@ -521,7 +633,22 @@ class PurchaseInvoiceResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->before(function ($records) {
+                            foreach ($records as $record) {
+                                if ($record->stockMovements()->exists() ||
+                                    $record->treasuryTransactions()->exists() ||
+                                    $record->payments()->exists()) {
+                                    Notification::make()
+                                        ->danger()
+                                        ->title('خطأ في الحذف')
+                                        ->body("الفاتورة {$record->invoice_number} لديها حركات مرتبطة ولا يمكن حذفها")
+                                        ->send();
+
+                                    throw new \Filament\Notifications\HaltActionException();
+                                }
+                            }
+                        }),
                 ]),
             ]);
     }
@@ -532,6 +659,13 @@ class PurchaseInvoiceResource extends Resource
             'index' => Pages\ListPurchaseInvoices::route('/'),
             'create' => Pages\CreatePurchaseInvoice::route('/create'),
             'edit' => Pages\EditPurchaseInvoice::route('/{record}/edit'),
+        ];
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            RelationManagers\PaymentsRelationManager::class,
         ];
     }
 }

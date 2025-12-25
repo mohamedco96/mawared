@@ -44,7 +44,8 @@ class WarehouseTransferResource extends Resource
                             ->default(fn () => 'WT-'.now()->format('Ymd').'-'.Str::random(6))
                             ->required()
                             ->unique(ignoreRecord: true)
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->readOnly(fn ($context) => $context === 'edit'),
                         Forms\Components\Select::make('from_warehouse_id')
                             ->label('من المخزن')
                             ->relationship('fromWarehouse', 'name')
@@ -89,6 +90,7 @@ class WarehouseTransferResource extends Resource
                     ->schema([
                         Forms\Components\Repeater::make('items')
                             ->relationship('items')
+                            ->addActionLabel('إضافة صنف')
                             ->schema([
                                 Forms\Components\Select::make('product_id')
                                     ->label('المنتج')
@@ -126,6 +128,7 @@ class WarehouseTransferResource extends Resource
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية (بالوحدة الأساسية)')
                                     ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->required()
                                     ->minValue(1)
                                     ->reactive()

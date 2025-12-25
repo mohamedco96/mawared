@@ -39,16 +39,26 @@ class ProductResource extends Resource
                             ->maxLength(255)
                             ->columnSpanFull(),
                         Forms\Components\TextInput::make('barcode')
-                            ->label('الباركود')
+                            ->label('الباركود (الوحدة الصغيرة)')
+                            ->helperText('سيتم توليده تلقائياً إذا ترك فارغاً')
                             ->unique(ignoreRecord: true)
                             ->maxLength(255),
+                        Forms\Components\TextInput::make('large_barcode')
+                            ->label('الباركود (الوحدة الكبيرة)')
+                            ->helperText('سيتم توليده تلقائياً إذا ترك فارغاً عند اختيار وحدة كبيرة')
+                            ->unique(ignoreRecord: true)
+                            ->maxLength(255)
+                            ->visible(fn (Forms\Get $get) => $get('large_unit_id') !== null),
                         Forms\Components\TextInput::make('sku')
                             ->label('رمز المنتج')
+                            ->helperText('سيتم توليده تلقائياً إذا ترك فارغاً')
                             ->unique(ignoreRecord: true)
                             ->maxLength(255),
                         Forms\Components\TextInput::make('min_stock')
                             ->label('الحد الأدنى للمخزون')
                             ->numeric()
+                            ->inputMode('decimal')
+                            ->extraInputAttributes(['dir' => 'ltr'])
                             ->default(0)
                             ->required(),
                     ])
@@ -86,9 +96,29 @@ class ProductResource extends Resource
                             ->label('معامل التحويل')
                             ->helperText('عدد الوحدات الصغيرة في الوحدة الكبيرة')
                             ->numeric()
+                            ->inputMode('decimal')
+                            ->extraInputAttributes(['dir' => 'ltr'])
                             ->default(1)
                             ->required()
-                            ->minValue(1),
+                            ->minValue(1)
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, $state) {
+                                $largeUnitId = $get('large_unit_id');
+                                $retailPrice = $get('retail_price');
+                                $wholesalePrice = $get('wholesale_price');
+
+                                // Recalculate large unit prices when factor changes
+                                if ($largeUnitId && $state !== null && $state > 0) {
+                                    if ($retailPrice !== null && $retailPrice !== '') {
+                                        $calculatedPrice = floatval($retailPrice) * intval($state);
+                                        $set('large_retail_price', number_format($calculatedPrice, 2, '.', ''));
+                                    }
+                                    if ($wholesalePrice !== null && $wholesalePrice !== '') {
+                                        $calculatedPrice = floatval($wholesalePrice) * intval($state);
+                                        $set('large_wholesale_price', number_format($calculatedPrice, 2, '.', ''));
+                                    }
+                                }
+                            }),
                     ])
                     ->columns(3),
 
@@ -97,15 +127,39 @@ class ProductResource extends Resource
                         Forms\Components\TextInput::make('retail_price')
                             ->label('سعر التجزئة')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->default(0)
                             ->required()
-                            ->step(0.01),
+                            ->step(0.01)
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, $state) {
+                                $factor = $get('factor') ?? 1;
+                                $largeUnitId = $get('large_unit_id');
+
+                                // Auto-calculate large retail price if large unit exists
+                                if ($largeUnitId && $state !== null && $state !== '') {
+                                    $calculatedPrice = floatval($state) * intval($factor);
+                                    $set('large_retail_price', number_format($calculatedPrice, 2, '.', ''));
+                                }
+                            }),
                         Forms\Components\TextInput::make('wholesale_price')
                             ->label('سعر الجملة')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->default(0)
                             ->required()
-                            ->step(0.01),
+                            ->step(0.01)
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, $state) {
+                                $factor = $get('factor') ?? 1;
+                                $largeUnitId = $get('large_unit_id');
+
+                                // Auto-calculate large wholesale price if large unit exists
+                                if ($largeUnitId && $state !== null && $state !== '') {
+                                    $calculatedPrice = floatval($state) * intval($factor);
+                                    $set('large_wholesale_price', number_format($calculatedPrice, 2, '.', ''));
+                                }
+                            }),
                     ])
                     ->columns(2),
 
@@ -113,12 +167,16 @@ class ProductResource extends Resource
                     ->schema([
                         Forms\Components\TextInput::make('large_retail_price')
                             ->label('سعر التجزئة')
+                            ->helperText('يتم حسابه تلقائياً (سعر الوحدة الصغيرة × معامل التحويل)، يمكن تعديله يدوياً')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->step(0.01)
                             ->nullable(),
                         Forms\Components\TextInput::make('large_wholesale_price')
                             ->label('سعر الجملة')
+                            ->helperText('يتم حسابه تلقائياً (سعر الوحدة الصغيرة × معامل التحويل)، يمكن تعديله يدوياً')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->step(0.01)
                             ->nullable(),
                     ])
@@ -129,7 +187,9 @@ class ProductResource extends Resource
                     ->schema([
                         Forms\Components\TextInput::make('avg_cost')
                             ->label('متوسط التكلفة')
+                            ->helperText('يتم حسابه تلقائياً من المتوسط المرجح لتكاليف المشتريات (للوحدة الصغيرة)')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->default(0)
                             ->disabled()
                             ->dehydrated(),
@@ -226,10 +286,12 @@ class ProductResource extends Resource
                         Forms\Components\TextInput::make('from')
                             ->label('من')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->step(0.01),
                         Forms\Components\TextInput::make('until')
                             ->label('إلى')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->step(0.01),
                     ])
                     ->query(function ($query, array $data) {

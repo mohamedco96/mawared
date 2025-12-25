@@ -89,6 +89,7 @@ class SalesReturnResource extends Resource
                     ->schema([
                         Forms\Components\Repeater::make('items')
                             ->relationship('items')
+                            ->addActionLabel('إضافة صنف')
                             ->schema([
                                 Forms\Components\Select::make('product_id')
                                     ->label('المنتج')
@@ -150,6 +151,7 @@ class SalesReturnResource extends Resource
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية')
                                     ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->required()
                                     ->default(1)
                                     ->minValue(1)
@@ -163,6 +165,7 @@ class SalesReturnResource extends Resource
                                 Forms\Components\TextInput::make('unit_price')
                                     ->label('سعر الوحدة')
                                     ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->required()
                                     ->step(0.01)
                                     ->reactive()
@@ -175,6 +178,7 @@ class SalesReturnResource extends Resource
                                 Forms\Components\TextInput::make('discount')
                                     ->label('الخصم')
                                     ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->default(0)
                                     ->step(0.01)
                                     ->reactive()
@@ -187,6 +191,7 @@ class SalesReturnResource extends Resource
                                 Forms\Components\TextInput::make('total')
                                     ->label('الإجمالي')
                                     ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->disabled()
                                     ->dehydrated(),
                                 Forms\Components\Placeholder::make('stock_info')
@@ -234,6 +239,7 @@ class SalesReturnResource extends Resource
                         Forms\Components\TextInput::make('discount')
                             ->label('إجمالي الخصم')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->default(0)
                             ->step(0.01)
                             ->reactive()
@@ -255,7 +261,7 @@ class SalesReturnResource extends Resource
                                 foreach ($items as $item) {
                                     $subtotal += $item['total'] ?? 0;
                                 }
-                                $discount = $get('discount') ?? 0;
+                                $discount = floatval($get('discount') ?? 0);
                                 $total = $subtotal - $discount;
 
                                 return number_format($total, 2);
@@ -355,10 +361,12 @@ class SalesReturnResource extends Resource
                         Forms\Components\TextInput::make('from')
                             ->label('من')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->step(0.01),
                         Forms\Components\TextInput::make('until')
                             ->label('إلى')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->step(0.01),
                     ])
                     ->query(function ($query, array $data) {

@@ -54,10 +54,12 @@ class StockMovementResource extends Resource
                 Forms\Components\TextInput::make('quantity')
                     ->label('الكمية')
                     ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                     ->required(),
                 Forms\Components\TextInput::make('cost_at_time')
                     ->label('التكلفة')
                     ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                     ->step(0.01)
                     ->required(),
                 Forms\Components\Textarea::make('notes')

@@ -74,7 +74,28 @@ class SalesInvoice extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function payments(): MorphMany
+    {
+        return $this->morphMany(InvoicePayment::class, 'payable');
+    }
+
     // Helper Methods
+
+    /**
+     * Get total amount paid on this invoice (initial + subsequent payments)
+     */
+    public function getTotalPaidAttribute(): float
+    {
+        return floatval($this->paid_amount) + $this->payments()->sum('amount');
+    }
+
+    /**
+     * Get current remaining balance on this invoice
+     */
+    public function getCurrentRemainingAttribute(): float
+    {
+        return floatval($this->total) - $this->total_paid;
+    }
     public function isPosted(): bool
     {
         return $this->status === 'posted';
@@ -135,8 +156,18 @@ class SalesInvoice extends Model
         });
 
         static::deleting(function (SalesInvoice $invoice) {
+            // Check for related records using efficient exists() queries
+            $hasStockMovements = $invoice->stockMovements()->exists();
+            $hasTreasuryTransactions = $invoice->treasuryTransactions()->exists();
+            $hasPayments = $invoice->payments()->exists();
+
+            if ($hasStockMovements || $hasTreasuryTransactions || $hasPayments) {
+                throw new \Exception('لا يمكن حذف الفاتورة لوجود حركات مخزون أو خزينة أو مدفوعات مرتبطة بها. استخدم المرتجعات بدلاً من ذلك.');
+            }
+
+            // Fallback check for posted status
             if ($invoice->isPosted()) {
-                throw new \Exception('Cannot delete a posted invoice');
+                throw new \Exception('لا يمكن حذف فاتورة مؤكدة');
             }
         });
     }

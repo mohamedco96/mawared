@@ -20,6 +20,7 @@ class PurchaseInvoiceItem extends Model
         'discount',
         'total',
         'new_selling_price',
+        'new_large_selling_price',
     ];
 
     protected function casts(): array
@@ -30,6 +31,7 @@ class PurchaseInvoiceItem extends Model
             'discount' => 'decimal:2',
             'total' => 'decimal:2',
             'new_selling_price' => 'decimal:2',
+            'new_large_selling_price' => 'decimal:2',
         ];
     }
 

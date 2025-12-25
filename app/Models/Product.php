@@ -15,6 +15,7 @@ class Product extends Model
     protected $fillable = [
         'name',
         'barcode',
+        'large_barcode',
         'sku',
         'min_stock',
         'avg_cost',
@@ -58,5 +59,46 @@ class Product extends Model
             return $quantity * $this->factor;
         }
         return $quantity;
+    }
+
+    // Model Events
+    protected static function booted(): void
+    {
+        static::creating(function (Product $product) {
+            // Auto-generate barcode if null
+            if (empty($product->barcode)) {
+                $product->barcode = self::generateUniqueCode('barcode');
+            }
+
+            // Auto-generate SKU if null
+            if (empty($product->sku)) {
+                $product->sku = self::generateUniqueCode('sku');
+            }
+
+            // Auto-generate large_barcode if large_unit_id is set but large_barcode is null
+            if ($product->large_unit_id && empty($product->large_barcode)) {
+                $product->large_barcode = self::generateUniqueCode('large_barcode');
+            }
+        });
+
+        static::updating(function (Product $product) {
+            // Auto-generate large_barcode if large_unit_id is newly set but large_barcode is still null
+            if ($product->large_unit_id && empty($product->large_barcode)) {
+                $product->large_barcode = self::generateUniqueCode('large_barcode');
+            }
+        });
+    }
+
+    /**
+     * Generate a unique code for barcode, sku, or large_barcode
+     */
+    private static function generateUniqueCode(string $field): string
+    {
+        do {
+            // Generate a random 10-character alphanumeric code
+            $code = strtoupper(substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 10));
+        } while (self::where($field, $code)->exists());
+
+        return $code;
     }
 }

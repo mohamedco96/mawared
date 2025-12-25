@@ -89,6 +89,7 @@ class PurchaseReturnResource extends Resource
                     ->schema([
                         Forms\Components\Repeater::make('items')
                             ->relationship('items')
+                            ->addActionLabel('إضافة صنف')
                             ->schema([
                                 Forms\Components\Select::make('product_id')
                                     ->label('المنتج')
@@ -106,6 +107,12 @@ class PurchaseReturnResource extends Resource
                                                 $set('discount', 0);
                                                 $set('total', $product->avg_cost);
                                             }
+                                        }
+
+                                        // Trigger quantity re-validation when product changes
+                                        $quantity = $get('quantity');
+                                        if ($quantity) {
+                                            $set('quantity', $quantity);
                                         }
                                     })
                                     ->disabled(fn ($record) => $record && $record->purchaseReturn && $record->purchaseReturn->isPosted()),
@@ -127,23 +134,62 @@ class PurchaseReturnResource extends Resource
                                     ->default('small')
                                     ->required()
                                     ->reactive()
+                                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                        // Trigger quantity re-validation when unit type changes
+                                        $quantity = $get('quantity');
+                                        if ($quantity) {
+                                            $set('quantity', $quantity);
+                                        }
+                                    })
                                     ->disabled(fn ($record) => $record && $record->purchaseReturn && $record->purchaseReturn->isPosted()),
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية')
                                     ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->required()
                                     ->default(1)
                                     ->minValue(1)
-                                    ->reactive()
+                                    ->live(debounce: 500)
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $unitCost = $get('unit_cost') ?? 0;
                                         $discount = $get('discount') ?? 0;
                                         $set('total', ($unitCost * $state) - $discount);
                                     })
+                                    ->rules([
+                                        fn (Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                            $productId = $get('product_id');
+                                            $warehouseId = $get('../../warehouse_id');
+                                            $unitType = $get('unit_type') ?? 'small';
+
+                                            if (!$productId || !$warehouseId || !$value) {
+                                                return;
+                                            }
+
+                                            $product = \App\Models\Product::find($productId);
+                                            if (!$product) {
+                                                return;
+                                            }
+
+                                            $stockService = app(\App\Services\StockService::class);
+                                            $baseQuantity = $stockService->convertToBaseUnit($product, intval($value), $unitType);
+
+                                            $validation = $stockService->getStockValidationMessage(
+                                                $warehouseId,
+                                                $productId,
+                                                $baseQuantity,
+                                                $unitType
+                                            );
+
+                                            if (!$validation['is_available']) {
+                                                $fail($validation['message']);
+                                            }
+                                        },
+                                    ])
                                     ->disabled(fn ($record) => $record && $record->purchaseReturn && $record->purchaseReturn->isPosted()),
                                 Forms\Components\TextInput::make('unit_cost')
                                     ->label('التكلفة')
                                     ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->required()
                                     ->step(0.01)
                                     ->reactive()
@@ -156,6 +202,7 @@ class PurchaseReturnResource extends Resource
                                 Forms\Components\TextInput::make('discount')
                                     ->label('الخصم')
                                     ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->default(0)
                                     ->step(0.01)
                                     ->reactive()
@@ -168,6 +215,7 @@ class PurchaseReturnResource extends Resource
                                 Forms\Components\TextInput::make('total')
                                     ->label('الإجمالي')
                                     ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->disabled()
                                     ->dehydrated(),
                             ])
@@ -194,6 +242,7 @@ class PurchaseReturnResource extends Resource
                         Forms\Components\TextInput::make('discount')
                             ->label('إجمالي الخصم')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->default(0)
                             ->step(0.01)
                             ->reactive()
@@ -215,7 +264,7 @@ class PurchaseReturnResource extends Resource
                                 foreach ($items as $item) {
                                     $subtotal += $item['total'] ?? 0;
                                 }
-                                $discount = $get('discount') ?? 0;
+                                $discount = floatval($get('discount') ?? 0);
                                 $total = $subtotal - $discount;
 
                                 return number_format($total, 2);
@@ -315,10 +364,12 @@ class PurchaseReturnResource extends Resource
                         Forms\Components\TextInput::make('from')
                             ->label('من')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->step(0.01),
                         Forms\Components\TextInput::make('until')
                             ->label('إلى')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->step(0.01),
                     ])
                     ->query(function ($query, array $data) {

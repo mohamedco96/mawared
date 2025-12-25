@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filament Debug Test</title>
+    <style>
+        body {
+            font-family: 'Cairo', Arial, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            margin: 20px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 18px;
+            box-sizing: border-box;
+        }
+        .info {
+            background: #e0f2f1;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .console-log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            padding: 2px 0;
+            border-bottom: 1px solid #333;
+        }
+        button {
+            background: #0d9488;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #0f766e;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔍 اختبار تصحيح أخطاء Filament</h1>
+
+        <div class="info">
+            <strong>هذه الصفحة للتشخيص:</strong>
+            <p>اضغط على زر "تفعيل وضع التصحيح" ثم حاول الكتابة في الحقول أدناه باستخدام لوحة المفاتيح العربية.</p>
+        </div>
+
+        <button onclick="enableDebug()">تفعيل وضع التصحيح</button>
+        <button onclick="clearLogs()">مسح السجلات</button>
+
+        <div class="input-group">
+            <label>حقل نصي (dir="ltr" + inputmode="decimal"):</label>
+            <input type="text" dir="ltr" inputmode="decimal" placeholder="اكتب أرقام عربية هنا" id="test1">
+        </div>
+
+        <div class="input-group">
+            <label>حقل نصي (dir="ltr" فقط):</label>
+            <input type="text" dir="ltr" placeholder="اكتب أرقام عربية هنا" id="test2">
+        </div>
+
+        <div class="input-group">
+            <label>حقل رقمي (type="number"):</label>
+            <input type="number" step="0.01" placeholder="اكتب أرقام عربية هنا" id="test3">
+        </div>
+
+        <h3>سجل وحدة التحكم:</h3>
+        <div class="console-log" id="console-output">
+            <div class="log-entry">في انتظار الأحداث...</div>
+        </div>
+    </div>
+
+    <script>
+        // Custom console logger
+        let logs = [];
+        const consoleOutput = document.getElementById('console-output');
+
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString('ar-EG');
+            const logEntry = `[${timestamp}] ${type}: ${message}`;
+            logs.push(logEntry);
+
+            const div = document.createElement('div');
+            div.className = 'log-entry';
+            div.style.color = type === 'error' ? '#ff6b6b' : type === 'success' ? '#51cf66' : '#d4d4d4';
+            div.textContent = logEntry;
+
+            consoleOutput.appendChild(div);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+
+        function clearLogs() {
+            logs = [];
+            consoleOutput.innerHTML = '<div class="log-entry">السجلات تم مسحها...</div>';
+        }
+
+        function enableDebug() {
+            addLog('وضع التصحيح مفعل! جرب الكتابة في الحقول أعلاه.', 'success');
+        }
+
+        // Monitor all input events
+        document.addEventListener('keydown', function(e) {
+            if (e.target.tagName === 'INPUT') {
+                const key = e.key;
+                const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+                const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+
+                if (arabicDigits.includes(key) || persianDigits.includes(key)) {
+                    addLog(`keydown: الزر المضغوط = "${key}" | الحقل = ${e.target.id || 'unknown'}`, 'info');
+                }
+            }
+        }, true);
+
+        document.addEventListener('input', function(e) {
+            if (e.target.tagName === 'INPUT') {
+                addLog(`input: القيمة = "${e.target.value}" | الحقل = ${e.target.id || 'unknown'}`, 'info');
+            }
+        }, true);
+
+        // Monitor if our script is loaded
+        window.addEventListener('DOMContentLoaded', function() {
+            addLog('DOMContentLoaded: الصفحة جاهزة', 'success');
+        });
+
+        // Check if Livewire is present
+        setTimeout(() => {
+            if (window.Livewire) {
+                addLog('Livewire موجود في الصفحة', 'success');
+            } else {
+                addLog('Livewire غير موجود (هذا طبيعي في صفحة الاختبار)', 'info');
+            }
+        }, 1000);
+    </script>
+
+    <!-- Load the Arabic converter script -->
+    <script src="/js/filament/fix-arabic-numbers.js"></script>
+
+    <script>
+        // Verify the script loaded
+        setTimeout(() => {
+            addLog('تم تحميل سكريبت التحويل', 'success');
+        }, 100);
+    </script>
+</body>
+</html>

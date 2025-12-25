@@ -62,6 +62,8 @@ class StockAdjustmentResource extends Resource
                         Forms\Components\Select::make('type')
                             ->label('نوع التسوية')
                             ->options([
+                                'addition' => 'إضافة',
+                                'subtraction' => 'خصم',
                                 'damage' => 'تالف',
                                 'opening' => 'افتتاحي',
                                 'gift' => 'هدية',
@@ -69,13 +71,39 @@ class StockAdjustmentResource extends Resource
                             ])
                             ->required()
                             ->native(false)
-                            ->disabled(fn ($record) => $record && $record->isPosted()),
+                            ->disabled(fn ($record) => $record && $record->isPosted())
+                            ->live(),
                         Forms\Components\TextInput::make('quantity')
                             ->label('الكمية')
-                            ->helperText('قيمة موجبة للإضافة، قيمة سالبة للخصم (بالوحدة الأساسية)')
+                            ->helperText('أدخل الكمية كرقم موجب (بالوحدة الأساسية)')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->required()
-                            ->disabled(fn ($record) => $record && $record->isPosted()),
+                            ->minValue(0)
+                            ->disabled(fn ($record) => $record && $record->isPosted())
+                            ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, $state) {
+                                // Convert negative to positive
+                                if ($state !== null && floatval($state) < 0) {
+                                    $set('quantity', abs(floatval($state)));
+                                }
+                            })
+                            ->rules([
+                                fn (Forms\Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                    $type = $get('type');
+                                    $warehouseId = $get('warehouse_id');
+                                    $productId = $get('product_id');
+
+                                    // For subtraction/damage/gift types, validate stock availability
+                                    if (in_array($type, ['subtraction', 'damage', 'gift']) && $warehouseId && $productId && $value > 0) {
+                                        $stockService = app(\App\Services\StockService::class);
+                                        $currentStock = $stockService->getCurrentStock($warehouseId, $productId);
+
+                                        if ($value > $currentStock) {
+                                            $fail("الكمية المطلوبة ({$value}) أكبر من المخزون المتاح ({$currentStock})");
+                                        }
+                                    }
+                                },
+                            ]),
                         Forms\Components\Textarea::make('notes')
                             ->label('ملاحظات')
                             ->rows(3)
@@ -100,6 +128,8 @@ class StockAdjustmentResource extends Resource
                 Tables\Columns\TextColumn::make('type')
                     ->label('النوع')
                     ->formatStateUsing(fn (string $state): string => match($state) {
+                        'addition' => 'إضافة',
+                        'subtraction' => 'خصم',
                         'damage' => 'تالف',
                         'opening' => 'افتتاحي',
                         'gift' => 'هدية',
@@ -108,8 +138,10 @@ class StockAdjustmentResource extends Resource
                     })
                     ->badge()
                     ->color(fn (string $state): string => match($state) {
+                        'addition' => 'success',
+                        'subtraction' => 'warning',
                         'damage' => 'danger',
-                        'opening' => 'success',
+                        'opening' => 'info',
                         'gift' => 'info',
                         default => 'gray',
                     }),
@@ -117,7 +149,16 @@ class StockAdjustmentResource extends Resource
                     ->label('الكمية')
                     ->sortable()
                     ->badge()
-                    ->color(fn ($state) => $state >= 0 ? 'success' : 'danger'),
+                    ->formatStateUsing(function ($state, $record) {
+                        // Display with direction indicator based on type
+                        $subtractionTypes = ['subtraction', 'damage', 'gift'];
+                        $prefix = in_array($record->type, $subtractionTypes) ? '-' : '+';
+                        return $prefix . abs($state);
+                    })
+                    ->color(function ($record) {
+                        $subtractionTypes = ['subtraction', 'damage', 'gift'];
+                        return in_array($record->type, $subtractionTypes) ? 'danger' : 'success';
+                    }),
                 Tables\Columns\TextColumn::make('status')
                     ->label('الحالة')
                     ->formatStateUsing(fn (string $state): string => $state === 'draft' ? 'مسودة' : 'مؤكدة')
@@ -139,6 +180,8 @@ class StockAdjustmentResource extends Resource
                 Tables\Filters\SelectFilter::make('type')
                     ->label('النوع')
                     ->options([
+                        'addition' => 'إضافة',
+                        'subtraction' => 'خصم',
                         'damage' => 'تالف',
                         'opening' => 'افتتاحي',
                         'gift' => 'هدية',

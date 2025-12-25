@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arabic Number Converter Test</title>
+    <style>
+        body {
+            font-family: 'Cairo', Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #0d9488;
+        }
+        .info {
+            background: #e0f2f1;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            border-left: 4px solid #0d9488;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            border-left: 4px solid #28a745;
+        }
+        .note {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff3cd;
+            border-radius: 4px;
+            border-left: 4px solid #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔢 اختبار محول الأرقام العربية</h1>
+
+        <div class="info">
+            <strong>التعليمات:</strong>
+            <p>جرب كتابة الأرقام العربية (٠١٢٣٤٥٦٧٨٩) في الحقول أدناه. سيتم تحويلها تلقائياً إلى أرقام إنجليزية (0123456789).</p>
+        </div>
+
+        <div class="input-group">
+            <label>حقل رقمي عادي (type="number") - الآن يعمل! 🎉:</label>
+            <input type="number" placeholder="اكتب أرقام عربية هنا" step="0.01">
+        </div>
+
+        <div class="input-group">
+            <label>حقل نصي مع inputmode="decimal":</label>
+            <input type="text" inputmode="decimal" dir="ltr" placeholder="اكتب أرقام عربية هنا">
+        </div>
+
+        <div class="input-group">
+            <label>حقل نصي مع dir="ltr":</label>
+            <input type="text" dir="ltr" placeholder="اكتب أرقام عربية هنا">
+        </div>
+
+        <div class="input-group">
+            <label>حقل السعر (مثال واقعي):</label>
+            <input type="text" inputmode="decimal" dir="ltr" placeholder="0.00" step="0.01">
+        </div>
+
+        <div class="success">
+            ✅ <strong>النجاح:</strong> إذا رأيت الأرقام الإنجليزية تظهر تلقائياً عند الكتابة، فإن المحول يعمل بشكل صحيح!
+        </div>
+
+        <div class="note">
+            <strong>ملاحظة:</strong>
+            <ul>
+                <li>يدعم الأرقام العربية الشرقية: ٠١٢٣٤٥٦٧٨٩</li>
+                <li>يدعم الأرقام الفارسية: ۰۱۲۳۴۵۶۷۸۹</li>
+                <li>يعمل مع النسخ واللصق أيضاً</li>
+                <li>يحافظ على موضع المؤشر أثناء الكتابة</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="/js/filament/fix-arabic-numbers.js"></script>
+</body>
+</html>

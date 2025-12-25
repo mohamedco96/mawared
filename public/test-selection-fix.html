@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test: Selection Overwrite Fix</title>
+    <style>
+        body {
+            font-family: 'Cairo', Arial, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .test-case {
+            background: #f8f9fa;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+            border-left: 4px solid #0d9488;
+        }
+        .test-case h3 {
+            margin-top: 0;
+            color: #0d9488;
+        }
+        .input-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 18px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #0d9488;
+        }
+        .instructions {
+            background: #e0f2f1;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .instructions ol {
+            margin: 10px 0;
+            padding-right: 20px;
+        }
+        .instructions li {
+            margin: 8px 0;
+        }
+        .expected {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            border-right: 3px solid #ffc107;
+        }
+        .success-criteria {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            border-left: 4px solid #28a745;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔍 اختبار إصلاح استبدال النص المحدد</h1>
+
+        <div class="instructions">
+            <strong>الهدف من الاختبار:</strong>
+            <p>التأكد من أن الكتابة فوق النص المحدد (selected text) تعمل بشكل صحيح عند استخدام الأرقام العربية.</p>
+        </div>
+
+        <div class="test-case">
+            <h3>اختبار 1: استبدال النص المحدد بالكامل</h3>
+            <div class="input-group">
+                <label>حقل نصي (dir="ltr"):</label>
+                <input type="text" dir="ltr" value="12345" id="test1">
+            </div>
+            <div class="instructions">
+                <strong>خطوات الاختبار:</strong>
+                <ol>
+                    <li>حدد كل النص في الحقل أعلاه (اضغط Ctrl+A أو Command+A)</li>
+                    <li>اكتب رقم عربي واحد، مثل: <code>٥</code></li>
+                    <li><strong>النتيجة المتوقعة:</strong> يجب أن يظهر <code>5</code> فقط (استبدال كامل)</li>
+                    <li><strong>الخطأ السابق:</strong> كان يظهر <code>123455</code> (إضافة بدلاً من الاستبدال)</li>
+                </ol>
+            </div>
+            <div class="expected">
+                ✅ <strong>النجاح:</strong> إذا ظهر <code>5</code> فقط بعد الكتابة، فالإصلاح يعمل!
+            </div>
+        </div>
+
+        <div class="test-case">
+            <h3>اختبار 2: استبدال جزء محدد من النص</h3>
+            <div class="input-group">
+                <label>حقل نصي (inputmode="decimal"):</label>
+                <input type="text" inputmode="decimal" dir="ltr" value="1000.50" id="test2">
+            </div>
+            <div class="instructions">
+                <strong>خطوات الاختبار:</strong>
+                <ol>
+                    <li>حدد الجزء <code>000</code> فقط من الرقم (الأصفار الثلاثة في المنتصف)</li>
+                    <li>اكتب رقم عربي واحد، مثل: <code>٢</code></li>
+                    <li><strong>النتيجة المتوقعة:</strong> يجب أن يصبح الرقم <code>12.50</code></li>
+                    <li><strong>الخطأ السابق:</strong> كان يظهر <code>10002.50</code> (إضافة بدلاً من الاستبدال)</li>
+                </ol>
+            </div>
+            <div class="expected">
+                ✅ <strong>النجاح:</strong> إذا ظهر <code>12.50</code> بعد الكتابة، فالإصلاح يعمل!
+            </div>
+        </div>
+
+        <div class="test-case">
+            <h3>اختبار 3: استبدال نص محدد بعدة أرقام</h3>
+            <div class="input-group">
+                <label>حقل نصي (dir="ltr"):</label>
+                <input type="text" dir="ltr" value="999" id="test3">
+            </div>
+            <div class="instructions">
+                <strong>خطوات الاختبار:</strong>
+                <ol>
+                    <li>حدد كل النص <code>999</code></li>
+                    <li>اكتب عدة أرقام عربية متتالية، مثل: <code>١٢٣</code></li>
+                    <li><strong>النتيجة المتوقعة:</strong> يجب أن يصبح <code>123</code></li>
+                    <li>يجب أن يتم استبدال النص تدريجياً: <code>1</code> ثم <code>12</code> ثم <code>123</code></li>
+                </ol>
+            </div>
+            <div class="expected">
+                ✅ <strong>النجاح:</strong> إذا ظهر <code>123</code> بعد الكتابة، فالإصلاح يعمل!
+            </div>
+        </div>
+
+        <div class="test-case">
+            <h3>اختبار 4: الإضافة بدون تحديد (السلوك العادي)</h3>
+            <div class="input-group">
+                <label>حقل نصي (dir="ltr"):</label>
+                <input type="text" dir="ltr" value="100" id="test4">
+            </div>
+            <div class="instructions">
+                <strong>خطوات الاختبار:</strong>
+                <ol>
+                    <li>اضغط داخل الحقل بعد الرقم <code>100</code> (بدون تحديد أي نص)</li>
+                    <li>اكتب رقم عربي، مثل: <code>٥</code></li>
+                    <li><strong>النتيجة المتوقعة:</strong> يجب أن يصبح <code>1005</code> (إضافة في نهاية النص)</li>
+                </ol>
+            </div>
+            <div class="expected">
+                ✅ <strong>النجاح:</strong> إذا ظهر <code>1005</code>، فالسلوك العادي يعمل بشكل صحيح!
+            </div>
+        </div>
+
+        <div class="test-case">
+            <h3>اختبار 5: الإضافة في المنتصف بدون تحديد</h3>
+            <div class="input-group">
+                <label>حقل نصي (dir="ltr"):</label>
+                <input type="text" dir="ltr" value="1000" id="test5">
+            </div>
+            <div class="instructions">
+                <strong>خطوات الاختبار:</strong>
+                <ol>
+                    <li>اضغط داخل الحقل بين الرقمين (مثلاً بعد <code>10</code>)</li>
+                    <li>اكتب رقم عربي، مثل: <code>٧</code></li>
+                    <li><strong>النتيجة المتوقعة:</strong> يجب أن يصبح <code>10700</code></li>
+                    <li>يجب أن يبقى المؤشر بعد الرقم المُدخل</li>
+                </ol>
+            </div>
+            <div class="expected">
+                ✅ <strong>النجاح:</strong> إذا ظهر <code>10700</code> والمؤشر في المكان الصحيح، فالإصلاح يعمل!
+            </div>
+        </div>
+
+        <div class="test-case">
+            <h3>اختبار 6: النسخ واللصق مع نص محدد</h3>
+            <div class="input-group">
+                <label>حقل نصي (dir="ltr"):</label>
+                <input type="text" dir="ltr" value="5555" id="test6">
+            </div>
+            <div class="instructions">
+                <strong>خطوات الاختبار:</strong>
+                <ol>
+                    <li>انسخ هذا النص العربي: <code>٩٨٧</code></li>
+                    <li>حدد كل النص في الحقل أعلاه</li>
+                    <li>الصق النص المنسوخ (Ctrl+V أو Command+V)</li>
+                    <li><strong>النتيجة المتوقعة:</strong> يجب أن يصبح <code>987</code></li>
+                </ol>
+            </div>
+            <div class="expected">
+                ✅ <strong>النجاح:</strong> إذا ظهر <code>987</code> بعد اللصق، فالنسخ واللصق يعمل!
+            </div>
+        </div>
+
+        <div class="success-criteria">
+            <strong>✅ معايير النجاح الكاملة:</strong>
+            <ul>
+                <li>عند تحديد نص وكتابة رقم عربي، يجب استبدال النص المحدد (ليس الإضافة)</li>
+                <li>عند الكتابة بدون تحديد، يجب الإضافة في موضع المؤشر (السلوك العادي)</li>
+                <li>المؤشر يجب أن يبقى في الموضع الصحيح بعد الإدخال</li>
+                <li>النسخ واللصق يعمل بشكل صحيح مع النص المحدد</li>
+                <li>تحويل الأرقام العربية إلى إنجليزية يعمل في جميع الحالات</li>
+            </ul>
+        </div>
+
+    </div>
+
+    <script src="/js/filament/fix-arabic-numbers.js"></script>
+</body>
+</html>

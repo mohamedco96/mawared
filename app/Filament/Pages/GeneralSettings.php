@@ -45,6 +45,7 @@ class GeneralSettings extends Page implements HasForms
                         Forms\Components\TextInput::make('fixed_assets_value')
                             ->label('أصول ثابتة')
                             ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->default(0)
                             ->required()
                             ->prefix('ج.م')
