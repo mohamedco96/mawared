@@ -85,11 +85,11 @@ class DailyOperations extends Page implements HasTable
         return match($this->activeTab) {
             'sales' => TreasuryTransaction::query()
                 ->where('type', 'collection')
-                ->with(['treasury', 'partner', 'reference']),
+                ->with(['treasury', 'partner']),
             'cashflow' => TreasuryTransaction::query()
-                ->with(['treasury', 'partner', 'reference']),
+                ->with(['treasury', 'partner']),
             'stock' => StockMovement::query()
-                ->with(['warehouse', 'product', 'reference']),
+                ->with(['warehouse', 'product']),
             default => TreasuryTransaction::query(),
         };
     }

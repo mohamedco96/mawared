@@ -120,12 +120,12 @@ class PaymentsRelationManager extends RelationManager
                     ->modalHeading('تسجيل دفعة جديدة')
                     ->modalWidth('lg')
                     // Override the default create behavior to use TreasuryService
-                    ->using(function (array $data, RelationManager $livewire): void {
+                    ->using(function (array $data, RelationManager $livewire) {
                         $invoice = $livewire->getOwnerRecord();
                         $treasuryService = app(TreasuryService::class);
 
                         // Call the service to handle payment creation
-                        $treasuryService->recordInvoicePayment(
+                        return $treasuryService->recordInvoicePayment(
                             $invoice,
                             floatval($data['amount']),
                             floatval($data['discount'] ?? 0),

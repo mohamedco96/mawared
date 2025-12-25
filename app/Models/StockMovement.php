@@ -28,7 +28,7 @@ class StockMovement extends Model
     {
         return [
             'quantity' => 'integer',
-            'cost_at_time' => 'decimal:4',
+            'cost_at_time' => 'decimal:2',
         ];
     }
 

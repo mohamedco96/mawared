@@ -112,7 +112,7 @@ class TreasuryService
 
             // Create invoice payment record
             $payment = \App\Models\InvoicePayment::create([
-                'payable_type' => get_class($invoice),
+                'payable_type' => $invoice->getMorphClass(),
                 'payable_id' => $invoice->id,
                 'amount' => $amount,
                 'discount' => $discount,

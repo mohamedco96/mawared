@@ -28,8 +28,8 @@ class InvoicePayment extends Model
     protected function casts(): array
     {
         return [
-            'amount' => 'decimal:4',
-            'discount' => 'decimal:4',
+            'amount' => 'decimal:2',
+            'discount' => 'decimal:2',
             'payment_date' => 'date',
         ];
     }
