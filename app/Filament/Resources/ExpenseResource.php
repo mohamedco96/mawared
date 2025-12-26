@@ -7,6 +7,7 @@ use App\Models\Expense;
 use App\Services\TreasuryService;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -157,11 +158,26 @@ class ExpenseResource extends Resource
                     ->visible(fn (Expense $record) => !$record->treasuryTransactions()->exists()),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\ViewAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn (Expense $record) => !$record->treasuryTransactions()->exists()),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->action(function ($records) {
+                            $postedRecords = $records->filter(fn ($r) => $r->treasuryTransactions()->exists());
+                            $draftRecords = $records->filter(fn ($r) => !$r->treasuryTransactions()->exists());
+
+                            if ($postedRecords->count() > 0) {
+                                Notification::make()
+                                    ->warning()
+                                    ->title('تحذير')
+                                    ->body("تم تجاهل {$postedRecords->count()} مصروف مسجل. يمكن حذف المصروفات غير المسجلة فقط.")
+                                    ->send();
+                            }
+
+                            $draftRecords->each->delete();
+                        }),
                 ]),
             ])
             ->defaultSort('expense_date', 'desc');

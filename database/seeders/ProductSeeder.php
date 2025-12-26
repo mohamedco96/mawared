@@ -21,6 +21,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'طبق تقديم دائري 30 سم',
                 'barcode' => '6111000001001',
+                'large_barcode' => '6111000001001C',
                 'sku' => 'PLATE-ROUND-30',
                 'min_stock' => 50,
                 'avg_cost' => 15.00,
@@ -35,6 +36,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'صحن طعام سيراميك 25 سم',
                 'barcode' => '6111000001002',
+                'large_barcode' => '6111000001002C',
                 'sku' => 'PLATE-CERAMIC-25',
                 'min_stock' => 100,
                 'avg_cost' => 12.00,
@@ -49,6 +51,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'صحن حلويات زجاج 20 سم',
                 'barcode' => '6111000001003',
+                'large_barcode' => '6111000001003C',
                 'sku' => 'PLATE-GLASS-20',
                 'min_stock' => 80,
                 'avg_cost' => 8.00,
@@ -65,6 +68,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'كوب شاي زجاج شفاف',
                 'barcode' => '6111000002001',
+                'large_barcode' => '6111000002001C',
                 'sku' => 'CUP-TEA-GLASS',
                 'min_stock' => 150,
                 'avg_cost' => 5.00,
@@ -79,6 +83,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'فنجان قهوة سيراميك',
                 'barcode' => '6111000002002',
+                'large_barcode' => '6111000002002C',
                 'sku' => 'CUP-COFFEE-CERAMIC',
                 'min_stock' => 100,
                 'avg_cost' => 8.00,
@@ -93,6 +98,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'كوب ماء زجاج 250 مل',
                 'barcode' => '6111000002003',
+                'large_barcode' => '6111000002003C',
                 'sku' => 'GLASS-WATER-250',
                 'min_stock' => 200,
                 'avg_cost' => 4.00,
@@ -109,6 +115,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'طنجرة ضغط ستانلس 7 لتر',
                 'barcode' => '6111000003001',
+                'large_barcode' => '6111000003001C',
                 'sku' => 'POT-PRESSURE-7L',
                 'min_stock' => 20,
                 'avg_cost' => 180.00,
@@ -123,6 +130,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'مقلاة تيفال 28 سم',
                 'barcode' => '6111000003002',
+                'large_barcode' => '6111000003002C',
                 'sku' => 'PAN-TEFAL-28',
                 'min_stock' => 30,
                 'avg_cost' => 85.00,
@@ -137,6 +145,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'حلة طبخ ألومنيوم 5 لتر',
                 'barcode' => '6111000003003',
+                'large_barcode' => '6111000003003C',
                 'sku' => 'POT-ALUMINUM-5L',
                 'min_stock' => 40,
                 'avg_cost' => 45.00,
@@ -153,6 +162,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'طقم ملاعق ستانلس 6 قطع',
                 'barcode' => '6111000004001',
+                'large_barcode' => '6111000004001C',
                 'sku' => 'SPOON-SET-6PC',
                 'min_stock' => 60,
                 'avg_cost' => 35.00,
@@ -167,6 +177,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'طقم شوك ستانلس 6 قطع',
                 'barcode' => '6111000004002',
+                'large_barcode' => '6111000004002C',
                 'sku' => 'FORK-SET-6PC',
                 'min_stock' => 60,
                 'avg_cost' => 35.00,
@@ -181,6 +192,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'طقم سكاكين ستانلس 6 قطع',
                 'barcode' => '6111000004003',
+                'large_barcode' => '6111000004003C',
                 'sku' => 'KNIFE-SET-6PC',
                 'min_stock' => 60,
                 'avg_cost' => 40.00,
@@ -197,6 +209,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'ملعقة طبخ خشبية كبيرة',
                 'barcode' => '6111000005001',
+                'large_barcode' => '6111000005001C',
                 'sku' => 'SPOON-WOOD-LARGE',
                 'min_stock' => 100,
                 'avg_cost' => 3.00,
@@ -211,6 +224,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'مصفاة استانلس متوسطة',
                 'barcode' => '6111000005002',
+                'large_barcode' => '6111000005002C',
                 'sku' => 'STRAINER-STEEL-MED',
                 'min_stock' => 50,
                 'avg_cost' => 18.00,
@@ -225,6 +239,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'لوح تقطيع بلاستيك كبير',
                 'barcode' => '6111000005003',
+                'large_barcode' => '6111000005003C',
                 'sku' => 'BOARD-PLASTIC-LARGE',
                 'min_stock' => 80,
                 'avg_cost' => 12.00,
@@ -241,6 +256,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'علبة حفظ بلاستيك 1 لتر',
                 'barcode' => '6111000006001',
+                'large_barcode' => '6111000006001C',
                 'sku' => 'CONTAINER-1L',
                 'min_stock' => 120,
                 'avg_cost' => 8.00,
@@ -255,6 +271,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'علبة حفظ زجاج 500 مل',
                 'barcode' => '6111000006002',
+                'large_barcode' => '6111000006002C',
                 'sku' => 'CONTAINER-GLASS-500ML',
                 'min_stock' => 100,
                 'avg_cost' => 10.00,
@@ -269,6 +286,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'طقم علب حفظ 3 قطع',
                 'barcode' => '6111000006003',
+                'large_barcode' => '6111000006003C',
                 'sku' => 'CONTAINER-SET-3PC',
                 'min_stock' => 60,
                 'avg_cost' => 22.00,
@@ -285,6 +303,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'فتاحة علب كهربائية',
                 'barcode' => '6111000007001',
+                'large_barcode' => '6111000007001C',
                 'sku' => 'OPENER-ELECTRIC',
                 'min_stock' => 30,
                 'avg_cost' => 55.00,

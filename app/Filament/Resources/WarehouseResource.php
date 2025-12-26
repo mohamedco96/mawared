@@ -6,6 +6,7 @@ use App\Filament\Resources\WarehouseResource\Pages;
 use App\Models\Warehouse;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -107,11 +108,58 @@ class WarehouseResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->before(function ($record, $action) {
+                        $totalStock = \App\Models\StockMovement::where('warehouse_id', $record->id)
+                            ->sum('quantity');
+
+                        if ($totalStock > 0) {
+                            Notification::make()
+                                ->danger()
+                                ->title('لا يمكن حذف المخزن')
+                                ->body("المخزن يحتوي على {$totalStock} وحدة. يجب إفراغ المخزن أولاً.")
+                                ->send();
+
+                            $action->halt();
+                        }
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->action(function ($records) {
+                            $blocked = [];
+                            $deleted = [];
+
+                            foreach ($records as $record) {
+                                $totalStock = \App\Models\StockMovement::where('warehouse_id', $record->id)
+                                    ->sum('quantity');
+
+                                if ($totalStock > 0) {
+                                    $blocked[] = $record->name . " ({$totalStock} وحدة)";
+                                } else {
+                                    $record->delete();
+                                    $deleted[] = $record->name;
+                                }
+                            }
+
+                            if (count($blocked) > 0) {
+                                Notification::make()
+                                    ->warning()
+                                    ->title('بعض المخازن لم يتم حذفها')
+                                    ->body('المخازن التالية تحتوي على مخزون: ' . implode(', ', $blocked))
+                                    ->persistent()
+                                    ->send();
+                            }
+
+                            if (count($deleted) > 0) {
+                                Notification::make()
+                                    ->success()
+                                    ->title('تم الحذف')
+                                    ->body('تم حذف ' . count($deleted) . ' مخزن')
+                                    ->send();
+                            }
+                        }),
                 ]),
             ]);
     }

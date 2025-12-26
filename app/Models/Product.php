@@ -101,4 +101,24 @@ class Product extends Model
 
         return $code;
     }
+
+    // Global Search Implementation
+    public function getGlobalSearchResultTitle(): string
+    {
+        return $this->name;
+    }
+
+    public function getGlobalSearchResultDetails(): array
+    {
+        return [
+            'باركود' => $this->barcode,
+            'رمز المنتج' => $this->sku,
+            'السعر' => number_format($this->retail_price, 2) . ' ج.م',
+        ];
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'barcode', 'sku', 'large_barcode'];
+    }
 }

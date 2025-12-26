@@ -18,6 +18,7 @@ class PurchaseReturn extends Model
         'return_number',
         'warehouse_id',
         'partner_id',
+        'purchase_invoice_id',
         'status',
         'payment_method',
         'subtotal',
@@ -65,6 +66,11 @@ class PurchaseReturn extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function purchaseInvoice(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseInvoice::class);
     }
 
     // Helper Methods

@@ -241,7 +241,7 @@ class WarehouseTransferResource extends Resource
                                 ->send();
                         }
                     })
-                    ->visible(fn (WarehouseTransfer $record) => $record->items()->count() > 0),
+                    ->visible(fn (WarehouseTransfer $record) => !$record->stockMovements()->exists()),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\DeleteAction::make(),

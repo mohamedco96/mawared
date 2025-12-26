@@ -83,12 +83,38 @@ class PartnerSeeder extends Seeder
             ],
         ];
 
+        // Shareholders
+        $shareholders = [
+            [
+                'name' => 'محمد أحمد - شريك مؤسس',
+                'phone' => '01111111111',
+                'type' => 'shareholder',
+                'gov_id' => 'القاهرة',
+                'region' => 'مصر الجديدة',
+                'is_banned' => false,
+                'current_balance' => 0,
+            ],
+            [
+                'name' => 'أحمد علي - شريك مساهم',
+                'phone' => '01222222222',
+                'type' => 'shareholder',
+                'gov_id' => 'الجيزة',
+                'region' => 'الدقي',
+                'is_banned' => false,
+                'current_balance' => 0,
+            ],
+        ];
+
         foreach ($customers as $customer) {
             Partner::create($customer);
         }
 
         foreach ($suppliers as $supplier) {
             Partner::create($supplier);
+        }
+
+        foreach ($shareholders as $shareholder) {
+            Partner::create($shareholder);
         }
     }
 }

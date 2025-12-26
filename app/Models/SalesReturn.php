@@ -18,6 +18,7 @@ class SalesReturn extends Model
         'return_number',
         'warehouse_id',
         'partner_id',
+        'sales_invoice_id',
         'status',
         'payment_method',
         'subtotal',
@@ -65,6 +66,11 @@ class SalesReturn extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function salesInvoice(): BelongsTo
+    {
+        return $this->belongsTo(SalesInvoice::class);
     }
 
     // Helper Methods

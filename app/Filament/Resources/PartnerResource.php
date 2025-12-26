@@ -36,6 +36,7 @@ class PartnerResource extends Resource
                             ->label('الاسم')
                             ->required()
                             ->maxLength(255)
+                            ->autofocus()
                             ->columnSpanFull(),
                         Forms\Components\Select::make('type')
                             ->label('النوع')
@@ -193,6 +194,8 @@ class PartnerResource extends Resource
                     }),
             ])
             ->actions([
+                Tables\Actions\EditAction::make()
+                    ->slideOver(),
                 Tables\Actions\Action::make('statement')
                     ->label('كشف حساب')
                     ->icon('heroicon-o-document-text')
@@ -234,7 +237,6 @@ class PartnerResource extends Resource
                     ->modalWidth('7xl')
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('إغلاق'),
-                Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([

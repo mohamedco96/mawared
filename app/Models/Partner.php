@@ -177,4 +177,31 @@ class Partner extends Model
     {
         return $query->where('type', 'shareholder');
     }
+
+    // Global Search Implementation
+    public function getGlobalSearchResultTitle(): string
+    {
+        return $this->name;
+    }
+
+    public function getGlobalSearchResultDetails(): array
+    {
+        $typeLabel = match($this->type) {
+            'customer' => 'عميل',
+            'supplier' => 'مورد',
+            'shareholder' => 'شريك (مساهم)',
+            default => $this->type,
+        };
+
+        return [
+            'النوع' => $typeLabel,
+            'الهاتف' => $this->phone ?? '—',
+            'الرصيد' => number_format($this->current_balance, 2) . ' ج.م',
+        ];
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'phone', 'gov_id'];
+    }
 }

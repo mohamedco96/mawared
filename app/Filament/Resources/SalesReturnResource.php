@@ -45,7 +45,9 @@ class SalesReturnResource extends Resource
                             ->default(fn () => 'RET-SALE-'.now()->format('Ymd').'-'.Str::random(6))
                             ->required()
                             ->unique(ignoreRecord: true)
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->disabled()
+                            ->dehydrated(),
                         Forms\Components\Select::make('status')
                             ->label('الحالة')
                             ->options([
@@ -71,7 +73,45 @@ class SalesReturnResource extends Resource
                             ->searchable()
                             ->preload()
                             ->reactive()
+                            ->afterStateUpdated(function ($state, Set $set) {
+                                $set('sales_invoice_id', null);
+                                $set('items', []);
+                            })
                             ->disabled(fn ($record) => $record && $record->isPosted()),
+                        Forms\Components\Select::make('sales_invoice_id')
+                            ->label('فاتورة البيع')
+                            ->relationship('salesInvoice', 'invoice_number',
+                                fn ($query, Get $get) => $query
+                                    ->where('partner_id', $get('partner_id'))
+                                    ->where('status', 'posted')
+                            )
+                            ->searchable()
+                            ->preload()
+                            ->reactive()
+                            ->afterStateUpdated(function ($state, Set $set) {
+                                if ($state) {
+                                    $invoice = \App\Models\SalesInvoice::with('items.product')->find($state);
+                                    if ($invoice) {
+                                        $items = $invoice->items->map(function ($item) {
+                                            return [
+                                                'product_id' => $item->product_id,
+                                                'unit_type' => $item->unit_type,
+                                                'quantity' => 1,
+                                                'unit_price' => $item->net_unit_price,
+                                                'discount' => 0,
+                                                'total' => $item->net_unit_price,
+                                                'max_quantity' => $item->quantity,
+                                            ];
+                                        })->toArray();
+                                        $set('items', $items);
+                                    }
+                                } else {
+                                    $set('items', []);
+                                }
+                            })
+                            ->disabled(fn ($record) => $record && $record->isPosted())
+                            ->visible(fn (Get $get) => $get('partner_id') !== null)
+                            ->helperText('اختياري: اختر فاتورة لتحميل أصنافها تلقائياً'),
                         Forms\Components\Select::make('payment_method')
                             ->label('طريقة الدفع')
                             ->options([
@@ -99,7 +139,7 @@ class SalesReturnResource extends Resource
                                     ->preload()
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get, $record) {
-                                        if ($state) {
+                                        if ($state && !$get('../../sales_invoice_id')) {
                                             $product = Product::find($state);
                                             if ($product) {
                                                 $unitType = $get('unit_type') ?? 'small';
@@ -113,7 +153,10 @@ class SalesReturnResource extends Resource
                                             }
                                         }
                                     })
-                                    ->disabled(fn ($record) => $record && $record->salesReturn && $record->salesReturn->isPosted()),
+                                    ->disabled(fn ($record, Get $get) =>
+                                        ($record && $record->salesReturn && $record->salesReturn->isPosted()) ||
+                                        $get('../../sales_invoice_id') !== null
+                                    ),
                                 Forms\Components\Select::make('unit_type')
                                     ->label('الوحدة')
                                     ->options(function (Get $get) {
@@ -174,7 +217,10 @@ class SalesReturnResource extends Resource
                                         $discount = $get('discount') ?? 0;
                                         $set('total', ($state * $quantity) - $discount);
                                     })
-                                    ->disabled(fn ($record) => $record && $record->salesReturn && $record->salesReturn->isPosted()),
+                                    ->disabled(fn ($record, Get $get) =>
+                                        ($record && $record->salesReturn && $record->salesReturn->isPosted()) ||
+                                        $get('../../sales_invoice_id') !== null
+                                    ),
                                 Forms\Components\TextInput::make('discount')
                                     ->label('الخصم')
                                     ->numeric()
@@ -187,7 +233,15 @@ class SalesReturnResource extends Resource
                                         $quantity = $get('quantity') ?? 1;
                                         $set('total', ($unitPrice * $quantity) - $state);
                                     })
-                                    ->disabled(fn ($record) => $record && $record->salesReturn && $record->salesReturn->isPosted()),
+                                    ->disabled(fn ($record, Get $get) =>
+                                        ($record && $record->salesReturn && $record->salesReturn->isPosted()) ||
+                                        $get('../../sales_invoice_id') !== null
+                                    )
+                                    ->helperText(fn (Get $get) =>
+                                        $get('../../sales_invoice_id') !== null
+                                            ? 'الخصم محسوب مسبقاً في سعر الوحدة من الفاتورة الأصلية'
+                                            : null
+                                    ),
                                 Forms\Components\TextInput::make('total')
                                     ->label('الإجمالي')
                                     ->numeric()

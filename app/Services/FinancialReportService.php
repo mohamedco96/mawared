@@ -45,6 +45,7 @@ class FinancialReportService
         $purchaseReturns = $this->calculatePurchaseReturns($fromDate, $toDate);
         $expenses = $this->calculateExpenses($fromDate, $toDate);
         $revenues = $this->calculateRevenues($fromDate, $toDate);
+        $salesDiscounts = $this->calculateSalesDiscounts($fromDate, $toDate);
 
         // Income Statement calculations
         $debitTotal = $beginningInventory + $totalPurchases + $salesReturns + $expenses;
@@ -73,6 +74,7 @@ class FinancialReportService
             'total_purchases' => $totalPurchases,
             'sales_returns' => $salesReturns,
             'purchase_returns' => $purchaseReturns,
+            'sales_discounts' => $salesDiscounts,
             'expenses' => $expenses,
             'revenues' => $revenues,
             'net_profit' => $netProfit,
@@ -208,6 +210,35 @@ class FinancialReportService
     {
         return Revenue::whereBetween('revenue_date', [$fromDate, $toDate])
             ->sum('amount');
+    }
+
+    /**
+     * Calculate total sales discounts given in date range
+     */
+    protected function calculateSalesDiscounts($fromDate, $toDate): float
+    {
+        // Get header-level discounts (handles both percentage and fixed)
+        $headerDiscounts = SalesInvoice::where('status', 'posted')
+            ->whereBetween('created_at', [$fromDate, $toDate])
+            ->get()
+            ->sum(function ($invoice) {
+                $discountType = $invoice->discount_type ?? 'fixed';
+                $discountValue = $invoice->discount_value ?? 0;
+
+                if ($discountType === 'percentage') {
+                    return $invoice->subtotal * ($discountValue / 100);
+                }
+                return $discountValue;
+            });
+
+        // Get item-level discounts
+        $itemDiscounts = DB::table('sales_invoice_items')
+            ->join('sales_invoices', 'sales_invoice_items.sales_invoice_id', '=', 'sales_invoices.id')
+            ->where('sales_invoices.status', 'posted')
+            ->whereBetween('sales_invoices.created_at', [$fromDate, $toDate])
+            ->sum('sales_invoice_items.discount');
+
+        return $headerDiscounts + $itemDiscounts;
     }
 
     /**

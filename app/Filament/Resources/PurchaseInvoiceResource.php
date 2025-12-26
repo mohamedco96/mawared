@@ -73,6 +73,7 @@ class PurchaseInvoiceResource extends Resource
                             ->required()
                             ->searchable()
                             ->preload()
+                            ->autofocus()
                             ->disabled(fn ($record) => $record && $record->isPosted()),
                         Forms\Components\Select::make('payment_method')
                             ->label('طريقة الدفع')
@@ -246,6 +247,12 @@ class PurchaseInvoiceResource extends Resource
 
                 Forms\Components\Section::make('الإجماليات')
                     ->schema([
+                        Forms\Components\Placeholder::make('total_items_count')
+                            ->label('عدد الأصناف')
+                            ->content(function (Get $get) {
+                                $items = $get('items') ?? [];
+                                return count($items) . ' صنف';
+                            }),
                         Forms\Components\Placeholder::make('calculated_subtotal')
                             ->label('المجموع الفرعي')
                             ->content(function (Get $get) {
@@ -594,7 +601,7 @@ class PurchaseInvoiceResource extends Resource
                                     ->options(Treasury::pluck('name', 'id'))
                                     ->required()
                                     ->searchable()
-                                    ->default(fn () => Treasury::first()?->id),
+                                    ->default(fn () => Treasury::where('type', 'cash')->first()?->id ?? Treasury::first()?->id),
                             ]),
 
                         Forms\Components\Textarea::make('notes')
@@ -627,6 +634,12 @@ class PurchaseInvoiceResource extends Resource
 
                 Tables\Actions\EditAction::make()
                     ->visible(fn (PurchaseInvoice $record) => $record->isDraft()),
+                Tables\Actions\ReplicateAction::make()
+                    ->excludeAttributes(['invoice_number', 'status'])
+                    ->beforeReplicaSaved(function ($replica) {
+                        $replica->invoice_number = 'PI-'.now()->format('Ymd').'-'.\Illuminate\Support\Str::random(6);
+                        $replica->status = 'draft';
+                    }),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\DeleteAction::make()
                     ->visible(fn (PurchaseInvoice $record) => $record->isDraft()),

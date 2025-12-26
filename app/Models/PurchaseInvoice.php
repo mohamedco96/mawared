@@ -171,4 +171,24 @@ class PurchaseInvoice extends Model
             }
         });
     }
+
+    // Global Search Implementation
+    public function getGlobalSearchResultTitle(): string
+    {
+        return $this->invoice_number . ' - ' . $this->partner->name;
+    }
+
+    public function getGlobalSearchResultDetails(): array
+    {
+        return [
+            'المورد' => $this->partner->name,
+            'الإجمالي' => number_format($this->total, 2) . ' ج.م',
+            'الحالة' => $this->status === 'posted' ? 'مؤكدة' : 'مسودة',
+        ];
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['invoice_number', 'partner.name'];
+    }
 }

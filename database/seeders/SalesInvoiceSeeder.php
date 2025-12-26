@@ -26,15 +26,22 @@ class SalesInvoiceSeeder extends Seeder
         for ($i = 1; $i <= 5; $i++) {
             $customer = $customers->random();
 
+            $paymentMethod = $i % 2 == 0 ? 'cash' : 'credit';
+            $discountType = rand(0, 1) == 0 ? 'percentage' : 'fixed';
+
             $invoice = SalesInvoice::create([
                 'invoice_number' => 'INV-SALE-' . str_pad($i, 5, '0', STR_PAD_LEFT),
                 'warehouse_id' => $warehouse->id,
                 'partner_id' => $customer->id,
                 'status' => 'draft',
-                'payment_method' => $i % 2 == 0 ? 'cash' : 'credit',
+                'payment_method' => $paymentMethod,
+                'discount_type' => $discountType,
+                'discount_value' => 0,
                 'subtotal' => 0,
                 'discount' => 0,
                 'total' => 0,
+                'paid_amount' => 0,
+                'remaining_amount' => 0,
                 'notes' => 'فاتورة بيع تجريبية رقم ' . $i,
                 'created_by' => $user->id,
             ]);
@@ -69,11 +76,26 @@ class SalesInvoiceSeeder extends Seeder
             }
 
             // Update invoice totals
-            $invoiceDiscount = rand(0, 1) == 0 ? 0 : rand(10, 50);
+            $discountValue = rand(0, 1) == 0 ? 0 : ($discountType === 'percentage' ? rand(5, 15) : rand(10, 50));
+            $discountAmount = $discountType === 'percentage' ? ($subtotal * $discountValue / 100) : $discountValue;
+            $total = $subtotal - $discountAmount;
+
+            // For cash invoices, set paid_amount. For credit, leave it 0 or partial
+            $paidAmount = 0;
+            if ($paymentMethod === 'cash') {
+                $paidAmount = $total;
+            } elseif ($paymentMethod === 'credit' && rand(0, 1) == 1) {
+                $paidAmount = $total * 0.5;
+            }
+
             $invoice->update([
                 'subtotal' => $subtotal,
-                'discount' => $invoiceDiscount,
-                'total' => $subtotal - $invoiceDiscount,
+                'discount_type' => $discountType,
+                'discount_value' => $discountValue,
+                'discount' => $discountAmount,
+                'total' => $total,
+                'paid_amount' => $paidAmount,
+                'remaining_amount' => $total - $paidAmount,
             ]);
         }
     }

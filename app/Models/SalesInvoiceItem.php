@@ -41,4 +41,13 @@ class SalesInvoiceItem extends Model
     {
         return $this->belongsTo(Product::class);
     }
+
+    // Helper Methods
+    public function getNetUnitPriceAttribute(): float
+    {
+        if ($this->quantity <= 0) {
+            return floatval($this->unit_price);
+        }
+        return floatval($this->total) / $this->quantity;
+    }
 }

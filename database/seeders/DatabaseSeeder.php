@@ -16,7 +16,8 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            // User seeder must run first
+            // System settings and users must run first
+            GeneralSettingSeeder::class,
             AdminUserSeeder::class,
 
             // Base data seeders
@@ -29,6 +30,9 @@ class DatabaseSeeder extends Seeder
             // Transaction seeders (draft only to avoid triggering business logic)
             SalesInvoiceSeeder::class,
             PurchaseInvoiceSeeder::class,
+            SalesReturnSeeder::class,
+            PurchaseReturnSeeder::class,
+            InvoicePaymentSeeder::class,
             StockAdjustmentSeeder::class,
             WarehouseTransferSeeder::class,
             ExpenseSeeder::class,

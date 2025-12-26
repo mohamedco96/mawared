@@ -37,6 +37,7 @@ class ProductResource extends Resource
                             ->label('اسم المنتج')
                             ->required()
                             ->maxLength(255)
+                            ->autofocus()
                             ->columnSpanFull(),
                         Forms\Components\TextInput::make('barcode')
                             ->label('الباركود (الوحدة الصغيرة)')
@@ -78,6 +79,14 @@ class ProductResource extends Resource
                                     ->required(),
                                 Forms\Components\TextInput::make('symbol')
                                     ->label('الرمز'),
+                            ])
+                            ->createOptionModalHeading('إضافة وحدة قياس جديدة')
+                            ->editOptionForm([
+                                Forms\Components\TextInput::make('name')
+                                    ->label('الاسم')
+                                    ->required(),
+                                Forms\Components\TextInput::make('symbol')
+                                    ->label('الرمز'),
                             ]),
                         Forms\Components\Select::make('large_unit_id')
                             ->label('الوحدة الكبيرة (الكرتون)')
@@ -86,6 +95,14 @@ class ProductResource extends Resource
                             ->preload()
                             ->nullable()
                             ->createOptionForm([
+                                Forms\Components\TextInput::make('name')
+                                    ->label('الاسم')
+                                    ->required(),
+                                Forms\Components\TextInput::make('symbol')
+                                    ->label('الرمز'),
+                            ])
+                            ->createOptionModalHeading('إضافة وحدة قياس جديدة')
+                            ->editOptionForm([
                                 Forms\Components\TextInput::make('name')
                                     ->label('الاسم')
                                     ->required(),
@@ -306,6 +323,13 @@ class ProductResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\ReplicateAction::make()
+                    ->beforeReplicaSaved(function ($replica) {
+                        // Clear unique fields
+                        $replica->barcode = null;
+                        $replica->large_barcode = null;
+                        $replica->sku = null;
+                    }),
                 Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([

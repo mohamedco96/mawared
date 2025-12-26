@@ -6,6 +6,7 @@ use App\Filament\Resources\UnitResource\Pages;
 use App\Models\Unit;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -61,12 +62,69 @@ class UnitResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->slideOver(),
+                Tables\Actions\DeleteAction::make()
+                    ->action(function ($record) {
+                        try {
+                            $record->delete();
+
+                            Notification::make()
+                                ->success()
+                                ->title('تم الحذف')
+                                ->body('تم حذف وحدة القياس بنجاح')
+                                ->send();
+                        } catch (\Illuminate\Database\QueryException $e) {
+                            if ($e->getCode() === '23000' || str_contains($e->getMessage(), 'FOREIGN KEY')) {
+                                Notification::make()
+                                    ->danger()
+                                    ->title('لا يمكن حذف وحدة القياس')
+                                    ->body('هذه الوحدة مستخدمة في منتجات موجودة. يجب تغيير وحدة القياس للمنتجات أولاً.')
+                                    ->persistent()
+                                    ->send();
+                            } else {
+                                throw $e;
+                            }
+                        }
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->action(function ($records) {
+                            $deleted = 0;
+                            $blocked = [];
+
+                            foreach ($records as $record) {
+                                try {
+                                    $record->delete();
+                                    $deleted++;
+                                } catch (\Illuminate\Database\QueryException $e) {
+                                    if ($e->getCode() === '23000' || str_contains($e->getMessage(), 'FOREIGN KEY')) {
+                                        $blocked[] = $record->name;
+                                    } else {
+                                        throw $e;
+                                    }
+                                }
+                            }
+
+                            if ($deleted > 0) {
+                                Notification::make()
+                                    ->success()
+                                    ->title('تم الحذف')
+                                    ->body("تم حذف {$deleted} وحدة قياس")
+                                    ->send();
+                            }
+
+                            if (count($blocked) > 0) {
+                                Notification::make()
+                                    ->warning()
+                                    ->title('بعض الوحدات مستخدمة')
+                                    ->body('الوحدات التالية مستخدمة في منتجات: ' . implode(', ', $blocked))
+                                    ->persistent()
+                                    ->send();
+                            }
+                        }),
                 ]),
             ]);
     }

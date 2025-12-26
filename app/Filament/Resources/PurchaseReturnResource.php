@@ -45,7 +45,9 @@ class PurchaseReturnResource extends Resource
                             ->default(fn () => 'RET-PURCHASE-'.now()->format('Ymd').'-'.Str::random(6))
                             ->required()
                             ->unique(ignoreRecord: true)
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->disabled()
+                            ->dehydrated(),
                         Forms\Components\Select::make('status')
                             ->label('الحالة')
                             ->options([
@@ -71,7 +73,45 @@ class PurchaseReturnResource extends Resource
                             ->searchable()
                             ->preload()
                             ->reactive()
+                            ->afterStateUpdated(function ($state, Set $set) {
+                                $set('purchase_invoice_id', null);
+                                $set('items', []);
+                            })
                             ->disabled(fn ($record) => $record && $record->isPosted()),
+                        Forms\Components\Select::make('purchase_invoice_id')
+                            ->label('فاتورة الشراء')
+                            ->relationship('purchaseInvoice', 'invoice_number',
+                                fn ($query, Get $get) => $query
+                                    ->where('partner_id', $get('partner_id'))
+                                    ->where('status', 'posted')
+                            )
+                            ->searchable()
+                            ->preload()
+                            ->reactive()
+                            ->afterStateUpdated(function ($state, Set $set) {
+                                if ($state) {
+                                    $invoice = \App\Models\PurchaseInvoice::with('items.product')->find($state);
+                                    if ($invoice) {
+                                        $items = $invoice->items->map(function ($item) {
+                                            return [
+                                                'product_id' => $item->product_id,
+                                                'unit_type' => $item->unit_type,
+                                                'quantity' => 1,
+                                                'unit_cost' => $item->net_unit_cost,
+                                                'discount' => 0,
+                                                'total' => $item->net_unit_cost,
+                                                'max_quantity' => $item->quantity,
+                                            ];
+                                        })->toArray();
+                                        $set('items', $items);
+                                    }
+                                } else {
+                                    $set('items', []);
+                                }
+                            })
+                            ->disabled(fn ($record) => $record && $record->isPosted())
+                            ->visible(fn (Get $get) => $get('partner_id') !== null)
+                            ->helperText('اختياري: اختر فاتورة لتحميل أصنافها تلقائياً'),
                         Forms\Components\Select::make('payment_method')
                             ->label('طريقة الدفع')
                             ->options([
@@ -99,7 +139,7 @@ class PurchaseReturnResource extends Resource
                                     ->preload()
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get, $record) {
-                                        if ($state) {
+                                        if ($state && !$get('../../purchase_invoice_id')) {
                                             $product = Product::find($state);
                                             if ($product) {
                                                 $set('unit_cost', $product->avg_cost);
@@ -115,7 +155,10 @@ class PurchaseReturnResource extends Resource
                                             $set('quantity', $quantity);
                                         }
                                     })
-                                    ->disabled(fn ($record) => $record && $record->purchaseReturn && $record->purchaseReturn->isPosted()),
+                                    ->disabled(fn ($record, Get $get) =>
+                                        ($record && $record->purchaseReturn && $record->purchaseReturn->isPosted()) ||
+                                        $get('../../purchase_invoice_id') !== null
+                                    ),
                                 Forms\Components\Select::make('unit_type')
                                     ->label('الوحدة')
                                     ->options(function (Get $get) {
@@ -198,7 +241,10 @@ class PurchaseReturnResource extends Resource
                                         $discount = $get('discount') ?? 0;
                                         $set('total', ($state * $quantity) - $discount);
                                     })
-                                    ->disabled(fn ($record) => $record && $record->purchaseReturn && $record->purchaseReturn->isPosted()),
+                                    ->disabled(fn ($record, Get $get) =>
+                                        ($record && $record->purchaseReturn && $record->purchaseReturn->isPosted()) ||
+                                        $get('../../purchase_invoice_id') !== null
+                                    ),
                                 Forms\Components\TextInput::make('discount')
                                     ->label('الخصم')
                                     ->numeric()
@@ -211,7 +257,15 @@ class PurchaseReturnResource extends Resource
                                         $quantity = $get('quantity') ?? 1;
                                         $set('total', ($unitCost * $quantity) - $state);
                                     })
-                                    ->disabled(fn ($record) => $record && $record->purchaseReturn && $record->purchaseReturn->isPosted()),
+                                    ->disabled(fn ($record, Get $get) =>
+                                        ($record && $record->purchaseReturn && $record->purchaseReturn->isPosted()) ||
+                                        $get('../../purchase_invoice_id') !== null
+                                    )
+                                    ->helperText(fn (Get $get) =>
+                                        $get('../../purchase_invoice_id') !== null
+                                            ? 'الخصم محسوب مسبقاً في تكلفة الوحدة من الفاتورة الأصلية'
+                                            : null
+                                    ),
                                 Forms\Components\TextInput::make('total')
                                     ->label('الإجمالي')
                                     ->numeric()
