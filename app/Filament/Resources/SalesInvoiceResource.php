@@ -474,6 +474,7 @@ class SalesInvoiceResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->with(['partner', 'warehouse', 'creator'])->withSum('payments', 'amount'))
             ->columns([
                 Tables\Columns\TextColumn::make('invoice_number')
                     ->label('رقم الفاتورة')

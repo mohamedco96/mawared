@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Product extends Model
@@ -52,6 +53,11 @@ class Product extends Model
         return $this->belongsTo(Unit::class, 'large_unit_id');
     }
 
+    public function stockMovements(): HasMany
+    {
+        return $this->hasMany(StockMovement::class);
+    }
+
     // Helper Methods
     public function convertToBaseUnit(int $quantity, string $unitType): int
     {
@@ -85,6 +91,17 @@ class Product extends Model
             // Auto-generate large_barcode if large_unit_id is newly set but large_barcode is still null
             if ($product->large_unit_id && empty($product->large_barcode)) {
                 $product->large_barcode = self::generateUniqueCode('large_barcode');
+            }
+        });
+
+        static::deleting(function (Product $product) {
+            // Check for related records to prevent deletion
+            $hasStockMovements = \App\Models\StockMovement::where('product_id', $product->id)->exists();
+            $hasSalesInvoiceItems = \App\Models\SalesInvoiceItem::where('product_id', $product->id)->exists();
+            $hasPurchaseInvoiceItems = \App\Models\PurchaseInvoiceItem::where('product_id', $product->id)->exists();
+
+            if ($hasStockMovements || $hasSalesInvoiceItems || $hasPurchaseInvoiceItems) {
+                throw new \Exception('لا يمكن حذف المنتج لوجود فواتير أو حركات مخزون مرتبطة به');
             }
         });
     }

@@ -58,6 +58,7 @@ class WarehouseResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->withSum('stockMovements', 'quantity'))
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('اسم المخزن')
@@ -73,13 +74,8 @@ class WarehouseResource extends Resource
                     ->copyMessageDuration(1500)
                     ->default('—'),
 
-                Tables\Columns\TextColumn::make('total_items')
+                Tables\Columns\TextColumn::make('stock_movements_sum_quantity')
                     ->label('إجمالي الأصناف')
-                    ->getStateUsing(function (Warehouse $record) {
-                        return DB::table('stock_movements')
-                            ->where('warehouse_id', $record->id)
-                            ->sum('quantity') ?? 0;
-                    })
                     ->sortable()
                     ->badge()
                     ->color(function ($state) {
@@ -110,8 +106,8 @@ class WarehouseResource extends Resource
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make()
                     ->before(function ($record, $action) {
-                        $totalStock = \App\Models\StockMovement::where('warehouse_id', $record->id)
-                            ->sum('quantity');
+                        // Use eager-loaded sum instead of re-querying
+                        $totalStock = $record->stock_movements_sum_quantity ?? 0;
 
                         if ($totalStock > 0) {
                             Notification::make()

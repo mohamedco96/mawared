@@ -72,6 +72,7 @@ class StockMovementResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->with(['warehouse', 'product']))
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('التاريخ')

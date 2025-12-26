@@ -91,30 +91,23 @@ class FinancialReportService
      */
     protected function calculateInventoryValue(string $date, bool $exclusive = false): float
     {
-        // Get all products
-        $products = Product::all();
+        $dateOperator = $exclusive ? '<' : '<=';
 
-        $totalValue = 0;
+        // Use a single optimized query with aggregation instead of loading all products
+        $totalValue = DB::table('products')
+            ->join('stock_movements', 'products.id', '=', 'stock_movements.product_id')
+            ->where('stock_movements.created_at', $dateOperator, $date)
+            ->whereNull('stock_movements.deleted_at') // Exclude soft-deleted movements
+            ->selectRaw('products.id, products.avg_cost, SUM(stock_movements.quantity) as total_qty')
+            ->where('products.avg_cost', '>', 0)
+            ->groupBy('products.id', 'products.avg_cost')
+            ->havingRaw('SUM(stock_movements.quantity) > 0')
+            ->get()
+            ->sum(function($row) {
+                return $row->avg_cost * $row->total_qty;
+            });
 
-        foreach ($products as $product) {
-            // Calculate current stock quantity up to the date
-            $query = StockMovement::where('product_id', $product->id);
-            
-            if ($exclusive) {
-                $query->where('created_at', '<', $date);
-            } else {
-                $query->where('created_at', '<=', $date);
-            }
-            
-            $stockQuantity = $query->sum('quantity');
-
-            // Only calculate value if we have stock
-            if ($stockQuantity > 0 && $product->avg_cost > 0) {
-                $totalValue += $stockQuantity * $product->avg_cost;
-            }
-        }
-
-        return $totalValue;
+        return (float) $totalValue;
     }
 
     /**
@@ -142,16 +135,8 @@ class FinancialReportService
      */
     protected function calculateTotalCash(): float
     {
-        $treasuryService = app(TreasuryService::class);
-        $treasuries = Treasury::all();
-
-        $total = 0;
-        foreach ($treasuries as $treasury) {
-            $balance = (float) $treasuryService->getTreasuryBalance($treasury->id);
-            $total += $balance;
-        }
-
-        return $total;
+        // Use single aggregated query instead of looping through treasuries
+        return (float) TreasuryTransaction::sum('amount') ?? 0;
     }
 
     /**
@@ -217,19 +202,18 @@ class FinancialReportService
      */
     protected function calculateSalesDiscounts($fromDate, $toDate): float
     {
-        // Get header-level discounts (handles both percentage and fixed)
-        $headerDiscounts = SalesInvoice::where('status', 'posted')
+        // Calculate fixed header discounts
+        $fixedDiscounts = SalesInvoice::where('status', 'posted')
             ->whereBetween('created_at', [$fromDate, $toDate])
-            ->get()
-            ->sum(function ($invoice) {
-                $discountType = $invoice->discount_type ?? 'fixed';
-                $discountValue = $invoice->discount_value ?? 0;
+            ->where('discount_type', 'fixed')
+            ->sum('discount_value');
 
-                if ($discountType === 'percentage') {
-                    return $invoice->subtotal * ($discountValue / 100);
-                }
-                return $discountValue;
-            });
+        // Calculate percentage header discounts using database-side calculation
+        $percentageDiscounts = SalesInvoice::where('status', 'posted')
+            ->whereBetween('created_at', [$fromDate, $toDate])
+            ->where('discount_type', 'percentage')
+            ->selectRaw('SUM(subtotal * (discount_value / 100)) as total_discount')
+            ->value('total_discount');
 
         // Get item-level discounts
         $itemDiscounts = DB::table('sales_invoice_items')
@@ -238,7 +222,7 @@ class FinancialReportService
             ->whereBetween('sales_invoices.created_at', [$fromDate, $toDate])
             ->sum('sales_invoice_items.discount');
 
-        return $headerDiscounts + $itemDiscounts;
+        return floatval($fixedDiscounts) + floatval($percentageDiscounts ?? 0) + floatval($itemDiscounts);
     }
 
     /**

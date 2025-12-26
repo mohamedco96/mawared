@@ -52,11 +52,17 @@ class StockService
     /**
      * Get current stock for a product in a warehouse
      */
-    public function getCurrentStock(string $warehouseId, string $productId): int
+    public function getCurrentStock(string $warehouseId, string $productId, bool $lock = false): int
     {
-        return StockMovement::where('warehouse_id', $warehouseId)
+        $query = StockMovement::where('warehouse_id', $warehouseId)
             ->where('product_id', $productId)
-            ->sum('quantity');
+            ->withoutTrashed(); // Exclude soft-deleted movements
+
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        return $query->sum('quantity');
     }
 
     /**
@@ -174,14 +180,19 @@ class StockService
         }
 
         DB::transaction(function () use ($invoice) {
+            // Lock the invoice to prevent concurrent posting
+            $invoice = SalesInvoice::lockForUpdate()->findOrFail($invoice->id);
+
             foreach ($invoice->items as $item) {
                 $product = $item->product;
 
                 // Convert to base unit
                 $baseQuantity = $this->convertToBaseUnit($product, $item->quantity, $item->unit_type);
 
-                // Validate stock availability
-                if (!$this->validateStockAvailability($invoice->warehouse_id, $product->id, $baseQuantity)) {
+                // Validate stock availability WITH LOCK inside transaction to prevent race conditions
+                $currentStock = $this->getCurrentStock($invoice->warehouse_id, $product->id, true);
+
+                if ($currentStock < $baseQuantity) {
                     throw new \Exception("المخزون غير كافٍ للمنتج: {$product->name}");
                 }
 

@@ -86,7 +86,11 @@ class SalesInvoice extends Model
      */
     public function getTotalPaidAttribute(): float
     {
-        return floatval($this->paid_amount) + $this->payments()->sum('amount');
+        // Check if payments relationship is already loaded to avoid N+1
+        if (!$this->relationLoaded('payments')) {
+            $this->loadSum('payments', 'amount');
+        }
+        return floatval($this->paid_amount) + ($this->payments_sum_amount ?? 0);
     }
 
     /**
@@ -175,13 +179,13 @@ class SalesInvoice extends Model
     // Global Search Implementation
     public function getGlobalSearchResultTitle(): string
     {
-        return $this->invoice_number . ' - ' . $this->partner->name;
+        return $this->invoice_number . ' - ' . ($this->partner?->name ?? 'N/A');
     }
 
     public function getGlobalSearchResultDetails(): array
     {
         return [
-            'العميل' => $this->partner->name,
+            'العميل' => $this->partner?->name ?? 'N/A',
             'الإجمالي' => number_format($this->total, 2) . ' ج.م',
             'الحالة' => $this->status === 'posted' ? 'مؤكدة' : 'مسودة',
         ];

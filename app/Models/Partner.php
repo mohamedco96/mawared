@@ -204,4 +204,21 @@ class Partner extends Model
     {
         return ['name', 'phone', 'gov_id'];
     }
+
+    // Deletion Protection
+    protected static function booted(): void
+    {
+        static::deleting(function (Partner $partner) {
+            $hasInvoices = $partner->salesInvoices()->exists()
+                || $partner->purchaseInvoices()->exists();
+            $hasReturns = $partner->salesReturns()->exists()
+                || $partner->purchaseReturns()->exists();
+            $hasTransactions = $partner->treasuryTransactions()->exists();
+            $hasPayments = $partner->invoicePayments()->exists();
+
+            if ($hasInvoices || $hasReturns || $hasTransactions || $hasPayments) {
+                throw new \Exception('لا يمكن حذف الشريك لوجود فواتير أو معاملات مالية مرتبطة به');
+            }
+        });
+    }
 }

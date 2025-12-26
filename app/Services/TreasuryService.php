@@ -29,6 +29,15 @@ class TreasuryService
         ?string $referenceId = null
     ): TreasuryTransaction {
         return DB::transaction(function () use ($treasuryId, $type, $amount, $description, $partnerId, $referenceType, $referenceId) {
+            // Calculate what the new balance would be
+            $currentBalance = (float) $this->getTreasuryBalance($treasuryId);
+            $newBalance = $currentBalance + (float) $amount;
+
+            // Prevent negative balance (amount is negative for withdrawals/payments)
+            if ($newBalance < 0) {
+                throw new \Exception('لا يمكن إتمام العملية: الرصيد المتاح غير كافٍ في الخزينة');
+            }
+
             return TreasuryTransaction::create([
                 'treasury_id' => $treasuryId,
                 'type' => $type,

@@ -218,6 +218,10 @@ class ProductResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query
+                ->with(['smallUnit', 'largeUnit'])
+                ->withSum('stockMovements', 'quantity')
+            )
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('الاسم')
@@ -246,14 +250,8 @@ class ProductResource extends Resource
                     ->label('متوسط التكلفة')
                     ->numeric(decimalPlaces: 2)
                     ->sortable(),
-                Tables\Columns\TextColumn::make('total_stock')
+                Tables\Columns\TextColumn::make('stock_movements_sum_quantity')
                     ->label('إجمالي المخزون')
-                    ->getStateUsing(function (Product $record) {
-                        // Get total stock across all warehouses
-                        return DB::table('stock_movements')
-                            ->where('product_id', $record->id)
-                            ->sum('quantity') ?? 0;
-                    })
                     ->sortable()
                     ->badge()
                     ->color(function ($state, Product $record) {
@@ -324,6 +322,7 @@ class ProductResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\ReplicateAction::make()
+                    ->excludeAttributes(['stock_movements_sum_quantity'])
                     ->beforeReplicaSaved(function ($replica) {
                         // Clear unique fields
                         $replica->barcode = null;
