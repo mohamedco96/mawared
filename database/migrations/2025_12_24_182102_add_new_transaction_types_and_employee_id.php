@@ -13,7 +13,12 @@ return new class extends Migration
     public function up(): void
     {
         // Extend type enum
-        DB::statement("ALTER TABLE treasury_transactions MODIFY COLUMN type ENUM('income', 'expense', 'collection', 'payment', 'refund', 'capital_deposit', 'partner_drawing', 'employee_advance') NOT NULL");
+        // SQLite doesn't support ALTER COLUMN with ENUM
+        // The type field is already a string in SQLite, so no migration needed for testing
+        // In production MySQL, this would add the enum values
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE treasury_transactions MODIFY COLUMN type ENUM('income', 'expense', 'collection', 'payment', 'refund', 'capital_deposit', 'partner_drawing', 'employee_advance') NOT NULL");
+        }
 
         // Add employee_id
         Schema::table('treasury_transactions', function (Blueprint $table) {
@@ -31,6 +36,9 @@ return new class extends Migration
             $table->dropForeign(['employee_id']);
             $table->dropColumn('employee_id');
         });
-        DB::statement("ALTER TABLE treasury_transactions MODIFY COLUMN type ENUM('income', 'expense', 'collection', 'payment', 'refund') NOT NULL");
+
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE treasury_transactions MODIFY COLUMN type ENUM('income', 'expense', 'collection', 'payment', 'refund') NOT NULL");
+        }
     }
 };

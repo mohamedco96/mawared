@@ -24,12 +24,12 @@ return new class extends Migration
 
         // Add composite index for sales_invoices
         Schema::table('sales_invoices', function (Blueprint $table) {
-            $table->index(['partner_id', 'status'], 'idx_partner_status');
+            $table->index(['partner_id', 'status'], 'idx_sales_partner_status');
         });
 
         // Add composite index for purchase_invoices
         Schema::table('purchase_invoices', function (Blueprint $table) {
-            $table->index(['partner_id', 'status'], 'idx_partner_status');
+            $table->index(['partner_id', 'status'], 'idx_purchase_partner_status');
         });
     }
 
@@ -51,12 +51,12 @@ return new class extends Migration
 
         // Remove index from sales_invoices
         Schema::table('sales_invoices', function (Blueprint $table) {
-            $table->dropIndex('idx_partner_status');
+            $table->dropIndex('idx_sales_partner_status');
         });
 
         // Remove index from purchase_invoices
         Schema::table('purchase_invoices', function (Blueprint $table) {
-            $table->dropIndex('idx_partner_status');
+            $table->dropIndex('idx_purchase_partner_status');
         });
     }
 };
