@@ -134,7 +134,7 @@ class PurchaseInvoice extends Model
      */
     public function isFullyPaid(): bool
     {
-        return bccomp((string) $this->remaining_amount, '0', 4) === 0;
+        return bccomp((string) $this->current_remaining, '0', 4) === 0;
     }
 
     /**
