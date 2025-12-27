@@ -57,7 +57,7 @@ class PurchaseReturnResource extends Resource
                             ->default('draft')
                             ->required()
                             ->native(false)
-                            ->disabled(fn ($record) => $record && $record->isPosted()),
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Select::make('warehouse_id')
                             ->label('المخزن')
                             ->relationship('warehouse', 'name')
@@ -65,7 +65,7 @@ class PurchaseReturnResource extends Resource
                             ->searchable()
                             ->preload()
                             ->reactive()
-                            ->disabled(fn ($record) => $record && $record->isPosted()),
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Select::make('partner_id')
                             ->label('المورد')
                             ->relationship('partner', 'name', fn ($query) => $query->where('type', 'supplier'))
@@ -77,7 +77,7 @@ class PurchaseReturnResource extends Resource
                                 $set('purchase_invoice_id', null);
                                 $set('items', []);
                             })
-                            ->disabled(fn ($record) => $record && $record->isPosted()),
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Select::make('purchase_invoice_id')
                             ->label('فاتورة الشراء')
                             ->relationship('purchaseInvoice', 'invoice_number',
@@ -109,7 +109,7 @@ class PurchaseReturnResource extends Resource
                                     $set('items', []);
                                 }
                             })
-                            ->disabled(fn ($record) => $record && $record->isPosted())
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord)
                             ->visible(fn (Get $get) => $get('partner_id') !== null)
                             ->helperText('اختياري: اختر فاتورة لتحميل أصنافها تلقائياً'),
                         Forms\Components\Select::make('payment_method')
@@ -121,7 +121,7 @@ class PurchaseReturnResource extends Resource
                             ->default('cash')
                             ->required()
                             ->native(false)
-                            ->disabled(fn ($record) => $record && $record->isPosted()),
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                     ])
                     ->columns(3),
 
@@ -155,10 +155,11 @@ class PurchaseReturnResource extends Resource
                                             $set('quantity', $quantity);
                                         }
                                     })
-                                    ->disabled(fn ($record, Get $get) =>
-                                        ($record && $record->purchaseReturn && $record->purchaseReturn->isPosted()) ||
+                                    ->disabled(fn ($record, Get $get, $livewire) =>
+                                        ($record && $record->purchaseReturn && $record->purchaseReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord) ||
                                         $get('../../purchase_invoice_id') !== null
-                                    ),
+                                    )
+                                    ->dehydrated(),
                                 Forms\Components\Select::make('unit_type')
                                     ->label('الوحدة')
                                     ->options(function (Get $get) {
@@ -184,7 +185,7 @@ class PurchaseReturnResource extends Resource
                                             $set('quantity', $quantity);
                                         }
                                     })
-                                    ->disabled(fn ($record) => $record && $record->purchaseReturn && $record->purchaseReturn->isPosted()),
+                                    ->disabled(fn ($record, $livewire) => $record && $record->purchaseReturn && $record->purchaseReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية')
                                     ->numeric()
@@ -228,7 +229,7 @@ class PurchaseReturnResource extends Resource
                                             }
                                         },
                                     ])
-                                    ->disabled(fn ($record) => $record && $record->purchaseReturn && $record->purchaseReturn->isPosted()),
+                                    ->disabled(fn ($record, $livewire) => $record && $record->purchaseReturn && $record->purchaseReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                                 Forms\Components\TextInput::make('unit_cost')
                                     ->label('التكلفة')
                                     ->numeric()
@@ -241,10 +242,11 @@ class PurchaseReturnResource extends Resource
                                         $discount = $get('discount') ?? 0;
                                         $set('total', ($state * $quantity) - $discount);
                                     })
-                                    ->disabled(fn ($record, Get $get) =>
-                                        ($record && $record->purchaseReturn && $record->purchaseReturn->isPosted()) ||
+                                    ->disabled(fn ($record, Get $get, $livewire) =>
+                                        ($record && $record->purchaseReturn && $record->purchaseReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord) ||
                                         $get('../../purchase_invoice_id') !== null
-                                    ),
+                                    )
+                                    ->dehydrated(),
                                 Forms\Components\TextInput::make('discount')
                                     ->label('الخصم')
                                     ->numeric()
@@ -257,10 +259,11 @@ class PurchaseReturnResource extends Resource
                                         $quantity = $get('quantity') ?? 1;
                                         $set('total', ($unitCost * $quantity) - $state);
                                     })
-                                    ->disabled(fn ($record, Get $get) =>
-                                        ($record && $record->purchaseReturn && $record->purchaseReturn->isPosted()) ||
+                                    ->disabled(fn ($record, Get $get, $livewire) =>
+                                        ($record && $record->purchaseReturn && $record->purchaseReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord) ||
                                         $get('../../purchase_invoice_id') !== null
                                     )
+                                    ->dehydrated()
                                     ->helperText(fn (Get $get) =>
                                         $get('../../purchase_invoice_id') !== null
                                             ? 'الخصم محسوب مسبقاً في تكلفة الوحدة من الفاتورة الأصلية'
@@ -277,7 +280,7 @@ class PurchaseReturnResource extends Resource
                             ->defaultItems(1)
                             ->collapsible()
                             ->itemLabel(fn (array $state): ?string => $state['product_id'] ? Product::find($state['product_id'])?->name : null)
-                            ->disabled(fn ($record) => $record && $record->isPosted()),
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                     ]),
 
                 Forms\Components\Section::make('الإجماليات')
@@ -309,7 +312,7 @@ class PurchaseReturnResource extends Resource
                                 $set('subtotal', $subtotal);
                                 $set('total', $subtotal - ($state ?? 0));
                             })
-                            ->disabled(fn ($record) => $record && $record->isPosted()),
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Placeholder::make('calculated_total')
                             ->label('الإجمالي النهائي')
                             ->content(function (Get $get) {
@@ -336,7 +339,7 @@ class PurchaseReturnResource extends Resource
                     ->label('ملاحظات')
                     ->columnSpanFull()
                     ->rows(3)
-                    ->disabled(fn ($record) => $record && $record->isPosted()),
+                    ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
             ]);
     }
 
