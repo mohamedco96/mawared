@@ -127,8 +127,19 @@ class Partner extends Model
                 ->whereIn('reference_type', ['purchase_return', 'financial_transaction'])
                 ->sum('amount'); // Already positive
 
+            // Collections from supplier (when we collect money back, e.g., for credit returns)
+            // These are positive amounts that reduce what we owe them
+            $collections = $this->treasuryTransactions()
+                ->where('type', 'collection')
+                ->where(function ($q) {
+                    $q->whereIn('reference_type', ['purchase_return', 'financial_transaction'])
+                      ->orWhereNull('reference_type');
+                })
+                ->sum('amount'); // Already positive
+
             // Return negative value (we owe them)
-            return -1 * ($purchaseTotal - $returnsTotal + $payments - $refunds);
+            // Note: refunds and collections are ADDED because they reduce what we owe (positive values reduce debt)
+            return -1 * ($purchaseTotal - $returnsTotal + $payments + $refunds + $collections);
 
         } else { // shareholder
             // Shareholders track capital deposits, drawings, etc. via treasury transactions only

@@ -218,6 +218,46 @@ class TreasuryTransactionResource extends Resource
                     ->label('الوصف')
                     ->limit(50)
                     ->tooltip(fn (TreasuryTransaction $record): string => $record->description),
+                Tables\Columns\TextColumn::make('reference')
+                    ->label('المرجع')
+                    ->formatStateUsing(function (TreasuryTransaction $record) {
+                        if (!$record->reference_type || !$record->reference_id) {
+                            return '—';
+                        }
+
+                        // Handle financial_transaction separately as it's not a real model
+                        if ($record->reference_type === 'financial_transaction') {
+                            return 'معاملة مالية';
+                        }
+
+                        // Manually fetch the reference record based on type
+                        try {
+                            $reference = match($record->reference_type) {
+                                'sales_invoice' => \App\Models\SalesInvoice::find($record->reference_id),
+                                'purchase_invoice' => \App\Models\PurchaseInvoice::find($record->reference_id),
+                                'sales_return' => \App\Models\SalesReturn::find($record->reference_id),
+                                'purchase_return' => \App\Models\PurchaseReturn::find($record->reference_id),
+                                default => null,
+                            };
+
+                            if (!$reference) {
+                                return $record->reference_type;
+                            }
+
+                            return match($record->reference_type) {
+                                'sales_invoice' => 'فاتورة بيع: ' . ($reference->invoice_number ?? '—'),
+                                'purchase_invoice' => 'فاتورة شراء: ' . ($reference->invoice_number ?? '—'),
+                                'sales_return' => 'مرتجع بيع: ' . ($reference->return_number ?? '—'),
+                                'purchase_return' => 'مرتجع شراء: ' . ($reference->return_number ?? '—'),
+                                default => $record->reference_type,
+                            };
+                        } catch (\Exception $e) {
+                            return '—';
+                        }
+                    })
+                    ->searchable(false)
+                    ->sortable(false)
+                    ->default('—'),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('type')
