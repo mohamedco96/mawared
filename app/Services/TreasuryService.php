@@ -2,14 +2,14 @@
 
 namespace App\Services;
 
-use App\Models\Partner;
-use App\Models\SalesInvoice;
-use App\Models\PurchaseInvoice;
-use App\Models\SalesReturn;
-use App\Models\PurchaseReturn;
-use App\Models\TreasuryTransaction;
 use App\Models\Expense;
+use App\Models\Partner;
+use App\Models\PurchaseInvoice;
+use App\Models\PurchaseReturn;
 use App\Models\Revenue;
+use App\Models\SalesInvoice;
+use App\Models\SalesReturn;
+use App\Models\TreasuryTransaction;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -28,17 +28,56 @@ class TreasuryService
         ?string $referenceType = null,
         ?string $referenceId = null
     ): TreasuryTransaction {
-        return DB::transaction(function () use ($treasuryId, $type, $amount, $description, $partnerId, $referenceType, $referenceId) {
+        \Log::info('TreasuryService::recordTransaction called', [
+            'treasury_id' => $treasuryId,
+            'type' => $type,
+            'amount' => $amount,
+            'description' => $description,
+            'reference_type' => $referenceType,
+            'reference_id' => $referenceId,
+            'transaction_level' => DB::transactionLevel(),
+        ]);
+
+        $execute = function () use ($treasuryId, $type, $amount, $description, $partnerId, $referenceType, $referenceId) {
+            \Log::info('Inside recordTransaction execute closure', [
+                'transaction_level' => DB::transactionLevel(),
+                'treasury_id' => $treasuryId,
+                'amount' => $amount,
+            ]);
+
             // Calculate what the new balance would be
             $currentBalance = (float) $this->getTreasuryBalance($treasuryId);
             $newBalance = $currentBalance + (float) $amount;
 
+            \Log::info('Treasury balance check', [
+                'treasury_id' => $treasuryId,
+                'current_balance' => $currentBalance,
+                'transaction_amount' => (float) $amount,
+                'new_balance' => $newBalance,
+                'will_fail' => $newBalance < 0,
+                'transaction_level' => DB::transactionLevel(),
+            ]);
+
             // Prevent negative balance (amount is negative for withdrawals/payments)
             if ($newBalance < 0) {
+                \Log::error('Treasury balance insufficient - throwing exception', [
+                    'treasury_id' => $treasuryId,
+                    'current_balance' => $currentBalance,
+                    'transaction_amount' => (float) $amount,
+                    'new_balance' => $newBalance,
+                    'transaction_level' => DB::transactionLevel(),
+                ]);
                 throw new \Exception('لا يمكن إتمام العملية: الرصيد المتاح غير كافٍ في الخزينة');
             }
 
-            return TreasuryTransaction::create([
+            \Log::info('Creating treasury transaction', [
+                'treasury_id' => $treasuryId,
+                'type' => $type,
+                'amount' => $amount,
+                'transaction_level' => DB::transactionLevel(),
+            ]);
+
+            $transaction = TreasuryTransaction::create([
                 'treasury_id' => $treasuryId,
                 'type' => $type,
                 'amount' => $amount,
@@ -47,7 +86,29 @@ class TreasuryService
                 'reference_type' => $referenceType,
                 'reference_id' => $referenceId,
             ]);
-        });
+
+            \Log::info('Treasury transaction created', [
+                'transaction_id' => $transaction->id,
+                'treasury_id' => $treasuryId,
+                'amount' => $amount,
+                'transaction_level' => DB::transactionLevel(),
+            ]);
+
+            return $transaction;
+        };
+
+        // Only wrap in transaction if not already in one
+        $transactionLevel = DB::transactionLevel();
+        \Log::info('Checking transaction level before recordTransaction', [
+            'transaction_level' => $transactionLevel,
+            'will_create_nested' => $transactionLevel === 0,
+        ]);
+
+        if ($transactionLevel === 0) {
+            return DB::transaction($execute);
+        } else {
+            return $execute();
+        }
     }
 
     /**
@@ -56,10 +117,17 @@ class TreasuryService
      */
     public function updatePartnerBalance(string $partnerId): void
     {
-        DB::transaction(function () use ($partnerId) {
+        $execute = function () use ($partnerId) {
             $partner = Partner::findOrFail($partnerId);
             $partner->recalculateBalance();
-        });
+        };
+
+        // Only wrap in transaction if not already in one
+        if (DB::transactionLevel() === 0) {
+            DB::transaction($execute);
+        } else {
+            $execute();
+        }
     }
 
     /**
@@ -67,8 +135,17 @@ class TreasuryService
      */
     public function getTreasuryBalance(string $treasuryId): string
     {
-        return TreasuryTransaction::where('treasury_id', $treasuryId)
+        $balance = TreasuryTransaction::where('treasury_id', $treasuryId)
             ->sum('amount');
+
+        \Log::info('TreasuryService::getTreasuryBalance', [
+            'treasury_id' => $treasuryId,
+            'balance' => $balance,
+            'transaction_level' => DB::transactionLevel(),
+            'transaction_count' => TreasuryTransaction::where('treasury_id', $treasuryId)->count(),
+        ]);
+
+        return $balance;
     }
 
     /**
@@ -83,12 +160,11 @@ class TreasuryService
     /**
      * Record a subsequent payment on an invoice
      *
-     * @param SalesInvoice|PurchaseInvoice $invoice
-     * @param float $amount Amount being paid
-     * @param float $discount Discount given with this payment
-     * @param string|null $treasuryId Treasury to record the transaction in
-     * @param string|null $notes Optional notes for this payment
-     * @return \App\Models\InvoicePayment
+     * @param  SalesInvoice|PurchaseInvoice  $invoice
+     * @param  float  $amount  Amount being paid
+     * @param  float  $discount  Discount given with this payment
+     * @param  string|null  $treasuryId  Treasury to record the transaction in
+     * @param  string|null  $notes  Optional notes for this payment
      */
     public function recordInvoicePayment(
         $invoice,
@@ -97,7 +173,7 @@ class TreasuryService
         ?string $treasuryId = null,
         ?string $notes = null
     ): \App\Models\InvoicePayment {
-        if (!$invoice->isPosted()) {
+        if (! $invoice->isPosted()) {
             throw new \Exception('Cannot record payment on draft invoice');
         }
 
@@ -113,7 +189,7 @@ class TreasuryService
                 $treasuryId,
                 $transactionType,
                 $transactionAmount,
-                ($isSales ? "تسديد فاتورة بيع " : "تسديد فاتورة شراء ") . "#{$invoice->invoice_number}",
+                ($isSales ? 'تسديد فاتورة بيع ' : 'تسديد فاتورة شراء ')."#{$invoice->invoice_number}",
                 $invoice->partner_id,
                 'financial_transaction',
                 null
@@ -147,13 +223,14 @@ class TreasuryService
     private function getDefaultTreasury(): string
     {
         $treasury = \App\Models\Treasury::first();
-        if (!$treasury) {
+        if (! $treasury) {
             // Create default treasury if none exists
             $treasury = \App\Models\Treasury::create([
                 'name' => 'الخزينة الرئيسية',
                 'type' => 'cash',
             ]);
         }
+
         return $treasury->id;
     }
 
@@ -162,13 +239,13 @@ class TreasuryService
      */
     public function postSalesInvoice(SalesInvoice $invoice, ?string $treasuryId = null): void
     {
-        if (!$invoice->isDraft()) {
+        if (! $invoice->isDraft()) {
             throw new \Exception('الفاتورة ليست في حالة مسودة');
         }
 
         $treasuryId = $treasuryId ?? $this->getDefaultTreasury();
 
-        DB::transaction(function () use ($invoice, $treasuryId) {
+        $execute = function () use ($invoice, $treasuryId) {
             $paidAmount = floatval($invoice->paid_amount ?? 0);
 
             // ONLY create treasury transaction if actual cash was received
@@ -188,7 +265,14 @@ class TreasuryService
             if ($invoice->partner_id) {
                 $this->updatePartnerBalance($invoice->partner_id);
             }
-        });
+        };
+
+        // Only wrap in transaction if not already in one
+        if (DB::transactionLevel() === 0) {
+            DB::transaction($execute);
+        } else {
+            $execute();
+        }
     }
 
     /**
@@ -196,17 +280,46 @@ class TreasuryService
      */
     public function postPurchaseInvoice(PurchaseInvoice $invoice, ?string $treasuryId = null): void
     {
-        if (!$invoice->isDraft()) {
+        \Log::info('TreasuryService::postPurchaseInvoice called', [
+            'invoice_id' => $invoice->id,
+            'invoice_status' => $invoice->status,
+            'paid_amount' => $invoice->paid_amount,
+            'total' => $invoice->total,
+            'transaction_level' => DB::transactionLevel(),
+        ]);
+
+        if (! $invoice->isDraft()) {
             throw new \Exception('الفاتورة ليست في حالة مسودة');
         }
 
         $treasuryId = $treasuryId ?? $this->getDefaultTreasury();
 
-        DB::transaction(function () use ($invoice, $treasuryId) {
+        \Log::info('Treasury ID determined', [
+            'treasury_id' => $treasuryId,
+            'transaction_level' => DB::transactionLevel(),
+        ]);
+
+        $execute = function () use ($invoice, $treasuryId) {
+            \Log::info('Inside postPurchaseInvoice execute closure', [
+                'invoice_id' => $invoice->id,
+                'transaction_level' => DB::transactionLevel(),
+            ]);
+
             $paidAmount = floatval($invoice->paid_amount ?? 0);
+
+            \Log::info('Checking paid amount', [
+                'paid_amount' => $paidAmount,
+                'will_create_transaction' => $paidAmount > 0,
+            ]);
 
             // ONLY create treasury transaction if actual cash was paid
             if ($paidAmount > 0) {
+                \Log::info('Calling recordTransaction for purchase invoice', [
+                    'treasury_id' => $treasuryId,
+                    'paid_amount' => $paidAmount,
+                    'transaction_level' => DB::transactionLevel(),
+                ]);
+
                 $this->recordTransaction(
                     $treasuryId,
                     'payment',
@@ -216,13 +329,44 @@ class TreasuryService
                     'purchase_invoice',
                     $invoice->id
                 );
+
+                \Log::info('recordTransaction completed successfully', [
+                    'invoice_id' => $invoice->id,
+                    'transaction_level' => DB::transactionLevel(),
+                ]);
+            } else {
+                \Log::info('Skipping treasury transaction - no paid amount', [
+                    'paid_amount' => $paidAmount,
+                ]);
             }
 
             // Update partner balance based on new calculation
             if ($invoice->partner_id) {
+                \Log::info('Updating partner balance', [
+                    'partner_id' => $invoice->partner_id,
+                    'transaction_level' => DB::transactionLevel(),
+                ]);
                 $this->updatePartnerBalance($invoice->partner_id);
             }
-        });
+        };
+
+        // Only wrap in transaction if not already in one
+        $transactionLevel = DB::transactionLevel();
+        \Log::info('Checking transaction level before postPurchaseInvoice', [
+            'transaction_level' => $transactionLevel,
+            'will_create_nested' => $transactionLevel === 0,
+        ]);
+
+        if ($transactionLevel === 0) {
+            DB::transaction($execute);
+        } else {
+            $execute();
+        }
+
+        \Log::info('TreasuryService::postPurchaseInvoice completed', [
+            'invoice_id' => $invoice->id,
+            'transaction_level' => DB::transactionLevel(),
+        ]);
     }
 
     /**
@@ -230,7 +374,7 @@ class TreasuryService
      */
     public function postSalesReturn(SalesReturn $return, ?string $treasuryId = null): void
     {
-        if (!$return->isDraft()) {
+        if (! $return->isDraft()) {
             throw new \Exception('المرتجع ليس في حالة مسودة');
         }
 
@@ -265,7 +409,7 @@ class TreasuryService
      */
     public function postPurchaseReturn(PurchaseReturn $return, ?string $treasuryId = null): void
     {
-        if (!$return->isDraft()) {
+        if (! $return->isDraft()) {
             throw new \Exception('المرتجع ليس في حالة مسودة');
         }
 
@@ -351,7 +495,7 @@ class TreasuryService
                 $expense->treasury_id,
                 'expense',
                 -abs($expense->amount), // Negative for expense
-                $expense->title . ($expense->description ? ': ' . $expense->description : ''),
+                $expense->title.($expense->description ? ': '.$expense->description : ''),
                 null,
                 'expense',
                 $expense->id
@@ -369,7 +513,7 @@ class TreasuryService
                 $revenue->treasury_id,
                 'income',
                 abs($revenue->amount), // Positive for income
-                $revenue->title . ($revenue->description ? ': ' . $revenue->description : ''),
+                $revenue->title.($revenue->description ? ': '.$revenue->description : ''),
                 null,
                 'revenue',
                 $revenue->id
@@ -407,4 +551,3 @@ class TreasuryService
         });
     }
 }
-

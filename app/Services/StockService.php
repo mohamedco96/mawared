@@ -3,10 +3,10 @@
 namespace App\Services;
 
 use App\Models\Product;
-use App\Models\SalesInvoice;
 use App\Models\PurchaseInvoice;
-use App\Models\SalesReturn;
 use App\Models\PurchaseReturn;
+use App\Models\SalesInvoice;
+use App\Models\SalesReturn;
 use App\Models\StockAdjustment;
 use App\Models\StockMovement;
 use App\Models\WarehouseTransfer;
@@ -27,8 +27,25 @@ class StockService
         string $referenceId,
         ?string $notes = null
     ): StockMovement {
-        return DB::transaction(function () use ($warehouseId, $productId, $type, $quantity, $costAtTime, $referenceType, $referenceId, $notes) {
-            return StockMovement::create([
+        \Log::info('StockService::recordMovement called', [
+            'warehouse_id' => $warehouseId,
+            'product_id' => $productId,
+            'type' => $type,
+            'quantity' => $quantity,
+            'reference_type' => $referenceType,
+            'reference_id' => $referenceId,
+            'transaction_level' => DB::transactionLevel(),
+        ]);
+
+        $execute = function () use ($warehouseId, $productId, $type, $quantity, $costAtTime, $referenceType, $referenceId, $notes) {
+            \Log::info('Creating stock movement record', [
+                'warehouse_id' => $warehouseId,
+                'product_id' => $productId,
+                'quantity' => $quantity,
+                'transaction_level' => DB::transactionLevel(),
+            ]);
+
+            $movement = StockMovement::create([
                 'warehouse_id' => $warehouseId,
                 'product_id' => $productId,
                 'type' => $type,
@@ -38,7 +55,25 @@ class StockService
                 'reference_id' => $referenceId,
                 'notes' => $notes,
             ]);
-        });
+
+            \Log::info('Stock movement record created', [
+                'movement_id' => $movement->id,
+                'warehouse_id' => $warehouseId,
+                'product_id' => $productId,
+                'quantity' => $quantity,
+                'transaction_level' => DB::transactionLevel(),
+            ]);
+
+            return $movement;
+        };
+
+        // Only wrap in transaction if not already in one
+        $transactionLevel = DB::transactionLevel();
+        if ($transactionLevel === 0) {
+            return DB::transaction($execute);
+        } else {
+            return $execute();
+        }
     }
 
     /**
@@ -71,6 +106,7 @@ class StockService
     public function validateStockAvailability(string $warehouseId, string $productId, int $requiredQuantity): bool
     {
         $currentStock = $this->getCurrentStock($warehouseId, $productId);
+
         return $currentStock >= $requiredQuantity;
     }
 
@@ -105,7 +141,7 @@ class StockService
             'display_stock' => $displayStock,
             'message' => $isAvailable
                 ? null
-                : "المخزون المتاح: {$displayStock} وحدة، الكمية المطلوبة: {$displayRequired}"
+                : "المخزون المتاح: {$displayStock} وحدة، الكمية المطلوبة: {$displayRequired}",
         ];
     }
 
@@ -114,9 +150,9 @@ class StockService
      */
     public function updateProductAvgCost(string $productId): void
     {
-        DB::transaction(function () use ($productId) {
+        $execute = function () use ($productId) {
             $product = Product::findOrFail($productId);
-            
+
             // Calculate weighted average cost from purchase movements
             $purchaseMovements = StockMovement::where('product_id', $productId)
                 ->where('type', 'purchase')
@@ -139,7 +175,14 @@ class StockService
                 $avgCost = $totalCost / $totalQuantity;
                 $product->update(['avg_cost' => $avgCost]);
             }
-        });
+        };
+
+        // Only wrap in transaction if not already in one
+        if (DB::transactionLevel() === 0) {
+            DB::transaction($execute);
+        } else {
+            $execute();
+        }
     }
 
     /**
@@ -151,7 +194,7 @@ class StockService
             return;
         }
 
-        DB::transaction(function () use ($product, $newSellingPrice, $unitType, $newLargeSellingPrice) {
+        $execute = function () use ($product, $newSellingPrice, $newLargeSellingPrice) {
             $updateData = [];
 
             // Update small unit price
@@ -164,10 +207,17 @@ class StockService
                 $updateData['large_retail_price'] = $newLargeSellingPrice;
             }
 
-            if (!empty($updateData)) {
+            if (! empty($updateData)) {
                 $product->update($updateData);
             }
-        });
+        };
+
+        // Only wrap in transaction if not already in one
+        if (DB::transactionLevel() === 0) {
+            DB::transaction($execute);
+        } else {
+            $execute();
+        }
     }
 
     /**
@@ -175,11 +225,11 @@ class StockService
      */
     public function postSalesInvoice(SalesInvoice $invoice): void
     {
-        if (!$invoice->isDraft()) {
+        if (! $invoice->isDraft()) {
             throw new \Exception('الفاتورة ليست في حالة مسودة');
         }
 
-        DB::transaction(function () use ($invoice) {
+        $execute = function () use ($invoice) {
             // Lock the invoice to prevent concurrent posting
             $invoice = SalesInvoice::lockForUpdate()->findOrFail($invoice->id);
 
@@ -207,7 +257,14 @@ class StockService
                     $invoice->id
                 );
             }
-        });
+        };
+
+        // Only wrap in transaction if not already in one
+        if (DB::transactionLevel() === 0) {
+            DB::transaction($execute);
+        } else {
+            $execute();
+        }
     }
 
     /**
@@ -215,19 +272,53 @@ class StockService
      */
     public function postPurchaseInvoice(PurchaseInvoice $invoice): void
     {
-        if (!$invoice->isDraft()) {
+        \Log::info('StockService::postPurchaseInvoice called', [
+            'invoice_id' => $invoice->id,
+            'invoice_status' => $invoice->status,
+            'warehouse_id' => $invoice->warehouse_id,
+            'items_count' => $invoice->items->count(),
+            'transaction_level' => DB::transactionLevel(),
+        ]);
+
+        if (! $invoice->isDraft()) {
             throw new \Exception('الفاتورة ليست في حالة مسودة');
         }
 
-        DB::transaction(function () use ($invoice) {
+        $execute = function () use ($invoice) {
+            \Log::info('Inside postPurchaseInvoice execute closure', [
+                'invoice_id' => $invoice->id,
+                'transaction_level' => DB::transactionLevel(),
+            ]);
+
             foreach ($invoice->items as $item) {
                 $product = $item->product;
+
+                \Log::info('Processing invoice item', [
+                    'item_id' => $item->id,
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'quantity' => $item->quantity,
+                    'unit_type' => $item->unit_type,
+                    'warehouse_id' => $invoice->warehouse_id,
+                ]);
+
+                // Get stock before movement
+                $stockBefore = $this->getCurrentStock($invoice->warehouse_id, $product->id);
+                \Log::info('Stock before movement', [
+                    'product_id' => $product->id,
+                    'stock_before' => $stockBefore,
+                ]);
 
                 // Convert to base unit
                 $baseQuantity = $this->convertToBaseUnit($product, $item->quantity, $item->unit_type);
 
+                \Log::info('Converted quantity', [
+                    'original_quantity' => $item->quantity,
+                    'base_quantity' => $baseQuantity,
+                ]);
+
                 // Create positive stock movement (purchase)
-                $this->recordMovement(
+                $movement = $this->recordMovement(
                     $invoice->warehouse_id,
                     $product->id,
                     'purchase',
@@ -236,6 +327,22 @@ class StockService
                     'purchase_invoice',
                     $invoice->id
                 );
+
+                \Log::info('Stock movement created', [
+                    'movement_id' => $movement->id,
+                    'product_id' => $product->id,
+                    'quantity' => $baseQuantity,
+                    'transaction_level' => DB::transactionLevel(),
+                ]);
+
+                // Check stock after movement (within transaction)
+                $stockAfter = $this->getCurrentStock($invoice->warehouse_id, $product->id);
+                \Log::info('Stock after movement', [
+                    'product_id' => $product->id,
+                    'stock_before' => $stockBefore,
+                    'stock_after' => $stockAfter,
+                    'expected_stock' => $stockBefore + $baseQuantity,
+                ]);
 
                 // Update product price if new_selling_price is set
                 if ($item->new_selling_price !== null) {
@@ -247,7 +354,30 @@ class StockService
             foreach ($invoice->items as $item) {
                 $this->updateProductAvgCost($item->product_id);
             }
-        });
+
+            \Log::info('StockService::postPurchaseInvoice execute completed', [
+                'invoice_id' => $invoice->id,
+                'transaction_level' => DB::transactionLevel(),
+            ]);
+        };
+
+        // Only wrap in transaction if not already in one
+        $transactionLevel = DB::transactionLevel();
+        \Log::info('Checking transaction level before postPurchaseInvoice', [
+            'transaction_level' => $transactionLevel,
+            'will_create_nested' => $transactionLevel === 0,
+        ]);
+
+        if ($transactionLevel === 0) {
+            DB::transaction($execute);
+        } else {
+            $execute();
+        }
+
+        \Log::info('StockService::postPurchaseInvoice completed', [
+            'invoice_id' => $invoice->id,
+            'transaction_level' => DB::transactionLevel(),
+        ]);
     }
 
     /**
@@ -255,7 +385,7 @@ class StockService
      */
     public function postSalesReturn(SalesReturn $return): void
     {
-        if (!$return->isDraft()) {
+        if (! $return->isDraft()) {
             throw new \Exception('المرتجع ليس في حالة مسودة');
         }
 
@@ -286,7 +416,7 @@ class StockService
      */
     public function postPurchaseReturn(PurchaseReturn $return): void
     {
-        if (!$return->isDraft()) {
+        if (! $return->isDraft()) {
             throw new \Exception('المرتجع ليس في حالة مسودة');
         }
 
@@ -298,7 +428,7 @@ class StockService
                 $baseQuantity = $this->convertToBaseUnit($product, $item->quantity, $item->unit_type);
 
                 // Validate stock availability (we're removing stock)
-                if (!$this->validateStockAvailability($return->warehouse_id, $product->id, $baseQuantity)) {
+                if (! $this->validateStockAvailability($return->warehouse_id, $product->id, $baseQuantity)) {
                     throw new \Exception("المخزون غير كافٍ للمنتج: {$product->name}");
                 }
 
@@ -327,7 +457,7 @@ class StockService
      */
     public function postStockAdjustment(StockAdjustment $adjustment): void
     {
-        if (!$adjustment->isDraft()) {
+        if (! $adjustment->isDraft()) {
             throw new \Exception('التسوية ليست في حالة مسودة');
         }
 
@@ -345,7 +475,7 @@ class StockService
                 $quantity = -$quantity; // Make it negative for subtraction
 
                 // Validate stock availability for subtraction
-                if (!$this->validateStockAvailability($adjustment->warehouse_id, $product->id, abs($quantity))) {
+                if (! $this->validateStockAvailability($adjustment->warehouse_id, $product->id, abs($quantity))) {
                     throw new \Exception("المخزون غير كافٍ للمنتج: {$product->name}");
                 }
             } else {
@@ -375,7 +505,7 @@ class StockService
         DB::transaction(function () use ($transfer) {
             foreach ($transfer->items as $item) {
                 $product = $item->product;
-                
+
                 // Negative movement from source warehouse
                 $this->recordMovement(
                     $transfer->from_warehouse_id,
@@ -401,4 +531,3 @@ class StockService
         });
     }
 }
-

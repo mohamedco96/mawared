@@ -198,8 +198,7 @@ class DailyOperations extends Page implements HasTable
                     ->badge()
                     ->color(fn ($state) => $state >= 0 ? 'success' : 'danger'),
                 Tables\Columns\TextColumn::make('cost_at_time')
-                    ->label('التكلفة')
-                    ->money('SAR')
+                    ->label('تكلفة الوحدة')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('reference_type')
                     ->label('المصدر')
