@@ -59,14 +59,14 @@ class PurchaseInvoiceResource extends Resource
                             ->default('draft')
                             ->required()
                             ->native(false)
-                            ->disabled(fn ($record) => $record && $record->isPosted()),
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Select::make('warehouse_id')
                             ->label('المخزن')
                             ->relationship('warehouse', 'name')
                             ->required()
                             ->searchable()
                             ->preload()
-                            ->disabled(fn ($record) => $record && $record->isPosted()),
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Select::make('partner_id')
                             ->label('المورد')
                             ->relationship('partner', 'name', fn ($query) => $query->where('type', 'supplier'))
@@ -92,7 +92,7 @@ class PurchaseInvoiceResource extends Resource
                                     ->maxLength(255),
                             ])
                             ->createOptionModalHeading('إضافة مورد جديد')
-                            ->disabled(fn ($record) => $record && $record->isPosted()),
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Select::make('payment_method')
                             ->label('طريقة الدفع')
                             ->options([
@@ -125,7 +125,7 @@ class PurchaseInvoiceResource extends Resource
                                 }
                             })
                             ->native(false)
-                            ->disabled(fn ($record) => $record && $record->isPosted()),
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                     ])
                     ->columns(3),
 
@@ -297,7 +297,7 @@ class PurchaseInvoiceResource extends Resource
                             ->afterStateUpdated(function (Set $set, Get $get) {
                                 static::recalculateTotals($set, $get);
                             })
-                            ->disabled(fn ($record) => $record && $record->isPosted()),
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                     ]),
 
                 Forms\Components\Section::make('الإجماليات')
@@ -328,7 +328,7 @@ class PurchaseInvoiceResource extends Resource
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 static::recalculateTotals($set, $get);
                             })
-                            ->disabled(fn ($record) => $record && $record->isPosted()),
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\TextInput::make('discount_value')
                             ->label(function (Get $get) {
                                 return $get('discount_type') === 'percentage'
@@ -348,7 +348,7 @@ class PurchaseInvoiceResource extends Resource
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 static::recalculateTotals($set, $get);
                             })
-                            ->disabled(fn ($record) => $record && $record->isPosted()),
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Placeholder::make('calculated_discount_display')
                             ->label('الخصم المحسوب')
                             ->content(function (Get $get) {
@@ -405,7 +405,7 @@ class PurchaseInvoiceResource extends Resource
                                 $set('total', $netTotal);
                             })
                             ->helperText('يتم ملؤه تلقائياً حسب طريقة الدفع أو يمكن تعديله يدوياً')
-                            ->disabled(fn ($record) => $record && $record->isPosted()),
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\TextInput::make('remaining_amount')
                             ->label('المبلغ المتبقي')
                             ->numeric()
@@ -429,7 +429,7 @@ class PurchaseInvoiceResource extends Resource
                     ->label('ملاحظات')
                     ->columnSpanFull()
                     ->rows(3)
-                    ->disabled(fn ($record) => $record && $record->isPosted()),
+                    ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
             ]);
     }
 
