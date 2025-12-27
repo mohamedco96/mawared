@@ -6,8 +6,66 @@
 @source '../**/*.js';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    /* Modern Font - Cairo (Arabic Support) */
+    --font-sans: 'Cairo', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Vibrant Modern Color Palette */
+    --color-primary-50: #eff6ff;
+    --color-primary-100: #dbeafe;
+    --color-primary-200: #bfdbfe;
+    --color-primary-300: #93c5fd;
+    --color-primary-400: #60a5fa;
+    --color-primary-500: #3b82f6;
+    --color-primary-600: #2563eb;
+    --color-primary-700: #1d4ed8;
+    --color-primary-800: #1e40af;
+    --color-primary-900: #1e3a8a;
+    --color-primary-950: #172554;
+
+    --color-success-50: #ecfdf5;
+    --color-success-100: #d1fae5;
+    --color-success-200: #a7f3d0;
+    --color-success-300: #6ee7b7;
+    --color-success-400: #34d399;
+    --color-success-500: #10b981;
+    --color-success-600: #059669;
+    --color-success-700: #047857;
+    --color-success-800: #065f46;
+    --color-success-900: #064e3b;
+    --color-success-950: #022c22;
+
+    --color-warning-50: #fffbeb;
+    --color-warning-100: #fef3c7;
+    --color-warning-200: #fde68a;
+    --color-warning-300: #fcd34d;
+    --color-warning-400: #fbbf24;
+    --color-warning-500: #f59e0b;
+    --color-warning-600: #d97706;
+    --color-warning-700: #b45309;
+    --color-warning-800: #92400e;
+    --color-warning-900: #78350f;
+    --color-warning-950: #451a03;
+
+    --color-danger-50: #fff1f2;
+    --color-danger-100: #ffe4e6;
+    --color-danger-200: #fecdd3;
+    --color-danger-300: #fda4af;
+    --color-danger-400: #fb7185;
+    --color-danger-500: #f43f5e;
+    --color-danger-600: #e11d48;
+    --color-danger-700: #be123c;
+    --color-danger-800: #9f1239;
+    --color-danger-900: #881337;
+    --color-danger-950: #4c0519;
+
+    /* Modern Border Radius */
+    --radius-sm: 0.5rem;
+    --radius: 0.75rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.5rem;
+    --radius-2xl: 2rem;
 }
 
 /* RTL Support for Filament */
@@ -17,4 +75,190 @@
 
 [dir="rtl"] .fi-layout {
     direction: rtl;
+}
+
+/* ============================================
+   MODERN UI ENHANCEMENTS - Vibrant & Interactive
+   ============================================ */
+
+/* 1. CARDS - Modern depth and rounded corners */
+.fi-section,
+.fi-card,
+.fi-section-card {
+    @apply rounded-xl shadow-sm border-0;
+}
+
+.fi-wi-stats-overview-stat {
+    @apply rounded-xl shadow-md border-0 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5;
+}
+
+/* 2. BUTTONS - Enhanced interactivity */
+.fi-btn {
+    @apply rounded-lg transition-all duration-200;
+}
+
+.fi-btn-primary,
+.fi-btn[data-color="primary"] {
+    @apply shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98];
+}
+
+.fi-btn:focus-visible {
+    @apply ring-2 ring-primary-500 ring-offset-2;
+}
+
+/* 3. FORM INPUTS - Clear focus states */
+.fi-input,
+.fi-select,
+.fi-textarea {
+    @apply rounded-lg transition-all duration-200;
+}
+
+.fi-input:focus,
+.fi-select:focus,
+.fi-textarea:focus {
+    @apply ring-2 ring-primary-500 border-primary-500 shadow-sm;
+}
+
+/* 4. TABLES - Interactive hover states */
+.fi-ta-row {
+    @apply transition-colors duration-150;
+}
+
+.fi-ta-row:hover {
+    @apply bg-gray-50/80 dark:bg-white/5;
+}
+
+.fi-ta-cell {
+    @apply transition-colors duration-150;
+}
+
+/* 5. BADGES - Rounded and vibrant */
+.fi-badge {
+    @apply rounded-lg px-3 py-1 font-medium;
+}
+
+/* 6. STATS WIDGETS - Colorful card backgrounds */
+.fi-wi-stats-overview-stat[data-color="primary"],
+.fi-wi-stats-overview-stat:has(.fi-icon-primary) {
+    @apply bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20;
+}
+
+.fi-wi-stats-overview-stat[data-color="success"],
+.fi-wi-stats-overview-stat:has(.fi-icon-success) {
+    @apply bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/20;
+}
+
+.fi-wi-stats-overview-stat[data-color="warning"],
+.fi-wi-stats-overview-stat:has(.fi-icon-warning) {
+    @apply bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20;
+}
+
+.fi-wi-stats-overview-stat[data-color="danger"],
+.fi-wi-stats-overview-stat:has(.fi-icon-danger) {
+    @apply bg-gradient-to-br from-rose-50 to-rose-100/50 dark:from-rose-950/30 dark:to-rose-900/20;
+}
+
+.fi-wi-stats-overview-stat[data-color="info"],
+.fi-wi-stats-overview-stat:has(.fi-icon-info) {
+    @apply bg-gradient-to-br from-cyan-50 to-cyan-100/50 dark:from-cyan-950/30 dark:to-cyan-900/20;
+}
+
+/* 7. NAVIGATION - Full Background Highlights */
+/* Sidebar navigation container spacing */
+.fi-sidebar-nav {
+    @apply space-y-1;
+}
+
+/* Base styles for all navigation items */
+.fi-sidebar-item,
+.fi-sidebar-group-item {
+    @apply rounded-xl transition-all duration-200 mx-2 my-1;
+}
+
+/* Hover state - subtle gray background for interactivity */
+.fi-sidebar-item:hover,
+.fi-sidebar-group-item:hover {
+    @apply bg-gray-100/80 dark:bg-white/5;
+}
+
+/* Active state - full colored background highlight */
+.fi-sidebar-item-active,
+.fi-sidebar-group-item-active,
+.fi-sidebar-item.fi-active,
+.fi-sidebar-group-item.fi-active {
+    @apply bg-primary-50 dark:bg-primary-500/10 shadow-sm;
+}
+
+/* Active state text and icon colors */
+.fi-sidebar-item-active .fi-sidebar-item-label,
+.fi-sidebar-item-active .fi-sidebar-item-icon,
+.fi-sidebar-item.fi-active .fi-sidebar-item-label,
+.fi-sidebar-item.fi-active .fi-sidebar-item-icon,
+.fi-sidebar-group-item-active .fi-sidebar-group-item-label,
+.fi-sidebar-group-item-active .fi-sidebar-group-item-icon,
+.fi-sidebar-group-item.fi-active .fi-sidebar-group-item-label,
+.fi-sidebar-group-item.fi-active .fi-sidebar-group-item-icon {
+    @apply text-primary-600 dark:text-primary-400 font-semibold;
+}
+
+/* Filament v3 specific selectors for better targeting */
+.fi-sidebar-item-button,
+.fi-sidebar-group-button {
+    @apply rounded-xl transition-all duration-200;
+}
+
+.fi-sidebar-item-button:hover,
+.fi-sidebar-group-button:hover {
+    @apply bg-gray-100/80 dark:bg-white/5;
+}
+
+/* Active navigation link with full background */
+.fi-sidebar-nav [aria-current="page"],
+.fi-sidebar-nav .fi-active {
+    @apply bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 font-semibold rounded-xl shadow-sm;
+}
+
+/* Group items spacing */
+.fi-sidebar-group-items {
+    @apply space-y-1 pl-2;
+}
+
+/* Nested items with subtle indentation */
+.fi-sidebar-group-item {
+    @apply ml-1;
+}
+
+/* 8. MODALS & DROPDOWNS - Modern appearance */
+.fi-modal,
+.fi-dropdown-panel {
+    @apply rounded-xl shadow-2xl;
+}
+
+/* 9. TABS - Enhanced active states */
+.fi-tabs-item {
+    @apply rounded-lg transition-all duration-200;
+}
+
+.fi-tabs-item-active {
+    @apply bg-primary-50 dark:bg-primary-950/50 text-primary-600 dark:text-primary-400 shadow-sm;
+}
+
+/* 10. NOTIFICATIONS - Vibrant and modern */
+.fi-no-notification {
+    @apply rounded-xl shadow-lg border-0;
+}
+
+/* 11. ACTION BUTTONS - Clear hover feedback */
+.fi-ac-btn,
+.fi-icon-btn {
+    @apply rounded-lg transition-all duration-200 hover:bg-gray-100 dark:hover:bg-white/10;
+}
+
+/* 12. PAGINATION - Modern styling */
+.fi-pagination-item {
+    @apply rounded-lg;
+}
+
+.fi-pagination-item-active {
+    @apply bg-primary-600 text-white shadow-sm;
 }

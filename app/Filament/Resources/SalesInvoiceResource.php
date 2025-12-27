@@ -74,8 +74,26 @@ class SalesInvoiceResource extends Resource
                             ->required()
                             ->searchable()
                             ->preload()
-                            ->autofocus()
                             ->reactive()
+                            ->createOptionForm([
+                                Forms\Components\TextInput::make('name')
+                                    ->label('الاسم')
+                                    ->required()
+                                    ->maxLength(255),
+                                Forms\Components\Hidden::make('type')
+                                    ->default('customer'),
+                                Forms\Components\TextInput::make('phone')
+                                    ->label('الهاتف')
+                                    ->tel()
+                                    ->maxLength(255),
+                                Forms\Components\TextInput::make('gov_id')
+                                    ->label('الهوية الوطنية')
+                                    ->maxLength(255),
+                                Forms\Components\TextInput::make('region')
+                                    ->label('المنطقة')
+                                    ->maxLength(255),
+                            ])
+                            ->createOptionModalHeading('إضافة عميل جديد')
                             ->disabled(fn ($record) => $record && $record->isPosted()),
                         Forms\Components\Select::make('payment_method')
                             ->label('طريقة الدفع')
@@ -116,6 +134,7 @@ class SalesInvoiceResource extends Resource
                 Forms\Components\Section::make('أصناف الفاتورة')
                     ->schema([
                         Forms\Components\Repeater::make('items')
+                            ->label('الأصناف')
                             ->relationship('items')
                             ->addActionLabel('إضافة صنف')
                             ->schema([
@@ -136,7 +155,6 @@ class SalesInvoiceResource extends Resource
                                                     : $product->retail_price;
                                                 $set('unit_price', $price);
                                                 $set('quantity', 1);
-                                                $set('discount', 0);
                                                 $set('total', $price);
                                             }
                                         }
@@ -147,6 +165,7 @@ class SalesInvoiceResource extends Resource
                                             $set('quantity', $quantity);
                                         }
                                     })
+                                    ->columnSpan(4)
                                     ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
                                 Forms\Components\Select::make('unit_type')
                                     ->label('الوحدة')
@@ -176,8 +195,7 @@ class SalesInvoiceResource extends Resource
                                                     : $product->retail_price;
                                                 $set('unit_price', $price);
                                                 $quantity = $get('quantity') ?? 1;
-                                                $discount = $get('discount') ?? 0;
-                                                $set('total', ($price * $quantity) - $discount);
+                                                $set('total', $price * $quantity);
                                             }
                                         }
 
@@ -187,19 +205,19 @@ class SalesInvoiceResource extends Resource
                                             $set('quantity', $quantity);
                                         }
                                     })
+                                    ->columnSpan(2)
                                     ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية')
                                     ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->required()
                                     ->default(1)
                                     ->minValue(1)
                                     ->live(debounce: 500)
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $unitPrice = $get('unit_price') ?? 0;
-                                        $discount = $get('discount') ?? 0;
-                                        $set('total', ($unitPrice * $state) - $discount);
+                                        $set('total', $unitPrice * $state);
                                     })
                                     ->rules([
                                         fn (Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
@@ -231,62 +249,30 @@ class SalesInvoiceResource extends Resource
                                             }
                                         },
                                     ])
+                                    ->columnSpan(2)
                                     ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
                                 Forms\Components\TextInput::make('unit_price')
-                                    ->label('سعر الوحدة')
+                                    ->label('السعر')
                                     ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->required()
                                     ->step(0.01)
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $quantity = $get('quantity') ?? 1;
-                                        $discount = $get('discount') ?? 0;
-                                        $set('total', ($state * $quantity) - $discount);
+                                        $set('total', $state * $quantity);
                                     })
-                                    ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
-                                Forms\Components\TextInput::make('discount')
-                                    ->label('الخصم')
-                                    ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                                    ->default(0)
-                                    ->step(0.01)
-                                    ->reactive()
-                                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                        $unitPrice = $get('unit_price') ?? 0;
-                                        $quantity = $get('quantity') ?? 1;
-                                        $set('total', ($unitPrice * $quantity) - $state);
-                                    })
+                                    ->columnSpan(2)
                                     ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
                                 Forms\Components\TextInput::make('total')
                                     ->label('الإجمالي')
                                     ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->disabled()
-                                    ->dehydrated(),
-                                Forms\Components\Placeholder::make('stock_info')
-                                    ->label('المخزون المتاح')
-                                    ->content(function (Get $get) {
-                                        $productId = $get('product_id');
-                                        $warehouseId = $get('../../warehouse_id');
-                                        if (! $productId || ! $warehouseId) {
-                                            return '—';
-                                        }
-                                        $stockService = app(StockService::class);
-                                        $stock = $stockService->getCurrentStock($warehouseId, $productId);
-                                        $unitType = $get('unit_type') ?? 'small';
-                                        if ($unitType === 'large' && $productId) {
-                                            $product = Product::find($productId);
-                                            if ($product && $product->factor > 1) {
-                                                $stock = intval($stock / $product->factor);
-                                            }
-                                        }
-
-                                        return $stock;
-                                    })
-                                    ->visible(fn (Get $get) => ! empty($get('product_id'))),
+                                    ->dehydrated()
+                                    ->columnSpan(2),
                             ])
-                            ->columns(7)
+                            ->columns(12)
                             ->defaultItems(1)
                             ->collapsible()
                             ->itemLabel(fn (array $state): ?string => $state['product_id'] ? Product::find($state['product_id'])?->name : null)
@@ -669,7 +655,7 @@ class SalesInvoiceResource extends Resource
                     })
                     ->visible(fn (SalesInvoice $record) =>
                         $record->isPosted() &&
-                        ($record->current_remaining ?? $record->remaining_amount) > 0
+                        !$record->isFullyPaid()
                     ),
 
                 Tables\Actions\EditAction::make()

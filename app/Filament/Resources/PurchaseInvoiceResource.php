@@ -73,7 +73,25 @@ class PurchaseInvoiceResource extends Resource
                             ->required()
                             ->searchable()
                             ->preload()
-                            ->autofocus()
+                            ->createOptionForm([
+                                Forms\Components\TextInput::make('name')
+                                    ->label('الاسم')
+                                    ->required()
+                                    ->maxLength(255),
+                                Forms\Components\Hidden::make('type')
+                                    ->default('supplier'),
+                                Forms\Components\TextInput::make('phone')
+                                    ->label('الهاتف')
+                                    ->tel()
+                                    ->maxLength(255),
+                                Forms\Components\TextInput::make('gov_id')
+                                    ->label('الهوية الوطنية')
+                                    ->maxLength(255),
+                                Forms\Components\TextInput::make('region')
+                                    ->label('المنطقة')
+                                    ->maxLength(255),
+                            ])
+                            ->createOptionModalHeading('إضافة مورد جديد')
                             ->disabled(fn ($record) => $record && $record->isPosted()),
                         Forms\Components\Select::make('payment_method')
                             ->label('طريقة الدفع')
@@ -114,6 +132,7 @@ class PurchaseInvoiceResource extends Resource
                 Forms\Components\Section::make('أصناف الفاتورة')
                     ->schema([
                         Forms\Components\Repeater::make('items')
+                            ->label('الأصناف')
                             ->relationship('items')
                             ->addActionLabel('إضافة صنف')
                             ->schema([
@@ -130,14 +149,59 @@ class PurchaseInvoiceResource extends Resource
                                             if ($product) {
                                                 $set('unit_cost', $product->avg_cost ?: 0);
                                                 $set('quantity', 1);
-                                                $set('discount', 0);
                                                 $set('total', $product->avg_cost ?: 0);
                                             }
                                         }
                                     })
+                                    ->createOptionForm([
+                                        Forms\Components\TextInput::make('name')
+                                            ->label('اسم المنتج')
+                                            ->required()
+                                            ->maxLength(255)
+                                            ->columnSpanFull(),
+                                        Forms\Components\TextInput::make('barcode')
+                                            ->label('الباركود')
+                                            ->helperText('سيتم توليده تلقائياً إذا ترك فارغاً')
+                                            ->unique()
+                                            ->maxLength(255),
+                                        Forms\Components\TextInput::make('sku')
+                                            ->label('رمز المنتج')
+                                            ->helperText('سيتم توليده تلقائياً إذا ترك فارغاً')
+                                            ->unique()
+                                            ->maxLength(255),
+                                        Forms\Components\Select::make('small_unit_id')
+                                            ->label('الوحدة الصغيرة (الأساسية)')
+                                            ->relationship('smallUnit', 'name')
+                                            ->required()
+                                            ->searchable()
+                                            ->preload()
+                                            ->createOptionForm([
+                                                Forms\Components\TextInput::make('name')
+                                                    ->label('الاسم')
+                                                    ->required(),
+                                                Forms\Components\TextInput::make('symbol')
+                                                    ->label('الرمز'),
+                                            ])
+                                            ->createOptionModalHeading('إضافة وحدة قياس جديدة'),
+                                        Forms\Components\TextInput::make('retail_price')
+                                            ->label('سعر التجزئة')
+                                            ->numeric()
+                                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                            ->default(0)
+                                            ->required()
+                                            ->step(0.01),
+                                        Forms\Components\TextInput::make('min_stock')
+                                            ->label('الحد الأدنى للمخزون')
+                                            ->numeric()
+                                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                            ->default(0)
+                                            ->required(),
+                                    ])
+                                    ->createOptionModalHeading('إضافة منتج جديد')
+                                    ->columnSpan(4)
                                     ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
                                 Forms\Components\Select::make('unit_type')
-                                    ->label('نوع الوحدة')
+                                    ->label('الوحدة')
                                     ->options(function (Get $get) {
                                         $productId = $get('product_id');
                                         if (!$productId) {
@@ -153,52 +217,47 @@ class PurchaseInvoiceResource extends Resource
                                     ->default('small')
                                     ->required()
                                     ->reactive()
+                                    ->columnSpan(2)
                                     ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية')
                                     ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->required()
                                     ->default(1)
                                     ->minValue(1)
-                                    ->live(onBlur: true)
+                                    ->live(debounce: 500)
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $unitCost = $get('unit_cost') ?? 0;
-                                        $discount = $get('discount') ?? 0;
-                                        $set('total', ($unitCost * $state) - $discount);
+                                        $set('total', $unitCost * $state);
                                     })
+                                    ->columnSpan(2)
                                     ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
                                 Forms\Components\TextInput::make('unit_cost')
-                                    ->label('تكلفة الوحدة')
+                                    ->label('السعر')
                                     ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->required()
                                     ->step(0.01)
-                                    ->live(onBlur: true)
+                                    ->live(debounce: 500)
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $quantity = $get('quantity') ?? 1;
-                                        $discount = $get('discount') ?? 0;
-                                        $set('total', ($state * $quantity) - $discount);
+                                        $set('total', $state * $quantity);
                                     })
+                                    ->columnSpan(2)
                                     ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
-                                Forms\Components\TextInput::make('discount')
-                                    ->label('خصم')
+                                Forms\Components\TextInput::make('total')
+                                    ->label('الإجمالي')
                                     ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                                    ->default(0)
-                                    ->step(0.01)
-                                    ->live(onBlur: true)
-                                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                        $unitCost = $get('unit_cost') ?? 0;
-                                        $quantity = $get('quantity') ?? 1;
-                                        $set('total', ($unitCost * $quantity) - $state);
-                                    })
-                                    ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
+                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                    ->disabled()
+                                    ->dehydrated()
+                                    ->columnSpan(2),
                                 Forms\Components\TextInput::make('new_selling_price')
                                     ->label('سعر البيع الجديد (صغير)')
                                     ->helperText('إذا تم تحديده، سيتم تحديث سعر المنتج تلقائياً')
                                     ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->step(0.01)
                                     ->nullable()
                                     ->live(onBlur: true)
@@ -212,12 +271,13 @@ class PurchaseInvoiceResource extends Resource
                                             }
                                         }
                                     })
+                                    ->columnSpan(2)
                                     ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
                                 Forms\Components\TextInput::make('new_large_selling_price')
                                     ->label('سعر البيع الجديد (كبير)')
                                     ->helperText('يتم حسابه تلقائياً (سعر الوحدة الصغيرة × معامل التحويل)، يمكن تعديله يدوياً')
                                     ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->step(0.01)
                                     ->nullable()
                                     ->visible(function (Get $get) {
@@ -226,15 +286,10 @@ class PurchaseInvoiceResource extends Resource
                                         $product = Product::find($productId);
                                         return $product && $product->large_unit_id;
                                     })
+                                    ->columnSpan(2)
                                     ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
-                                Forms\Components\TextInput::make('total')
-                                    ->label('الإجمالي')
-                                    ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                                    ->disabled()
-                                    ->dehydrated(),
                             ])
-                            ->columns(7)
+                            ->columns(12)
                             ->defaultItems(1)
                             ->collapsible()
                             ->itemLabel(fn (array $state): ?string => $state['product_id'] ? Product::find($state['product_id'])?->name : null)
@@ -630,7 +685,7 @@ class PurchaseInvoiceResource extends Resource
                     })
                     ->visible(fn (PurchaseInvoice $record) =>
                         $record->isPosted() &&
-                        ($record->current_remaining ?? $record->remaining_amount) > 0
+                        !$record->isFullyPaid()
                     ),
 
                 Tables\Actions\EditAction::make()

@@ -20,14 +20,14 @@ class CreatePurchaseInvoice extends CreateRecord
                 $subtotal += $item['total'] ?? 0;
             }
         }
-        
+
         $discount = $data['discount'] ?? 0;
         $total = $subtotal - $discount;
-        
+
         $data['subtotal'] = $subtotal;
         $data['total'] = $total;
         $data['created_by'] = Auth::id();
-        
+
         return $data;
     }
 
