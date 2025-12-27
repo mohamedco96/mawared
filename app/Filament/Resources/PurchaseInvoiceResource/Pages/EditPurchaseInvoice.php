@@ -29,6 +29,7 @@ class EditPurchaseInvoice extends EditRecord
                         'return_number' => 'RET-PURCHASE-' . now()->format('Ymd') . '-' . Str::random(6),
                         'warehouse_id' => $invoice->warehouse_id,
                         'partner_id' => $invoice->partner_id,
+                        'purchase_invoice_id' => $invoice->id,
                         'status' => 'draft',
                         'payment_method' => $invoice->payment_method,
                         'subtotal' => $invoice->subtotal,
@@ -86,6 +87,58 @@ class EditPurchaseInvoice extends EditRecord
 
     protected function afterSave(): void
     {
-        // Items are saved automatically via relationship
+        $record = $this->record;
+
+        // Check if status was changed from draft to posted
+        if ($record->wasChanged('status') && $record->status === 'posted') {
+            try {
+                // Wrap everything in a single transaction to ensure atomicity
+                DB::transaction(function () use ($record) {
+                    // Temporarily set to draft for service validation
+                    $record->status = 'draft';
+
+                    // 1. Post stock movements (add stock)
+                    app(\App\Services\StockService::class)->postPurchaseInvoice($record);
+
+                    // 2. Post treasury transactions (deduct from treasury)
+                    app(\App\Services\TreasuryService::class)->postPurchaseInvoice($record);
+
+                    // 3. Update status back to posted (using saveQuietly to bypass model events)
+                    $record->status = 'posted';
+                    $record->saveQuietly();
+                });
+
+                // Show success notification (outside transaction)
+                \Filament\Notifications\Notification::make()
+                    ->title('تم ترحيل الفاتورة وتحديث المخزون والخزينة')
+                    ->success()
+                    ->send();
+            } catch (\Exception $e) {
+                // Transaction failed, all changes rolled back automatically
+                usleep(100000); // 100ms
+
+                // Reload the record to get the current state from database
+                $record->refresh();
+
+                // IMPORTANT: Set invoice status back to 'draft' since posting failed
+                if ($record->status === 'posted') {
+                    DB::transaction(function () use ($record) {
+                        $record->status = 'draft';
+                        $record->saveQuietly();
+                    });
+                }
+
+                // Show error notification
+                \Filament\Notifications\Notification::make()
+                    ->title('خطأ في ترحيل الفاتورة')
+                    ->body($e->getMessage())
+                    ->danger()
+                    ->persistent()
+                    ->send();
+
+                // Re-throw to prevent the page from showing success
+                throw $e;
+            }
+        }
     }
 }
