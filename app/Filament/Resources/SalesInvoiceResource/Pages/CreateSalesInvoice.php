@@ -63,7 +63,19 @@ class CreateSalesInvoice extends CreateRecord
 
                 try {
                     // Wrap everything in a single transaction to ensure atomicity
+                    \Log::info('Starting main transaction', [
+                        'transaction_level_before' => DB::transactionLevel(),
+                        'invoice_id' => $record->id,
+                        'paid_amount' => $record->paid_amount,
+                        'total' => $record->total,
+                    ]);
+
                     DB::transaction(function () use ($record) {
+                        \Log::info('Inside main transaction', [
+                            'transaction_level' => DB::transactionLevel(),
+                            'invoice_id' => $record->id,
+                        ]);
+
                         // Temporarily set to draft for service validation
                         \Log::info('Before setting to draft', [
                             'status' => $record->status,
@@ -77,15 +89,48 @@ class CreateSalesInvoice extends CreateRecord
                             'original_status' => $record->getOriginal('status'),
                         ]);
 
+                        // Check stock movements before posting
+                        $stockMovementsBefore = \App\Models\StockMovement::where('reference_id', $record->id)->count();
+                        \Log::info('Before stock posting', [
+                            'stock_movements_count' => $stockMovementsBefore,
+                            'transaction_level' => DB::transactionLevel(),
+                        ]);
+
                         // 1. Post stock movements (deduct stock)
-                        \Log::info('Calling postSalesInvoice (stock)');
+                        \Log::info('Calling postSalesInvoice (stock)', [
+                            'transaction_level' => DB::transactionLevel(),
+                        ]);
                         app(\App\Services\StockService::class)->postSalesInvoice($record);
-                        \Log::info('Stock posted successfully');
+
+                        // Check stock movements after posting (within transaction)
+                        $stockMovementsAfter = \App\Models\StockMovement::where('reference_id', $record->id)->count();
+                        \Log::info('Stock posted successfully', [
+                            'stock_movements_before' => $stockMovementsBefore,
+                            'stock_movements_after' => $stockMovementsAfter,
+                            'transaction_level' => DB::transactionLevel(),
+                        ]);
+
+                        // Check treasury transactions before posting
+                        $treasuryTransactionsBefore = \App\Models\TreasuryTransaction::where('reference_id', $record->id)->count();
+                        \Log::info('Before treasury posting', [
+                            'treasury_transactions_count' => $treasuryTransactionsBefore,
+                            'transaction_level' => DB::transactionLevel(),
+                        ]);
 
                         // 2. Post treasury transactions (add to treasury)
-                        \Log::info('Calling postSalesInvoice (treasury)');
+                        \Log::info('Calling postSalesInvoice (treasury)', [
+                            'transaction_level' => DB::transactionLevel(),
+                            'paid_amount' => $record->paid_amount,
+                        ]);
                         app(\App\Services\TreasuryService::class)->postSalesInvoice($record);
-                        \Log::info('Treasury posted successfully');
+
+                        // Check treasury transactions after posting (within transaction)
+                        $treasuryTransactionsAfter = \App\Models\TreasuryTransaction::where('reference_id', $record->id)->count();
+                        \Log::info('Treasury posted successfully', [
+                            'treasury_transactions_before' => $treasuryTransactionsBefore,
+                            'treasury_transactions_after' => $treasuryTransactionsAfter,
+                            'transaction_level' => DB::transactionLevel(),
+                        ]);
 
                         // 3. Update status back to posted (using saveQuietly to bypass model events)
                         \Log::info('Before saving as posted', [
@@ -107,8 +152,14 @@ class CreateSalesInvoice extends CreateRecord
                         \Log::info('After saveQuietly', [
                             'status' => $record->status,
                             'original_status' => $record->getOriginal('status'),
+                            'transaction_level' => DB::transactionLevel(),
                         ]);
                     });
+
+                    \Log::info('Main transaction committed successfully', [
+                        'transaction_level_after' => DB::transactionLevel(),
+                        'invoice_id' => $record->id,
+                    ]);
 
                     // Show success notification (outside transaction)
                     \Filament\Notifications\Notification::make()
@@ -116,10 +167,13 @@ class CreateSalesInvoice extends CreateRecord
                         ->success()
                         ->send();
                 } catch (\Exception $e) {
-                    \Log::error('Error posting invoice', [
+                    \Log::error('Error posting invoice - Exception caught', [
                         'invoice_id' => $record->id,
                         'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString(),
+                        'error_class' => get_class($e),
+                        'transaction_level' => DB::transactionLevel(),
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine(),
                     ]);
 
                     // Transaction failed, all changes (stock movements, treasury transactions, status update) rolled back automatically
@@ -129,12 +183,33 @@ class CreateSalesInvoice extends CreateRecord
                     // Reload the record to get the current state from database
                     $record->refresh();
 
-                    \Log::info('After transaction rollback', [
+                    // Check actual database state after rollback
+                    $stockMovementsAfterRollback = \App\Models\StockMovement::where('reference_id', $record->id)->get();
+                    $treasuryTransactionsAfterRollback = \App\Models\TreasuryTransaction::where('reference_id', $record->id)->get();
+
+                    \Log::info('After transaction rollback - Database state', [
                         'invoice_id' => $record->id,
                         'status' => $record->status,
-                        'stock_movements_count' => \App\Models\StockMovement::where('reference_id', $record->id)->count(),
-                        'treasury_transactions_count' => \App\Models\TreasuryTransaction::where('reference_id', $record->id)->count(),
+                        'status_in_db' => \App\Models\SalesInvoice::find($record->id)?->status,
+                        'stock_movements_count' => $stockMovementsAfterRollback->count(),
+                        'stock_movements_ids' => $stockMovementsAfterRollback->pluck('id')->toArray(),
+                        'treasury_transactions_count' => $treasuryTransactionsAfterRollback->count(),
+                        'treasury_transactions_ids' => $treasuryTransactionsAfterRollback->pluck('id')->toArray(),
+                        'transaction_level' => DB::transactionLevel(),
                     ]);
+
+                    // Also check product stock levels to see if they were rolled back
+                    foreach ($record->items as $item) {
+                        $product = $item->product;
+                        $currentStock = app(\App\Services\StockService::class)->getCurrentStock($record->warehouse_id, $product->id);
+                        \Log::info('Product stock after rollback', [
+                            'product_id' => $product->id,
+                            'product_name' => $product->name,
+                            'warehouse_id' => $record->warehouse_id,
+                            'current_stock' => $currentStock,
+                            'invoice_quantity' => $item->quantity,
+                        ]);
+                    }
 
                     // IMPORTANT: Set invoice status back to 'draft' since posting failed
                     // The invoice was created with 'posted' status, but posting failed,
