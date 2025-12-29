@@ -51,8 +51,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'salary_amount' => 'decimal:2',
-            'advance_balance' => 'decimal:2',
+            'salary_amount' => 'decimal:4',
+            'advance_balance' => 'decimal:4',
         ];
     }
 

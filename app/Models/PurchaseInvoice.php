@@ -36,12 +36,12 @@ class PurchaseInvoice extends Model
     protected function casts(): array
     {
         return [
-            'subtotal' => 'decimal:2',
-            'discount' => 'decimal:2',
-            'discount_value' => 'decimal:2',
-            'total' => 'decimal:2',
-            'paid_amount' => 'decimal:2',
-            'remaining_amount' => 'decimal:2',
+            'subtotal' => 'decimal:4',
+            'discount' => 'decimal:4',
+            'discount_value' => 'decimal:4',
+            'total' => 'decimal:4',
+            'paid_amount' => 'decimal:4',
+            'remaining_amount' => 'decimal:4',
         ];
     }
 

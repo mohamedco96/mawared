@@ -27,7 +27,7 @@ class FixedAsset extends Model
     protected function casts(): array
     {
         return [
-            'purchase_amount' => 'decimal:2',
+            'purchase_amount' => 'decimal:4',
             'purchase_date' => 'date',
         ];
     }

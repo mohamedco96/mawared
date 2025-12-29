@@ -30,7 +30,7 @@ class StockMovement extends Model
     {
         return [
             'quantity' => 'integer',
-            'cost_at_time' => 'decimal:2',
+            'cost_at_time' => 'decimal:4',
         ];
     }
 

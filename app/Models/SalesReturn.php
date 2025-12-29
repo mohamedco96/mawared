@@ -31,9 +31,9 @@ class SalesReturn extends Model
     protected function casts(): array
     {
         return [
-            'subtotal' => 'decimal:2',
-            'discount' => 'decimal:2',
-            'total' => 'decimal:2',
+            'subtotal' => 'decimal:4',
+            'discount' => 'decimal:4',
+            'total' => 'decimal:4',
         ];
     }
 

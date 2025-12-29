@@ -35,12 +35,12 @@ class Product extends Model
     {
         return [
             'min_stock' => 'integer',
-            'avg_cost' => 'decimal:4',  // Changed from :2 to :4 for fractional currency support (e.g., 0.001)
+            'avg_cost' => 'decimal:4',
             'factor' => 'integer',
-            'retail_price' => 'decimal:2',
-            'wholesale_price' => 'decimal:2',
-            'large_retail_price' => 'decimal:2',
-            'large_wholesale_price' => 'decimal:2',
+            'retail_price' => 'decimal:4',
+            'wholesale_price' => 'decimal:4',
+            'large_retail_price' => 'decimal:4',
+            'large_wholesale_price' => 'decimal:4',
         ];
     }
 

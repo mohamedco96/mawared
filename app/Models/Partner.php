@@ -28,7 +28,7 @@ class Partner extends Model
     {
         return [
             'is_banned' => 'boolean',
-            'current_balance' => 'decimal:2',
+            'current_balance' => 'decimal:4',
         ];
     }
 

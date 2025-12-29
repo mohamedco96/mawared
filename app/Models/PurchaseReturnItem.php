@@ -25,9 +25,9 @@ class PurchaseReturnItem extends Model
     {
         return [
             'quantity' => 'integer',
-            'unit_cost' => 'decimal:2',
-            'discount' => 'decimal:2',
-            'total' => 'decimal:2',
+            'unit_cost' => 'decimal:4',
+            'discount' => 'decimal:4',
+            'total' => 'decimal:4',
         ];
     }
 
