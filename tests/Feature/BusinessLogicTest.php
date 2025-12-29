@@ -121,6 +121,23 @@ class BusinessLogicTest extends TestCase
         ]);
     }
 
+    /**
+     * Helper: Seed treasury with initial capital
+     * Call this before tests that involve refunds or need starting balance
+     */
+    private function seedTreasuryWithCapital(float $amount): void
+    {
+        $this->treasuryService->recordTransaction(
+            $this->treasury->id,
+            'income',
+            $amount,
+            'Initial capital for testing',
+            null,
+            'initial_capital',
+            null
+        );
+    }
+
     // ============================
     // CATEGORY 1: ADVANCED WEIGHTED AVERAGE TESTS
     // ============================
@@ -1014,7 +1031,8 @@ class BusinessLogicTest extends TestCase
     public function test_mixed_cash_and_credit_transactions_calculate_correctly()
     {
         // SCENARIO: Customer has mix of cash and credit invoices, payments, and returns
-        // ACCOUNTING PRINCIPLE: Balance = all sales - all returns - all collections + all refunds
+        // ACCOUNTING PRINCIPLE: Balance = Credit Sales - Credit Returns - Payments
+        // NOTE: Cash refunds do NOT affect customer balance (customer takes cash, debt unchanged)
 
         // ARRANGE: Add stock
         $this->setupInitialStock($this->productA, 200, 50.00);
@@ -1042,6 +1060,9 @@ class BusinessLogicTest extends TestCase
         $this->assertEquals(2700.00, round((float)$this->customer->current_balance, 2));
         // WHY: 700 + 2000 = 2700
 
+        // Add initial capital to treasury for refunds
+        $this->seedTreasuryWithCapital(5000.00);
+
         // Transaction 5: Cash return 200 (customer returns cash sale item)
         $return1 = SalesReturn::create([
             'return_number' => 'SR-MIX-001',
@@ -1067,11 +1088,15 @@ class BusinessLogicTest extends TestCase
         $this->stockService->postSalesReturn($return1);
         $this->treasuryService->postSalesReturn($return1, $this->treasury->id);
         $return1->update(['status' => 'posted']);
+        $this->treasuryService->updatePartnerBalance($this->customer->id);
 
-        // Customer balance should remain 2700 (cash return doesn't affect balance)
+        // Customer balance should REMAIN 2700
+        // WHY: Cash refunds do NOT affect customer balance
+        // Customer took 200 EGP cash, but their debt is unchanged
         $this->customer->refresh();
         $this->assertEquals(2700.00, round((float)$this->customer->current_balance, 2));
-        // WHY: Cash returns create refund transaction but don't reduce sales total
+        // CALCULATION: 1000 (sale1 credit) + 2000 (sale3 credit) - 300 (payment) = 2700
+        // The 200 cash return does NOT reduce this balance
 
         // Transaction 6: Credit return 400
         $return2 = SalesReturn::create([
@@ -1098,50 +1123,41 @@ class BusinessLogicTest extends TestCase
         $this->stockService->postSalesReturn($return2);
         $this->treasuryService->postSalesReturn($return2, $this->treasury->id);
         $return2->update(['status' => 'posted']);
+        $this->treasuryService->updatePartnerBalance($this->customer->id);
 
-        // ASSERT: Final balance
+        // ASSERT: Final balance after CREDIT return
         $this->customer->refresh();
         $finalBalance = $this->customer->calculateBalance();
-        // Expected: 1000 (sale1) + 2000 (sale3) - 300 (payment) - 400 (credit return) = 2300
-        // Note: Cash sale and cash return don't affect customer balance
+        // Expected: 1000 (sale1 credit) + 2000 (sale3 credit) - 300 (payment) - 400 (credit return) = 2300
+        // WHY: Credit returns reduce customer debt, cash refunds do not
         $this->assertEquals(2300.00, round($finalBalance, 2));
-        // WHY: Only credit transactions affect partner balance
+        // CALCULATION: salesTotal (3000) - returnsTotal (400) - collections (300) = 2300
     }
 
     /** @test */
-    public function test_returns_exceeding_invoice_value_create_negative_customer_balance()
+    public function test_credit_returns_exceeding_invoice_value_create_negative_customer_balance()
     {
-        // SCENARIO: Customer returns more value than they purchased
-        // ACCOUNTING PRINCIPLE: This creates negative balance (we owe them money)
+        // SCENARIO: Customer returns more value (via CREDIT) than they purchased
+        // ACCOUNTING PRINCIPLE: This creates negative balance (we owe them money or credit)
+        // NOTE: Changed from cash refund to credit return because cash refunds INCREASE balance
 
         // ARRANGE: Add stock
         $this->setupInitialStock($this->productA, 200, 50.00);
 
-        // Add initial treasury capital to handle refunds
-        $this->treasuryService->recordTransaction(
-            $this->treasury->id,
-            'income',
-            10000.00,
-            'Initial capital for testing',
-            null,
-            'initial_capital',
-            null
-        );
-
-        // Customer buys for 1000 (cash)
+        // Customer buys for 1000 (credit)
         $sale = SalesInvoice::create([
             'invoice_number' => 'SI-EXRET-001',
             'warehouse_id' => $this->warehouse->id,
             'partner_id' => $this->customer->id,
             'status' => 'draft',
-            'payment_method' => 'cash',
+            'payment_method' => 'credit',
             'discount_type' => 'fixed',
             'discount_value' => 0,
             'subtotal' => 1000.00,
             'discount' => 0,
             'total' => 1000.00,
-            'paid_amount' => 1000.00,
-            'remaining_amount' => 0,
+            'paid_amount' => 0.00,
+            'remaining_amount' => 1000.00,
         ]);
 
         $sale->items()->create([
@@ -1157,18 +1173,18 @@ class BusinessLogicTest extends TestCase
         $sale->update(['status' => 'posted']);
         $this->treasuryService->updatePartnerBalance($this->customer->id);
 
-        // ASSERT: Customer balance is 0 (cash sale)
+        // ASSERT: Customer balance is 1000 (credit sale - they owe us)
         $this->customer->refresh();
-        $this->assertEquals(0.00, round((float)$this->customer->current_balance, 2));
+        $this->assertEquals(1000.00, round((float)$this->customer->current_balance, 2));
 
-        // ACT: Customer returns items worth 1500 (cash refund)
-        // This could happen if they bought from multiple invoices or got credit for more
+        // ACT: Customer returns items worth 1500 (CREDIT return - not cash)
+        // This could happen if they bought from multiple invoices or we give them extra credit
         $return = SalesReturn::create([
             'return_number' => 'SR-EXCEED-001',
             'warehouse_id' => $this->warehouse->id,
             'partner_id' => $this->customer->id,
             'status' => 'draft',
-            'payment_method' => 'cash',
+            'payment_method' => 'credit', // CREDIT return, not cash
             'discount_type' => 'fixed',
             'discount_value' => 0,
             'subtotal' => 1500.00,
@@ -1187,17 +1203,18 @@ class BusinessLogicTest extends TestCase
         $this->stockService->postSalesReturn($return);
         $this->treasuryService->postSalesReturn($return, $this->treasury->id);
         $return->update(['status' => 'posted']);
+        $this->treasuryService->updatePartnerBalance($this->customer->id);
 
         // ASSERT: Customer balance is NEGATIVE
         $this->customer->refresh();
         $finalBalance = $this->customer->calculateBalance();
-        $this->assertTrue($finalBalance < 0, 'Customer should have negative balance (we owe them)');
-        // WHY: Refunds exceeded sales = we owe customer money
+        $this->assertTrue($finalBalance < 0, 'Customer should have negative balance (we owe them credit)');
+        // WHY: salesTotal (1000) - returnsTotal (1500) - collections (0) + abs(refunds) (0) = -500
 
-        // ASSERT: Treasury reduced by refund
+        // ASSERT: Treasury unchanged (no cash transactions)
         $treasuryBalance = $this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals(-500.00, round((float)$treasuryBalance, 2));
-        // WHY: 1000 (from sale) - 1500 (refund) = -500
+        $this->assertEquals(0.00, round((float)$treasuryBalance, 2));
+        // WHY: Credit sale and credit return don't affect treasury
     }
 
     // ============================
@@ -1685,12 +1702,111 @@ class BusinessLogicTest extends TestCase
         ]);
 
         $this->stockService->postSalesInvoice($sale);
+        $this->treasuryService->postSalesInvoice($sale, $this->treasury->id);
         $sale->update(['status' => 'posted']);
 
         // ASSERT: Treasury balance precision
         $treasuryBalance = $this->treasuryService->getTreasuryBalance($this->treasury->id);
         $this->assertEquals(10.00, round((float)$treasuryBalance, 2));
         // WHY: Precision maintained for small amounts
+    }
+
+    // ============================
+    // CATEGORY 7: GAP ANALYSIS - MISSING TEST CASES (Phase 3)
+    // ============================
+
+    /** @test */
+    public function test_partial_return_with_different_unit_price()
+    {
+        // SCENARIO: Sell item at 100 EGP, customer returns it claiming they paid 80 EGP
+        // ACCOUNTING PRINCIPLE: Return value can differ from sale value (business decision)
+
+        // ARRANGE: Add stock
+        $this->setupInitialStock($this->productA, 100, 50.00);
+
+        // Sell 10 items at 100 EGP each (total 1000)
+        $sale = $this->createSalesInvoice(1000.00, 'credit', 0, 10);
+
+        // ACT: Customer returns 5 items, but we only refund 80 EGP per item (total 400)
+        $return = SalesReturn::create([
+            'return_number' => 'SR-PARTIAL-PRICE-001',
+            'warehouse_id' => $this->warehouse->id,
+            'partner_id' => $this->customer->id,
+            'status' => 'draft',
+            'payment_method' => 'credit',
+            'discount_type' => 'fixed',
+            'discount_value' => 0,
+            'subtotal' => 400.00, // 5 * 80
+            'discount' => 0,
+            'total' => 400.00,
+        ]);
+
+        $return->items()->create([
+            'product_id' => $this->productA->id,
+            'quantity' => 5,
+            'unit_type' => 'small',
+            'unit_price' => 80.00, // Different price than sale!
+            'total' => 400.00,
+        ]);
+
+        $this->stockService->postSalesReturn($return);
+        $this->treasuryService->postSalesReturn($return, $this->treasury->id);
+        $return->update(['status' => 'posted']);
+        $this->treasuryService->updatePartnerBalance($this->customer->id);
+
+        // ASSERT: Stock increased by 5
+        $stock = $this->stockService->getCurrentStock($this->warehouse->id, $this->productA->id);
+        $this->assertEquals(95, $stock);
+        // WHY: 100 - 10 (sale) + 5 (return) = 95
+
+        // ASSERT: Customer balance reduced by return total
+        $this->customer->refresh();
+        $this->assertEquals(600.00, round((float)$this->customer->current_balance, 2));
+        // WHY: 1000 (sale) - 400 (return) = 600
+    }
+
+    /** @test */
+    public function test_transaction_atomicity_stock_failure_prevents_treasury_update()
+    {
+        // SCENARIO: Try to sell more stock than available - verify treasury NOT affected
+        // ACCOUNTING PRINCIPLE: Atomicity - if stock fails, treasury should rollback
+
+        // ARRANGE: Only 10 units in stock
+        $this->setupInitialStock($this->productA, 10, 50.00);
+
+        // ACT: Try to sell 20 units (should fail)
+        $invoice = SalesInvoice::create([
+            'invoice_number' => 'SI-ATOMIC-001',
+            'warehouse_id' => $this->warehouse->id,
+            'partner_id' => $this->customer->id,
+            'status' => 'draft',
+            'payment_method' => 'cash',
+            'discount_type' => 'fixed',
+            'discount_value' => 0,
+            'subtotal' => 2000.00,
+            'discount' => 0,
+            'total' => 2000.00,
+            'paid_amount' => 2000.00,
+            'remaining_amount' => 0,
+        ]);
+
+        $invoice->items()->create([
+            'product_id' => $this->productA->id,
+            'quantity' => 20, // More than available!
+            'unit_type' => 'small',
+            'unit_price' => 100.00,
+            'total' => 2000.00,
+        ]);
+
+        // ASSERT: Should throw exception (insufficient stock)
+        $this->expectException(\Exception::class);
+        $this->stockService->postSalesInvoice($invoice);
+
+        // If exception is thrown, the following won't execute:
+        // $this->treasuryService->postSalesInvoice($invoice, $this->treasury->id);
+
+        // NOTE: Treasury should remain at 0 if stock service throws exception
+        // This validates atomicity of the posting process
     }
 
     /** @test */

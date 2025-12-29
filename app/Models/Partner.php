@@ -74,14 +74,15 @@ class Partner extends Model
         if ($this->type === 'customer') {
             // Customer owes us money (positive balance means they owe us)
 
-            // What they bought
+            // What they bought on credit (cash invoices have paid_amount = total, so remaining_amount = 0)
             $salesTotal = $this->salesInvoices()
                 ->where('status', 'posted')
                 ->sum('total');
 
-            // What they returned
+            // What they returned (CREDIT returns only - cash returns don't reduce debt)
             $returnsTotal = $this->salesReturns()
                 ->where('status', 'posted')
+                ->where('payment_method', 'credit')
                 ->sum('total');
 
             // What they paid (collection transactions from posted invoices + financial transactions)
@@ -93,25 +94,25 @@ class Partner extends Model
                 })
                 ->sum('amount');
 
-            // Cash refunds we gave them (negative in DB)
-            $refunds = $this->treasuryTransactions()
-                ->where('type', 'refund')
-                ->whereIn('reference_type', ['sales_return', 'financial_transaction'])
-                ->sum('amount'); // Already negative
+            // IMPORTANT: Cash refunds do NOT affect customer balance
+            // When a customer returns items for CASH, they take money from treasury but their debt stays the same
+            // Only CREDIT returns (captured in $returnsTotal) reduce customer debt
+            // Formula: Balance = Credit Sales - Credit Returns - Payments
 
-            return $salesTotal - $returnsTotal - $collections + abs($refunds);
+            return $salesTotal - $returnsTotal - $collections;
 
         } elseif ($this->type === 'supplier') {
             // Supplier is owed money by us (negative balance means we owe them)
 
-            // What we bought
+            // What we bought on credit (cash invoices have paid_amount = total, so remaining_amount = 0)
             $purchaseTotal = $this->purchaseInvoices()
                 ->where('status', 'posted')
                 ->sum('total');
 
-            // What we returned
+            // What we returned (CREDIT returns only - cash returns don't reduce debt)
             $returnsTotal = $this->purchaseReturns()
                 ->where('status', 'posted')
+                ->where('payment_method', 'credit')
                 ->sum('total');
 
             // What we paid them (payment transactions - already negative in DB)
@@ -123,25 +124,13 @@ class Partner extends Model
                 })
                 ->sum('amount'); // Already negative
 
-            // Cash refunds they gave us (positive in DB)
-            $refunds = $this->treasuryTransactions()
-                ->where('type', 'refund')
-                ->whereIn('reference_type', ['purchase_return', 'financial_transaction'])
-                ->sum('amount'); // Already positive
-
-            // Collections from supplier (when we collect money back, e.g., for credit returns)
-            // These are positive amounts that reduce what we owe them
-            $collections = $this->treasuryTransactions()
-                ->where('type', 'collection')
-                ->where(function ($q) {
-                    $q->whereIn('reference_type', ['purchase_return', 'financial_transaction'])
-                      ->orWhereNull('reference_type');
-                })
-                ->sum('amount'); // Already positive
+            // IMPORTANT: Cash refunds do NOT affect supplier balance
+            // When we return items for CASH, supplier gives us money but our debt stays the same
+            // Only CREDIT returns (captured in $returnsTotal) reduce what we owe them
+            // Formula: Balance = -(Credit Purchases - Credit Returns - Payments)
 
             // Return negative value (we owe them)
-            // Note: refunds and collections are ADDED because they reduce what we owe (positive values reduce debt)
-            return -1 * ($purchaseTotal - $returnsTotal + $payments + $refunds + $collections);
+            return -1 * ($purchaseTotal - $returnsTotal + $payments);
 
         } else { // shareholder
             // Shareholders track capital deposits, drawings, etc. via treasury transactions only

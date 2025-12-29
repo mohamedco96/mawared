@@ -13,6 +13,7 @@ class CompanySettings extends Settings
     public string $company_email;
     public string $company_tax_number;
     public string $company_commercial_register;
+    public string $logo = '';
     public string $currency;
     public string $currency_symbol;
     public int $low_stock_threshold;

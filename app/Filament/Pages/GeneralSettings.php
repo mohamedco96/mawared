@@ -40,6 +40,7 @@ class GeneralSettings extends Page implements HasForms
             'company_email' => $settings->company_email,
             'company_tax_number' => $settings->company_tax_number,
             'company_commercial_register' => $settings->company_commercial_register,
+            'logo' => $settings->logo,
             'currency' => $settings->currency,
             'currency_symbol' => $settings->currency_symbol,
             'low_stock_threshold' => $settings->low_stock_threshold,
@@ -89,6 +90,16 @@ class GeneralSettings extends Page implements HasForms
                         Forms\Components\TextInput::make('company_commercial_register')
                             ->label('السجل التجاري')
                             ->required(),
+                        Forms\Components\FileUpload::make('logo')
+                            ->label('شعار الشركة')
+                            ->image()
+                            ->directory('company')
+                            ->disk('public')
+                            ->imageEditor()
+                            ->maxSize(2048)
+                            ->acceptedFileTypes(['image/png', 'image/jpeg', 'image/jpg'])
+                            ->helperText('سيتم عرض الشعار في الفواتير المطبوعة (الحد الأقصى: 2 ميجابايت)')
+                            ->columnSpanFull(),
                     ])
                     ->columns(2),
 
@@ -182,6 +193,7 @@ class GeneralSettings extends Page implements HasForms
         $settings->company_email = $data['company_email'];
         $settings->company_tax_number = $data['company_tax_number'];
         $settings->company_commercial_register = $data['company_commercial_register'];
+        $settings->logo = $data['logo'] ?? '';
         $settings->currency = $data['currency'];
         $settings->currency_symbol = $data['currency_symbol'];
         $settings->low_stock_threshold = $data['low_stock_threshold'];
