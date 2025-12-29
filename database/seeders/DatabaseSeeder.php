@@ -37,6 +37,9 @@ class DatabaseSeeder extends Seeder
             WarehouseTransferSeeder::class,
             ExpenseSeeder::class,
             RevenueSeeder::class,
+
+            // Fixed Assets seeder (added after treasury integration)
+            FixedAssetSeeder::class,
         ]);
     }
 }

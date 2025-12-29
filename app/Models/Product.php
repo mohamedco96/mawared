@@ -8,10 +8,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Product extends Model
 {
-    use HasFactory, HasUlids, SoftDeletes;
+    use HasFactory, HasUlids, SoftDeletes, LogsActivity;
 
     protected $fillable = [
         'name',
@@ -33,7 +35,7 @@ class Product extends Model
     {
         return [
             'min_stock' => 'integer',
-            'avg_cost' => 'decimal:2',
+            'avg_cost' => 'decimal:4',  // Changed from :2 to :4 for fractional currency support (e.g., 0.001)
             'factor' => 'integer',
             'retail_price' => 'decimal:2',
             'wholesale_price' => 'decimal:2',
@@ -137,5 +139,18 @@ class Product extends Model
     public static function getGloballySearchableAttributes(): array
     {
         return ['name', 'barcode', 'sku', 'large_barcode'];
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly($this->fillable)
+            ->logOnlyDirty()
+            ->setDescriptionForEvent(fn(string $eventName) => match($eventName) {
+                'created' => 'تم إنشاء منتج',
+                'updated' => 'تم تحديث منتج',
+                'deleted' => 'تم حذف منتج',
+                default => "المنتج {$eventName}",
+            });
     }
 }

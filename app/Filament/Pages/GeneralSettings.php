@@ -2,7 +2,7 @@
 
 namespace App\Filament\Pages;
 
-use App\Models\GeneralSetting;
+use App\Settings\CompanySettings;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -18,9 +18,9 @@ class GeneralSettings extends Page implements HasForms
 
     protected static string $view = 'filament.pages.general-settings';
 
-    protected static ?string $navigationLabel = 'الإعدادات العامة';
+    protected static ?string $navigationLabel = 'إعدادات الشركة';
 
-    protected static ?string $title = 'الإعدادات العامة';
+    protected static ?string $title = 'إعدادات الشركة';
 
     protected static ?string $navigationGroup = 'الإدارة';
 
@@ -30,8 +30,29 @@ class GeneralSettings extends Page implements HasForms
 
     public function mount(): void
     {
+        $settings = app(CompanySettings::class);
+
         $this->form->fill([
-            'fixed_assets_value' => GeneralSetting::getValue('fixed_assets_value', '0'),
+            'company_name' => $settings->company_name,
+            'company_name_english' => $settings->company_name_english,
+            'company_address' => $settings->company_address,
+            'company_phone' => $settings->company_phone,
+            'company_email' => $settings->company_email,
+            'company_tax_number' => $settings->company_tax_number,
+            'company_commercial_register' => $settings->company_commercial_register,
+            'currency' => $settings->currency,
+            'currency_symbol' => $settings->currency_symbol,
+            'low_stock_threshold' => $settings->low_stock_threshold,
+            'invoice_prefix_sales' => $settings->invoice_prefix_sales,
+            'invoice_prefix_purchase' => $settings->invoice_prefix_purchase,
+            'return_prefix_sales' => $settings->return_prefix_sales,
+            'return_prefix_purchase' => $settings->return_prefix_purchase,
+            'transfer_prefix' => $settings->transfer_prefix,
+            'enable_multi_warehouse' => $settings->enable_multi_warehouse,
+            'enable_multi_treasury' => $settings->enable_multi_treasury,
+            'default_payment_terms_days' => $settings->default_payment_terms_days,
+            'allow_negative_stock' => $settings->allow_negative_stock,
+            'auto_approve_stock_adjustments' => $settings->auto_approve_stock_adjustments,
         ]);
     }
 
@@ -39,20 +60,111 @@ class GeneralSettings extends Page implements HasForms
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('البيانات المالية الثابتة')
-                    ->description('إعدادات الأصول الثابتة')
+                Forms\Components\Section::make('معلومات الشركة')
+                    ->description('البيانات الأساسية للشركة')
                     ->schema([
-                        Forms\Components\TextInput::make('fixed_assets_value')
-                            ->label('أصول ثابتة')
-                            ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                            ->default(0)
+                        Forms\Components\TextInput::make('company_name')
+                            ->label('اسم الشركة (عربي)')
                             ->required()
-                            ->prefix('ج.م')
-                            ->step(0.01)
-                            ->helperText('مثل: الأثاث، المعدات، وغيرها'),
+                            ->maxLength(255),
+                        Forms\Components\TextInput::make('company_name_english')
+                            ->label('اسم الشركة (إنجليزي)')
+                            ->required()
+                            ->maxLength(255),
+                        Forms\Components\Textarea::make('company_address')
+                            ->label('العنوان')
+                            ->required()
+                            ->rows(2),
+                        Forms\Components\TextInput::make('company_phone')
+                            ->label('الهاتف')
+                            ->tel()
+                            ->required(),
+                        Forms\Components\TextInput::make('company_email')
+                            ->label('البريد الإلكتروني')
+                            ->email()
+                            ->required(),
+                        Forms\Components\TextInput::make('company_tax_number')
+                            ->label('الرقم الضريبي')
+                            ->required(),
+                        Forms\Components\TextInput::make('company_commercial_register')
+                            ->label('السجل التجاري')
+                            ->required(),
                     ])
-                    ->columns(1),
+                    ->columns(2),
+
+                Forms\Components\Section::make('إعدادات العملة')
+                    ->schema([
+                        Forms\Components\TextInput::make('currency')
+                            ->label('العملة')
+                            ->default('EGP')
+                            ->required(),
+                        Forms\Components\TextInput::make('currency_symbol')
+                            ->label('رمز العملة')
+                            ->default('ج.م')
+                            ->required(),
+                    ])
+                    ->columns(2),
+
+                Forms\Components\Section::make('إعدادات المستندات')
+                    ->schema([
+                        Forms\Components\TextInput::make('invoice_prefix_sales')
+                            ->label('بادئة فاتورة البيع')
+                            ->default('INV-SALE-')
+                            ->required(),
+                        Forms\Components\TextInput::make('invoice_prefix_purchase')
+                            ->label('بادئة فاتورة الشراء')
+                            ->default('INV-PUR-')
+                            ->required(),
+                        Forms\Components\TextInput::make('return_prefix_sales')
+                            ->label('بادئة مرتجع البيع')
+                            ->default('RET-SALE-')
+                            ->required(),
+                        Forms\Components\TextInput::make('return_prefix_purchase')
+                            ->label('بادئة مرتجع الشراء')
+                            ->default('RET-PUR-')
+                            ->required(),
+                        Forms\Components\TextInput::make('transfer_prefix')
+                            ->label('بادئة التحويل')
+                            ->default('TRF-')
+                            ->required(),
+                    ])
+                    ->columns(2),
+
+                Forms\Components\Section::make('إعدادات النظام')
+                    ->schema([
+                        Forms\Components\TextInput::make('low_stock_threshold')
+                            ->label('حد المخزون المنخفض')
+                            ->numeric()
+                            ->default(10)
+                            ->required(),
+                        Forms\Components\TextInput::make('default_payment_terms_days')
+                            ->label('مدة السداد الافتراضية (أيام)')
+                            ->numeric()
+                            ->default(30)
+                            ->required(),
+                        Forms\Components\Toggle::make('enable_multi_warehouse')
+                            ->label('تفعيل تعدد المخازن')
+                            ->default(true),
+                        Forms\Components\Toggle::make('enable_multi_treasury')
+                            ->label('تفعيل تعدد الخزائن')
+                            ->default(true),
+                        Forms\Components\Toggle::make('allow_negative_stock')
+                            ->label('السماح بمخزون سالب')
+                            ->default(false),
+                        Forms\Components\Toggle::make('auto_approve_stock_adjustments')
+                            ->label('الموافقة التلقائية على تعديلات المخزون')
+                            ->default(false),
+                    ])
+                    ->columns(2),
+
+                Forms\Components\Section::make('الأصول الثابتة')
+                    ->description('تم نقل إدارة الأصول الثابتة إلى وحدة منفصلة')
+                    ->schema([
+                        Forms\Components\Placeholder::make('fixed_assets_notice')
+                            ->label('')
+                            ->content('لإدارة الأصول الثابتة، يرجى الانتقال إلى قسم "الأصول الثابتة" في قائمة الإدارة. يمكنك الآن تسجيل كل أصل بشكل منفصل مع تفاصيله وربطه بالخزينة.')
+                            ->columnSpanFull(),
+                    ]),
             ])
             ->statePath('data');
     }
@@ -61,7 +173,30 @@ class GeneralSettings extends Page implements HasForms
     {
         $data = $this->form->getState();
 
-        GeneralSetting::setValue('fixed_assets_value', $data['fixed_assets_value'] ?? '0');
+        $settings = app(CompanySettings::class);
+
+        $settings->company_name = $data['company_name'];
+        $settings->company_name_english = $data['company_name_english'];
+        $settings->company_address = $data['company_address'];
+        $settings->company_phone = $data['company_phone'];
+        $settings->company_email = $data['company_email'];
+        $settings->company_tax_number = $data['company_tax_number'];
+        $settings->company_commercial_register = $data['company_commercial_register'];
+        $settings->currency = $data['currency'];
+        $settings->currency_symbol = $data['currency_symbol'];
+        $settings->low_stock_threshold = $data['low_stock_threshold'];
+        $settings->invoice_prefix_sales = $data['invoice_prefix_sales'];
+        $settings->invoice_prefix_purchase = $data['invoice_prefix_purchase'];
+        $settings->return_prefix_sales = $data['return_prefix_sales'];
+        $settings->return_prefix_purchase = $data['return_prefix_purchase'];
+        $settings->transfer_prefix = $data['transfer_prefix'];
+        $settings->enable_multi_warehouse = $data['enable_multi_warehouse'];
+        $settings->enable_multi_treasury = $data['enable_multi_treasury'];
+        $settings->default_payment_terms_days = $data['default_payment_terms_days'];
+        $settings->allow_negative_stock = $data['allow_negative_stock'];
+        $settings->auto_approve_stock_adjustments = $data['auto_approve_stock_adjustments'];
+
+        $settings->save();
 
         Notification::make()
             ->success()

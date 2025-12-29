@@ -9,10 +9,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class SalesInvoice extends Model
 {
-    use HasFactory, HasUlids, SoftDeletes;
+    use HasFactory, HasUlids, SoftDeletes, LogsActivity;
 
     protected $fillable = [
         'invoice_number',
@@ -194,5 +196,18 @@ class SalesInvoice extends Model
     public static function getGloballySearchableAttributes(): array
     {
         return ['invoice_number', 'partner.name'];
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly($this->fillable)
+            ->logOnlyDirty()
+            ->setDescriptionForEvent(fn(string $eventName) => match($eventName) {
+                'created' => 'تم إنشاء فاتورة مبيعات',
+                'updated' => 'تم تحديث فاتورة مبيعات',
+                'deleted' => 'تم حذف فاتورة مبيعات',
+                default => "فاتورة مبيعات {$eventName}",
+            });
     }
 }

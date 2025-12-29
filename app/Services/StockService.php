@@ -317,13 +317,26 @@ class StockService
                     'base_quantity' => $baseQuantity,
                 ]);
 
+                // Calculate base unit cost (CRITICAL FIX for weighted average)
+                // If purchasing in large units, divide cost by factor to get base unit cost
+                $baseUnitCost = $item->unit_type === 'large' && $product->large_unit_id && $product->factor > 1
+                    ? $item->unit_cost / $product->factor
+                    : $item->unit_cost;
+
+                \Log::info('Base unit cost calculation', [
+                    'unit_type' => $item->unit_type,
+                    'original_unit_cost' => $item->unit_cost,
+                    'factor' => $product->factor,
+                    'base_unit_cost' => $baseUnitCost,
+                ]);
+
                 // Create positive stock movement (purchase)
                 $movement = $this->recordMovement(
                     $invoice->warehouse_id,
                     $product->id,
                     'purchase',
                     $baseQuantity, // Positive for purchase
-                    $item->unit_cost,
+                    $baseUnitCost, // Use base unit cost, not large unit cost
                     'purchase_invoice',
                     $invoice->id
                 );
@@ -432,6 +445,12 @@ class StockService
                     throw new \Exception("المخزون غير كافٍ للمنتج: {$product->name}");
                 }
 
+                // Calculate base unit cost (CRITICAL FIX for weighted average)
+                // If returning large units, divide cost by factor to get base unit cost
+                $baseUnitCost = $item->unit_type === 'large' && $product->large_unit_id && $product->factor > 1
+                    ? $item->unit_cost / $product->factor
+                    : $item->unit_cost;
+
                 // Create NEGATIVE stock movement (purchase_return)
                 // REVERSE LOGIC: Purchase adds stock (positive), return removes stock (negative)
                 $this->recordMovement(
@@ -439,7 +458,7 @@ class StockService
                     $product->id,
                     'purchase_return',
                     -$baseQuantity, // NEGATIVE for return
-                    $item->unit_cost,
+                    $baseUnitCost, // Use base unit cost, not large unit cost
                     'purchase_return',
                     $return->id
                 );

@@ -545,5 +545,462 @@ When implementing a new feature, ensure:
 
 ---
 
+## 13. Critical Rules from Production Bug Fixes
+
+> **Added:** December 29, 2025
+> **Purpose:** Document lessons learned from real bugs discovered during testing and refactoring. These rules PREVENT critical financial errors.
+
+---
+
+### A. Financial Precision Rule
+
+**Discovery Date:** December 28, 2025
+**Root Cause:** DECIMAL(10,2) precision insufficient for fractional currency values
+**Impact:** Very small values (0.001 EGP) became 0.0 in database
+
+#### The Rule (NON-NEGOTIABLE)
+
+* **ALL financial columns in database MUST be `DECIMAL(15, 4)`**
+* ❌ **FORBIDDEN:** Never use `float` or `double` for monetary values
+* ❌ **FORBIDDEN:** Never use `DECIMAL(10, 2)` for financial data
+* ✅ **REQUIRED:** Use `DECIMAL(15, 4)` for:
+    * Product prices and costs (`retail_price`, `wholesale_price`, `avg_cost`)
+    * Invoice totals (`subtotal`, `total`, `discount`)
+    * Stock movement costs (`cost_at_time`)
+    * Treasury amounts (`amount`)
+    * Partner balances (`current_balance`)
+    * Payment amounts
+    * All other monetary values
+
+#### Migration Reference
+* **File:** `database/migrations/2025_12_28_183925_increase_decimal_precision_for_financial_columns.php`
+* **Scope:** 40+ columns across 15 tables
+* **Supports:** Values up to 999,999,999,999.9999
+
+#### PHP Calculation Rule
+* **For high-precision calculations:** Use `bcmath` functions or high-precision casting
+* **For Laravel Models:** Cast monetary attributes to `'decimal:4'`
+* **Example:**
+    ```php
+    protected function casts(): array
+    {
+        return [
+            'avg_cost' => 'decimal:4',
+            'retail_price' => 'decimal:4',
+            'total' => 'decimal:4',
+        ];
+    }
+    ```
+
+---
+
+### B. Weighted Average Cost Calculation Rule
+
+**Discovery Date:** December 28, 2025
+**Root Cause:** Large unit purchases stored large unit cost instead of base unit cost
+**Impact:** CRITICAL - Incorrect COGS, gross profit, and inventory valuation
+
+#### The Bug Example
+```
+Purchase: 5 Cartons @ 600 EGP/carton (factor = 12 pieces/carton)
+Expected cost_at_time: 600 ÷ 12 = 50 EGP per piece
+Actual (BUG): 600 EGP per piece stored
+Result: avg_cost = 600 instead of 50 (12x inflated!)
+```
+
+#### The Rule (NON-NEGOTIABLE)
+
+* **When purchasing in "Large Units" (Cartons, Boxes, etc.), ALWAYS divide unit cost by the conversion factor BEFORE storing `cost_at_time`**
+* ❌ **FORBIDDEN:** Storing large unit cost directly in `stock_movements.cost_at_time`
+* ✅ **REQUIRED:** Store BASE UNIT cost in `cost_at_time`
+
+#### Implementation Pattern
+```php
+// In StockService::postPurchaseInvoice()
+foreach ($invoice->items as $item) {
+    $product = Product::find($item->product_id);
+
+    // CRITICAL: Convert cost to base unit
+    $baseUnitCost = $item->unit_type === 'large' && $product->factor > 1
+        ? $item->unit_cost / $product->factor
+        : $item->unit_cost;
+
+    StockMovement::create([
+        'cost_at_time' => $baseUnitCost, // ← Use base unit cost
+        'quantity' => $baseUnitQuantity,
+        // ... other fields
+    ]);
+}
+```
+
+#### Validation Rule
+* **Before posting purchase invoice:** Assert that `cost_at_time` is reasonable for base unit
+* **Add test:** Verify weighted average after large unit purchase matches expected base unit cost
+
+---
+
+### C. Double-Entry Accounting Rule
+
+**Discovery Date:** Architectural foundation
+**Root Cause:** Financial systems require balanced transactions
+**Impact:** CRITICAL - Affects all financial reporting and partner balances
+
+#### The Rule (NON-NEGOTIABLE)
+
+* **Double Entry is Law:** Every financial transaction MUST have equal and opposite Debit and Credit effects
+* **No Exceptions:** This applies to ALL treasury transactions involving partners
+
+#### Implementation Pattern
+```php
+// Sales Invoice (Cash): 10,000 EGP
+Treasury (+10,000)      // Debit: Cash increases
+Partner Balance (-10,000) // Credit: Customer owes less (or we owe them refund)
+
+// Purchase Invoice (Cash): 5,000 EGP
+Treasury (-5,000)        // Credit: Cash decreases
+Partner Balance (+5,000)  // Debit: Supplier is owed more
+```
+
+#### Service Implementation
+```php
+public function recordFinancialTransaction(...): TreasuryTransaction
+{
+    DB::transaction(function () {
+        // 1. Create treasury transaction (affects cash)
+        $transaction = TreasuryTransaction::create([
+            'type' => $type,
+            'amount' => $amount,
+            // ...
+        ]);
+
+        // 2. Update partner balance (opposite effect)
+        if ($partnerId) {
+            $this->updatePartnerBalance($partnerId, $amount, $type);
+        }
+
+        return $transaction;
+    });
+}
+```
+
+#### Validation Rule
+* **Before commit:** Sum of debits MUST equal sum of credits
+* **Add test:** Verify partner balance + treasury balance = expected total
+
+---
+
+### D. Atomicity & Transaction Wrapping Rule
+
+**Discovery Date:** Architectural foundation
+**Root Cause:** Multi-step operations can fail partially
+**Impact:** CRITICAL - Prevents data corruption and inconsistent state
+
+#### The Rule (NON-NEGOTIABLE)
+
+* **ALL multi-step financial operations MUST be wrapped in `DB::transaction()`**
+* **No Exceptions:** This includes:
+    * Invoice posting (Stock + Treasury + Partner Balance)
+    * Return processing (Stock + Treasury + Partner Balance)
+    * Payment recording (Treasury + Partner Balance + Invoice Update)
+    * Stock adjustments (Stock + Audit Trail)
+    * Warehouse transfers (Stock Out + Stock In)
+
+#### Implementation Pattern
+```php
+public function postSalesInvoice(SalesInvoice $invoice): void
+{
+    DB::transaction(function () use ($invoice) {
+        // Step 1: Create stock movements (may fail due to insufficient stock)
+        foreach ($invoice->items as $item) {
+            $this->validateStockAvailability(...);
+            $this->recordMovement(...);
+        }
+
+        // Step 2: Create treasury transactions
+        $this->treasuryService->recordTransaction(...);
+
+        // Step 3: Update partner balance
+        $this->treasuryService->updatePartnerBalance(...);
+
+        // Step 4: Mark invoice as posted
+        $invoice->update(['status' => 'posted']);
+
+        // If ANY step fails, ALL steps rollback
+    });
+}
+```
+
+#### Nested Transaction Handling
+```php
+// Only wrap in transaction if not already in one
+if (DB::transactionLevel() === 0) {
+    DB::transaction($execute);
+} else {
+    $execute();
+}
+```
+
+#### Testing Rule
+* **Add test:** Verify that when one step fails (e.g., insufficient stock), NO changes persist
+* **Add test:** Verify database state is unchanged after exception
+
+---
+
+### E. Inventory Costing Rule
+
+**Discovery Date:** December 28, 2025
+**Root Cause:** Weighted average cost depends on correct cost_at_time values
+**Impact:** CRITICAL - Affects COGS, gross profit calculations, and financial statements
+
+#### The Rule (NON-NEGOTIABLE)
+
+* **Weighted Average Cost Method MUST be used for all inventory costing**
+* **Formula:** `avg_cost = (sum of quantity × cost_at_time) / total_quantity`
+* **Recalculation Trigger:** MUST recalculate avg_cost after EVERY purchase posting
+* **Validation:** MUST prevent negative stock (unless explicitly configured via settings)
+
+#### Implementation Requirements
+* **Purchase Posting:**
+    1. Create stock movement with correct `cost_at_time` (base unit cost)
+    2. Recalculate product `avg_cost` using `StockService::updateProductAvgCost()`
+    3. Update product selling prices if `new_selling_price` is set
+
+* **Sales Posting:**
+    1. Record `cost_at_time` = current product `avg_cost` at time of sale
+    2. Do NOT recalculate avg_cost (sales don't affect average cost)
+    3. Use `cost_at_time` for COGS reporting
+
+#### Cost Flow Example
+```
+Purchase 1: 100 units @ 10 EGP = 1,000 EGP → avg_cost = 10.00
+Purchase 2: 50 units @ 12 EGP = 600 EGP   → avg_cost = 10.67
+Sale:       -30 units @ 10.67 EGP (COGS)  → avg_cost = 10.67 (unchanged)
+Purchase 3: 20 units @ 15 EGP = 300 EGP   → avg_cost = 11.07
+```
+
+#### Validation Rules
+* **Before Sales Posting:** Check `product.avg_cost > 0` (prevents selling zero-cost items)
+* **After Purchase Posting:** Verify `product.avg_cost` updated correctly
+* **Add test:** Verify weighted average after mixed purchases/sales
+
+---
+
+### F. Configuration vs Financial Data Separation Rule
+
+**Discovery Date:** December 29, 2025
+**Root Cause:** Fixed assets stored in settings were financial data, not configuration
+**Impact:** MEDIUM - Mixed concerns, difficult to audit, no treasury linkage
+
+#### The Rule (NON-NEGOTIABLE)
+
+* **Configuration goes to Spatie Settings**
+* **Financial Assets go to FixedAsset models**
+* ❌ **FORBIDDEN:** Storing monetary amounts in settings tables
+* ❌ **FORBIDDEN:** Mixing configuration with transactional data
+
+#### What Belongs in Settings (Spatie)
+* Company information (name, address, tax number)
+* Currency settings (currency code, symbol)
+* System toggles (enable_multi_warehouse, allow_negative_stock)
+* Document prefixes (invoice numbering)
+* Default values (payment terms days, low stock threshold)
+* UI preferences
+
+#### What Belongs in Models (Database Tables)
+* Financial assets (Fixed Assets, Inventory)
+* Transactions (Invoices, Payments, Stock Movements)
+* Partner balances
+* Historical data requiring audit trail
+* Data with relationships (e.g., FixedAsset → Treasury)
+
+#### Migration Example
+**Before (WRONG):**
+```php
+// In settings table
+'fixed_assets_value' => 50000.00  // BAD: No detail, no treasury link
+```
+
+**After (CORRECT):**
+```php
+// FixedAsset model
+FixedAsset::create([
+    'name' => 'Office Furniture',
+    'purchase_amount' => 15000.00,
+    'treasury_id' => $treasury->id,
+    'purchase_date' => '2025-01-15',
+    'created_by' => $user->id,
+]);
+// Each asset is a separate record with full audit trail
+```
+
+---
+
+### G. Filament UI Best Practices Rule
+
+**Discovery Date:** December 28, 2025
+**Root Cause:** Custom HTML in activity log was harder to maintain than native components
+**Impact:** LOW - Maintenance overhead, inconsistent UI
+
+#### The Rule (RECOMMENDED)
+
+* **Use Native Filament Components instead of custom HTML whenever possible**
+* **Only use custom HTML when Filament components cannot achieve the requirement**
+
+#### Component Preference Order
+1. **First:** Try native Filament components (TextEntry, KeyValueEntry, etc.)
+2. **Second:** Try Filament's ViewColumn with Blade partials
+3. **Last Resort:** Custom HTML via TextEntry with formatStateUsing
+
+#### Example Refactor
+**Before (Custom HTML):**
+```php
+TextEntry::make('properties')
+    ->formatStateUsing(function ($record) {
+        $html = '<div class="space-y-1">';
+        foreach ($record->properties as $key => $value) {
+            $html .= "<div><strong>{$key}:</strong> {$value}</div>";
+        }
+        $html .= '</div>';
+        return new HtmlString($html);
+    })
+```
+
+**After (Native Component):**
+```php
+KeyValueEntry::make('properties')
+    ->label('التغييرات')
+    ->keyLabel('الحقل')
+    ->valueLabel('القيمة')
+```
+
+#### Benefits
+* ✅ Consistent styling with Filament theme
+* ✅ Automatic dark mode support
+* ✅ Better accessibility
+* ✅ Easier maintenance
+* ✅ Type safety
+
+---
+
+### H. Testing Best Practices Rule
+
+**Discovery Date:** December 28, 2025
+**Root Cause:** Comprehensive tests caught critical weighted average bug
+**Impact:** HIGH - Prevented production financial errors
+
+#### The Rule (NON-NEGOTIABLE)
+
+* **New Logic = New Test. No PR is accepted without test coverage for business logic changes.**
+* **All Service Layer methods MUST have feature tests**
+* **All financial calculations MUST have assertion tests**
+
+#### Required Test Coverage
+* ✅ **Stock Service Tests:**
+    * Weighted average cost calculations (all scenarios)
+    * Stock validation (negative stock prevention)
+    * Unit conversion (small/large unit purchases and sales)
+    * Stock movement creation (all transaction types)
+
+* ✅ **Treasury Service Tests:**
+    * Partner balance updates (all transaction types)
+    * Treasury balance calculations
+    * Double-entry validation (debits = credits)
+    * Payment allocation (partial payments, discounts)
+
+* ✅ **Invoice Posting Tests:**
+    * Draft invoices do not affect stock/treasury
+    * Posted invoices create correct ledger entries
+    * Posted invoices cannot be edited/deleted
+    * Atomicity (rollback on error)
+
+* ✅ **Edge Case Tests:**
+    * Boundary values (0, negative, very large, very small)
+    * Stress tests (50+ item invoices, million-dollar amounts)
+    * Concurrent updates (same product from multiple invoices)
+    * Return edge cases (exceeding original quantity, different prices)
+
+#### Test Naming Convention
+```php
+// ✅ GOOD: Descriptive, explains business rule
+test_weighted_average_with_large_unit_purchases()
+test_customer_advance_payment_creates_negative_balance()
+
+// ❌ BAD: Vague, doesn't explain what's being tested
+test_purchase_invoice()
+test_customer_balance()
+```
+
+#### Assertion Best Practices
+```php
+// ✅ GOOD: Explains WHY expected value is correct
+$this->assertEquals(50, $product->avg_cost,
+    'Expected: (60 units * 50 EGP) / 60 units = 50 EGP per piece'
+);
+
+// ❌ BAD: No explanation
+$this->assertEquals(50, $product->avg_cost);
+```
+
+---
+
+### I. Navigation & Organization Rule
+
+**Discovery Date:** Architectural foundation
+**Root Cause:** Consistent navigation improves UX
+**Impact:** MEDIUM - User experience and discoverability
+
+#### The Rule (RECOMMENDED)
+
+* **Group related resources logically using Filament navigation groups**
+* **Use Arabic navigation labels consistently**
+* **Follow the established grouping pattern**
+
+#### Standard Navigation Groups
+```php
+protected static ?string $navigationGroup = 'المخزون';    // Inventory
+protected static ?string $navigationGroup = 'الشركاء';    // Partners
+protected static ?string $navigationGroup = 'المبيعات';   // Sales
+protected static ?string $navigationGroup = 'المشتريات';  // Purchases
+protected static ?string $navigationGroup = 'المالية';    // Finance
+protected static ?string $navigationGroup = 'التقارير';   // Reports
+protected static ?string $navigationGroup = 'الإدارة';    // Management
+```
+
+#### Grouping Logic
+* **Assets:** Fixed Assets, Equipment (not in Finance)
+* **Finance:** Treasury, Transactions, Expenses, Revenues (not Assets)
+* **Management:** Users, Settings, Activity Log, System Configuration
+* **Inventory:** Products, Warehouses, Stock Adjustments, Transfers
+* **Partners:** Customers, Suppliers, Shareholders, Employees
+
+#### Navigation Sort Order
+```php
+protected static ?int $navigationSort = 10; // Lower number = higher in menu
+```
+
+---
+
+## 14. Quick Reference: Bug Prevention Checklist
+
+When implementing new financial features, verify:
+
+- [ ] ✅ All monetary columns are `DECIMAL(15, 4)`
+- [ ] ✅ Large unit purchases divide cost by factor before storing
+- [ ] ✅ Weighted average recalculated after EVERY purchase
+- [ ] ✅ Double-entry effects applied (Treasury + Partner Balance)
+- [ ] ✅ Multi-step operations wrapped in `DB::transaction()`
+- [ ] ✅ Service methods used (NOT Model Observers)
+- [ ] ✅ Posted invoices are immutable (cannot edit/delete)
+- [ ] ✅ Draft invoices do not affect stock/treasury
+- [ ] ✅ Base units used for all stock storage
+- [ ] ✅ Configuration in Settings, financial data in Models
+- [ ] ✅ Native Filament components used (not custom HTML)
+- [ ] ✅ Feature tests written for business logic
+- [ ] ✅ Edge cases tested (boundary values, stress tests)
+- [ ] ✅ Arabic labels used consistently
+- [ ] ✅ Navigation grouped logically
+
+---
+
 **End of Document**
 

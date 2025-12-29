@@ -522,6 +522,24 @@ class TreasuryService
     }
 
     /**
+     * Post a fixed asset purchase - creates treasury transaction
+     */
+    public function postFixedAssetPurchase(\App\Models\FixedAsset $asset): void
+    {
+        DB::transaction(function () use ($asset) {
+            $this->recordTransaction(
+                $asset->treasury_id,
+                'expense', // Reuse existing expense type
+                -abs($asset->purchase_amount), // Negative for expense
+                'شراء أصل ثابت: ' . $asset->name . ($asset->description ? ' - ' . $asset->description : ''),
+                null,
+                'fixed_asset',
+                $asset->id
+            );
+        });
+    }
+
+    /**
      * Record employee advance payment
      */
     public function recordEmployeeAdvance(

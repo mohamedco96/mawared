@@ -25,7 +25,22 @@ class FinancialReportService
     {
         // Get settings
         $shareholderCapital = $this->calculateShareholderCapital();
-        $fixedAssetsValue = (float) GeneralSetting::getValue('fixed_assets_value', '0');
+
+        // Dual calculation for verification during transition
+        $fixedAssetsValueOld = (float) GeneralSetting::getValue('fixed_assets_value', '0');
+        $fixedAssetsValueNew = $this->calculateFixedAssetsValue();
+
+        // Log discrepancies
+        if (abs($fixedAssetsValueOld - $fixedAssetsValueNew) > 0.01) {
+            \Log::warning('Fixed Assets Value Mismatch', [
+                'old_method' => $fixedAssetsValueOld,
+                'new_method' => $fixedAssetsValueNew,
+                'difference' => $fixedAssetsValueNew - $fixedAssetsValueOld,
+            ]);
+        }
+
+        // Use new calculation
+        $fixedAssetsValue = $fixedAssetsValueNew;
 
         // Inventory calculations
         $endingInventory = $this->calculateInventoryValue($toDate);
@@ -84,8 +99,16 @@ class FinancialReportService
     }
 
     /**
+     * Calculate total fixed assets value from FixedAsset table
+     */
+    protected function calculateFixedAssetsValue(): float
+    {
+        return (float) \App\Models\FixedAsset::sum('purchase_amount') ?? 0;
+    }
+
+    /**
      * Calculate inventory value at a specific date
-     * 
+     *
      * @param string $date The date to calculate inventory up to
      * @param bool $exclusive If true, use < instead of <= for date comparison
      */

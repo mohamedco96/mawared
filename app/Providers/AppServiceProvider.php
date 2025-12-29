@@ -30,8 +30,14 @@ class AppServiceProvider extends ServiceProvider
             'stock_adjustment' => \App\Models\StockAdjustment::class,
             'expense' => \App\Models\Expense::class,
             'revenue' => \App\Models\Revenue::class,
+            'fixed_asset' => \App\Models\FixedAsset::class,
             'initial_capital' => \App\Models\TreasuryTransaction::class, // Initial capital transactions
             'financial_transaction' => \App\Models\TreasuryTransaction::class, // Self-reference for standalone transactions
+            'user' => \App\Models\User::class,
+            'product' => \App\Models\Product::class,
+            'partner' => \App\Models\Partner::class,
+            'stock_movement' => \App\Models\StockMovement::class,
+            'treasury_transaction' => \App\Models\TreasuryTransaction::class,
         ]);
     }
 }
