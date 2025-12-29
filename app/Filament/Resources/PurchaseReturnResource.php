@@ -188,8 +188,8 @@ class PurchaseReturnResource extends Resource
                                     ->disabled(fn ($record, $livewire) => $record && $record->purchaseReturn && $record->purchaseReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية')
-                                    ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                    ->integer()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'numeric'])
                                     ->required()
                                     ->default(1)
                                     ->minValue(1)
@@ -200,7 +200,16 @@ class PurchaseReturnResource extends Resource
                                         $set('total', ($unitCost * $state) - $discount);
                                     })
                                     ->rules([
+                                        'required',
+                                        'integer',
+                                        'min:1',
                                         fn (Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                            // Validate positive quantity
+                                            if ($value !== null && intval($value) <= 0) {
+                                                $fail('الكمية يجب أن تكون أكبر من صفر.');
+                                                return;
+                                            }
+
                                             $productId = $get('product_id');
                                             $warehouseId = $get('../../warehouse_id');
                                             $unitType = $get('unit_type') ?? 'small';
@@ -229,19 +238,32 @@ class PurchaseReturnResource extends Resource
                                             }
                                         },
                                     ])
+                                    ->validationAttribute('الكمية')
                                     ->disabled(fn ($record, $livewire) => $record && $record->purchaseReturn && $record->purchaseReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                                 Forms\Components\TextInput::make('unit_cost')
                                     ->label('التكلفة')
                                     ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->required()
-                                    ->step(0.01)
+                                    ->step(0.0001)
+                                    ->minValue(0)
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $quantity = $get('quantity') ?? 1;
                                         $discount = $get('discount') ?? 0;
                                         $set('total', ($state * $quantity) - $discount);
                                     })
+                                    ->rules([
+                                        'required',
+                                        'numeric',
+                                        'min:0',
+                                        fn (): \Closure => function (string $attribute, $value, \Closure $fail) {
+                                            if ($value !== null && floatval($value) < 0) {
+                                                $fail('تكلفة الوحدة يجب أن لا تكون سالبة.');
+                                            }
+                                        },
+                                    ])
+                                    ->validationAttribute('تكلفة الوحدة')
                                     ->disabled(fn ($record, Get $get, $livewire) =>
                                         ($record && $record->purchaseReturn && $record->purchaseReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord) ||
                                         $get('../../purchase_invoice_id') !== null

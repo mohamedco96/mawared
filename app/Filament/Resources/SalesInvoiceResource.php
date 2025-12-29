@@ -209,8 +209,8 @@ class SalesInvoiceResource extends Resource
                                     ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية')
-                                    ->numeric()
-                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                    ->integer()
+                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'numeric'])
                                     ->required()
                                     ->default(1)
                                     ->minValue(1)
@@ -220,7 +220,16 @@ class SalesInvoiceResource extends Resource
                                         $set('total', $unitPrice * $state);
                                     })
                                     ->rules([
+                                        'required',
+                                        'integer',
+                                        'min:1',
                                         fn (Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                            // Validate positive quantity
+                                            if ($value !== null && intval($value) <= 0) {
+                                                $fail('الكمية يجب أن تكون أكبر من صفر.');
+                                                return;
+                                            }
+
                                             $productId = $get('product_id');
                                             $warehouseId = $get('../../warehouse_id');
                                             $unitType = $get('unit_type') ?? 'small';
@@ -249,6 +258,7 @@ class SalesInvoiceResource extends Resource
                                             }
                                         },
                                     ])
+                                    ->validationAttribute('الكمية')
                                     ->columnSpan(2)
                                     ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
                                 Forms\Components\TextInput::make('unit_price')
@@ -256,12 +266,24 @@ class SalesInvoiceResource extends Resource
                                     ->numeric()
                                     ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->required()
-                                    ->step(0.01)
+                                    ->step(0.0001)
+                                    ->minValue(0)
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $quantity = $get('quantity') ?? 1;
                                         $set('total', $state * $quantity);
                                     })
+                                    ->rules([
+                                        'required',
+                                        'numeric',
+                                        'min:0',
+                                        fn (): \Closure => function (string $attribute, $value, \Closure $fail) {
+                                            if ($value !== null && floatval($value) < 0) {
+                                                $fail('سعر الوحدة يجب أن لا يكون سالباً.');
+                                            }
+                                        },
+                                    ])
+                                    ->validationAttribute('سعر الوحدة')
                                     ->columnSpan(2)
                                     ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
                                 Forms\Components\TextInput::make('total')
@@ -321,7 +343,7 @@ class SalesInvoiceResource extends Resource
                             ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->default(0)
-                            ->step(0.01)
+                            ->step(0.0001)
                             ->minValue(0)
                             ->maxValue(function (Get $get) {
                                 return $get('discount_type') === 'percentage' ? 100 : null;
@@ -331,6 +353,31 @@ class SalesInvoiceResource extends Resource
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 static::recalculateTotals($set, $get);
                             })
+                            ->rules([
+                                'numeric',
+                                'min:0',
+                                fn (Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                    if ($value === null || $value === '') {
+                                        return;
+                                    }
+
+                                    $discountType = $get('discount_type') ?? 'fixed';
+                                    $items = $get('../../items') ?? [];
+                                    $subtotal = collect($items)->sum('total');
+
+                                    if ($discountType === 'percentage') {
+                                        if (floatval($value) > 100) {
+                                            $fail('نسبة الخصم لا يمكن أن تتجاوز 100%.');
+                                        }
+                                    } else {
+                                        // Fixed discount
+                                        if (floatval($value) > $subtotal) {
+                                            $fail('قيمة الخصم (' . number_format($value, 2) . ') لا يمكن أن تتجاوز المجموع الفرعي (' . number_format($subtotal, 2) . ').');
+                                        }
+                                    }
+                                },
+                            ])
+                            ->validationAttribute('قيمة الخصم')
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Placeholder::make('calculated_discount_display')
                             ->label('الخصم المحسوب')
@@ -367,9 +414,9 @@ class SalesInvoiceResource extends Resource
                             ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->default(0)
-                            ->step(0.01)
+                            ->step(0.0001)
                             ->minValue(0)
-                            ->reactive()
+                            ->live(debounce: 500)
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 $items = $get('items') ?? [];
                                 $subtotal = collect($items)->sum('total');
@@ -387,6 +434,36 @@ class SalesInvoiceResource extends Resource
                                 $set('subtotal', $subtotal);
                                 $set('total', $netTotal);
                             })
+                            ->rules([
+                                'numeric',
+                                'min:0',
+                                fn (Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                    if ($value === null || $value === '') {
+                                        return;
+                                    }
+
+                                    $items = $get('../../items') ?? [];
+                                    $subtotal = collect($items)->sum('total');
+                                    $discountType = $get('../discount_type') ?? 'fixed';
+                                    $discountValue = floatval($get('../discount_value') ?? 0);
+
+                                    $totalDiscount = $discountType === 'percentage'
+                                        ? $subtotal * ($discountValue / 100)
+                                        : $discountValue;
+
+                                    $netTotal = $subtotal - $totalDiscount;
+                                    $paidAmount = floatval($value);
+
+                                    if ($paidAmount > $netTotal) {
+                                        $fail('لا يمكن دفع مبلغ (' . number_format($paidAmount, 2) . ') أكبر من إجمالي الفاتورة (' . number_format($netTotal, 2) . ').');
+                                    }
+
+                                    if ($paidAmount < 0) {
+                                        $fail('المبلغ المدفوع يجب أن لا يكون سالباً.');
+                                    }
+                                },
+                            ])
+                            ->validationAttribute('المبلغ المدفوع')
                             ->helperText('يتم ملؤه تلقائياً حسب طريقة الدفع أو يمكن تعديله يدوياً')
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\TextInput::make('remaining_amount')

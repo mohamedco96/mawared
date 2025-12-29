@@ -194,8 +194,8 @@ class SalesReturnResource extends Resource
                                     ->disabled(fn ($record, $livewire) => $record && $record->salesReturn && $record->salesReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية')
-                                    ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                    ->integer()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'numeric'])
                                     ->required()
                                     ->default(1)
                                     ->minValue(1)
@@ -205,19 +205,42 @@ class SalesReturnResource extends Resource
                                         $discount = $get('discount') ?? 0;
                                         $set('total', ($unitPrice * $state) - $discount);
                                     })
+                                    ->rules([
+                                        'required',
+                                        'integer',
+                                        'min:1',
+                                        fn (): \Closure => function (string $attribute, $value, \Closure $fail) {
+                                            if ($value !== null && intval($value) <= 0) {
+                                                $fail('الكمية يجب أن تكون أكبر من صفر.');
+                                            }
+                                        },
+                                    ])
+                                    ->validationAttribute('الكمية')
                                     ->disabled(fn ($record, $livewire) => $record && $record->salesReturn && $record->salesReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                                 Forms\Components\TextInput::make('unit_price')
                                     ->label('سعر الوحدة')
                                     ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->required()
-                                    ->step(0.01)
+                                    ->step(0.0001)
+                                    ->minValue(0)
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $quantity = $get('quantity') ?? 1;
                                         $discount = $get('discount') ?? 0;
                                         $set('total', ($state * $quantity) - $discount);
                                     })
+                                    ->rules([
+                                        'required',
+                                        'numeric',
+                                        'min:0',
+                                        fn (): \Closure => function (string $attribute, $value, \Closure $fail) {
+                                            if ($value !== null && floatval($value) < 0) {
+                                                $fail('سعر الوحدة يجب أن لا يكون سالباً.');
+                                            }
+                                        },
+                                    ])
+                                    ->validationAttribute('سعر الوحدة')
                                     ->disabled(fn ($record, Get $get, $livewire) =>
                                         ($record && $record->salesReturn && $record->salesReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord) ||
                                         $get('../../sales_invoice_id') !== null

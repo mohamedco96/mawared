@@ -51,10 +51,21 @@ class FixedAssetResource extends Resource
                             ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->required()
-                            ->step(0.01)
-                            ->minValue(0.01)
+                            ->step(0.0001)
+                            ->minValue(1)
                             ->prefix('ج.م')
-                            ->helperText('قيمة شراء الأصل الثابت'),
+                            ->helperText('قيمة شراء الأصل الثابت')
+                            ->rules([
+                                'required',
+                                'numeric',
+                                'min:1',
+                                fn (): \Closure => function (string $attribute, $value, \Closure $fail) {
+                                    if ($value !== null && floatval($value) < 1) {
+                                        $fail('قيمة الشراء يجب أن تكون 1 على الأقل.');
+                                    }
+                                },
+                            ])
+                            ->validationAttribute('قيمة الشراء'),
                         Forms\Components\Select::make('treasury_id')
                             ->label('الخزينة')
                             ->relationship('treasury', 'name')

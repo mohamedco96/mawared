@@ -131,9 +131,9 @@ class TreasuryTransactionResource extends Resource
                             ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->required()
-                            ->step(0.01)
-                            ->minValue(0.01)
-                            ->reactive()
+                            ->step(0.0001)
+                            ->minValue(0.0001)
+                            ->live(debounce: 500)
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 // Calculate final amount with discount
                                 $discount = $get('discount') ?? 0;
@@ -144,7 +144,38 @@ class TreasuryTransactionResource extends Resource
                                 } else {
                                     $set('final_amount', $state);
                                 }
-                            }),
+                            })
+                            ->rules([
+                                'required',
+                                'numeric',
+                                'gt:0',
+                                fn (Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                    if ($value === null || $value === '') {
+                                        return;
+                                    }
+
+                                    $amount = floatval($value);
+
+                                    // Validate positive amount
+                                    if ($amount <= 0) {
+                                        $fail('المبلغ يجب أن يكون أكبر من صفر.');
+                                        return;
+                                    }
+
+                                    $type = $get('type');
+                                    $treasuryId = $get('treasury_id');
+
+                                    // For expense/payment/partner_drawing/employee_advance, check treasury balance
+                                    if (in_array($type, ['payment', 'expense', 'partner_drawing', 'employee_advance']) && $treasuryId) {
+                                        $treasury = \App\Models\Treasury::find($treasuryId);
+
+                                        if ($treasury && $amount > $treasury->balance) {
+                                            $fail('رصيد الخزينة غير كافٍ لإتمام هذه العملية. الرصيد الحالي: ' . number_format($treasury->balance, 2) . ' والمبلغ المطلوب: ' . number_format($amount, 2));
+                                        }
+                                    }
+                                },
+                            ])
+                            ->validationAttribute('المبلغ'),
                         Forms\Components\TextInput::make('discount')
                             ->label('خصم')
                             ->numeric()

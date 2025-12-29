@@ -75,23 +75,43 @@ class StockAdjustmentResource extends Resource
                             ->live(),
                         Forms\Components\TextInput::make('quantity')
                             ->label('الكمية')
-                            ->helperText('أدخل الكمية كرقم موجب (بالوحدة الأساسية)')
-                            ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                            ->helperText('أدخل الكمية كرقم صحيح موجب (بالوحدة الأساسية)')
+                            ->integer()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'numeric'])
                             ->required()
-                            ->minValue(0)
+                            ->minValue(1)
                             ->disabled(fn ($record) => $record && $record->isPosted())
                             ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, $state) {
                                 // Convert negative to positive
-                                if ($state !== null && floatval($state) < 0) {
-                                    $set('quantity', abs(floatval($state)));
+                                if ($state !== null && intval($state) < 0) {
+                                    $set('quantity', abs(intval($state)));
                                 }
                             })
                             ->rules([
+                                'required',
+                                'integer',
+                                'min:1',
                                 fn (Forms\Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                    // Validate positive quantity
+                                    if ($value !== null && intval($value) <= 0) {
+                                        $fail('الكمية يجب أن تكون أكبر من صفر.');
+                                        return;
+                                    }
+
                                     $type = $get('type');
                                     $warehouseId = $get('warehouse_id');
                                     $productId = $get('product_id');
+
+                                    // Ensure warehouse and product are selected
+                                    if (!$warehouseId) {
+                                        $fail('يجب اختيار المخزن أولاً.');
+                                        return;
+                                    }
+
+                                    if (!$productId) {
+                                        $fail('يجب اختيار المنتج أولاً.');
+                                        return;
+                                    }
 
                                     // For subtraction/damage/gift types, validate stock availability
                                     if (in_array($type, ['subtraction', 'damage', 'gift']) && $warehouseId && $productId && $value > 0) {
@@ -99,11 +119,12 @@ class StockAdjustmentResource extends Resource
                                         $currentStock = $stockService->getCurrentStock($warehouseId, $productId);
 
                                         if ($value > $currentStock) {
-                                            $fail("الكمية المطلوبة ({$value}) أكبر من المخزون المتاح ({$currentStock})");
+                                            $fail("الكمية المطلوبة ({$value}) أكبر من المخزون المتاح ({$currentStock}). لا يمكن خصم كمية تتجاوز المخزون الحالي.");
                                         }
                                     }
                                 },
-                            ]),
+                            ])
+                            ->validationAttribute('الكمية'),
                         Forms\Components\Textarea::make('notes')
                             ->label('ملاحظات')
                             ->rows(3)
