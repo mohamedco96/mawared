@@ -31,6 +31,10 @@ class SalesInvoice extends Model
         'remaining_amount',
         'notes',
         'created_by',
+        'has_installment_plan',
+        'installment_months',
+        'installment_start_date',
+        'installment_notes',
     ];
 
     protected function casts(): array
@@ -42,6 +46,8 @@ class SalesInvoice extends Model
             'total' => 'decimal:4',
             'paid_amount' => 'decimal:4',
             'remaining_amount' => 'decimal:4',
+            'has_installment_plan' => 'boolean',
+            'installment_start_date' => 'date',
         ];
     }
 
@@ -79,6 +85,11 @@ class SalesInvoice extends Model
     public function payments(): MorphMany
     {
         return $this->morphMany(InvoicePayment::class, 'payable');
+    }
+
+    public function installments(): HasMany
+    {
+        return $this->hasMany(Installment::class);
     }
 
     // Helper Methods
@@ -148,6 +159,14 @@ class SalesInvoice extends Model
             && bccomp((string) $this->remaining_amount, '0', 4) === 1;
     }
 
+    /**
+     * Check if invoice has an active installment plan
+     */
+    public function hasInstallmentPlan(): bool
+    {
+        return $this->has_installment_plan && $this->installments()->exists();
+    }
+
     // Immutable Logic: Prevent updates/deletes when posted
     protected static function booted(): void
     {
@@ -158,6 +177,16 @@ class SalesInvoice extends Model
             // If already posted, prevent any updates
             if ($originalStatus === 'posted' && $invoice->isDirty()) {
                 throw new \Exception('Cannot update a posted invoice');
+            }
+
+            // Prevent changes to critical fields if installments exist
+            if ($invoice->installments()->exists()) {
+                $protectedFields = ['total', 'paid_amount', 'remaining_amount', 'payment_method'];
+                foreach ($protectedFields as $field) {
+                    if ($invoice->isDirty($field)) {
+                        throw new \Exception('لا يمكن تعديل الفاتورة: توجد خطة أقساط مرتبطة بها');
+                    }
+                }
             }
         });
 

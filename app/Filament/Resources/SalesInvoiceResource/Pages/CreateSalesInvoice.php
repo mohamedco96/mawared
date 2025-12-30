@@ -154,6 +154,23 @@ class CreateSalesInvoice extends CreateRecord
                             'original_status' => $record->getOriginal('status'),
                             'transaction_level' => DB::transactionLevel(),
                         ]);
+
+                        // 4. Generate installments if plan is enabled
+                        if ($record->has_installment_plan) {
+                            \Log::info('Generating installment schedule', [
+                                'invoice_id' => $record->id,
+                                'installment_months' => $record->installment_months,
+                                'remaining_amount' => $record->remaining_amount,
+                            ]);
+
+                            app(\App\Services\InstallmentService::class)
+                                ->generateInstallmentSchedule($record);
+
+                            \Log::info('Installment schedule generated successfully', [
+                                'invoice_id' => $record->id,
+                                'installments_count' => $record->installments()->count(),
+                            ]);
+                        }
                     });
 
                     \Log::info('Main transaction committed successfully', [
@@ -163,7 +180,9 @@ class CreateSalesInvoice extends CreateRecord
 
                     // Show success notification (outside transaction)
                     \Filament\Notifications\Notification::make()
-                        ->title('تم ترحيل الفاتورة وتحديث المخزون والخزينة')
+                        ->title($record->has_installment_plan
+                            ? "تم ترحيل الفاتورة وإنشاء {$record->installment_months} أقساط"
+                            : 'تم ترحيل الفاتورة وتحديث المخزون والخزينة')
                         ->success()
                         ->send();
                 } catch (\Exception $e) {

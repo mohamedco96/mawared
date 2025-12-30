@@ -208,6 +208,12 @@ class TreasuryService
                 'created_by' => auth()->id(),
             ]);
 
+            // Apply payment to installments if they exist
+            if ($invoice instanceof \App\Models\SalesInvoice && $invoice->installments()->exists()) {
+                app(\App\Services\InstallmentService::class)
+                    ->applyPaymentToInstallments($invoice, $payment);
+            }
+
             // Update partner balance
             if ($invoice->partner_id) {
                 $this->updatePartnerBalance($invoice->partner_id);

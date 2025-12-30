@@ -485,6 +485,47 @@ class SalesInvoiceResource extends Resource
                     ])
                     ->columns(3),
 
+                // Installment Plan Section
+                Forms\Components\Section::make('خطة التقسيط')
+                    ->schema([
+                        Forms\Components\Toggle::make('has_installment_plan')
+                            ->label('تقسيط المبلغ المتبقي')
+                            ->helperText('تفعيل نظام الأقساط للمبلغ المتبقي بعد الدفعة الأولى')
+                            ->reactive()
+                            ->afterStateUpdated(function ($state, Set $set) {
+                                if (!$state) {
+                                    $set('installment_months', null);
+                                    $set('installment_start_date', null);
+                                    $set('installment_notes', null);
+                                }
+                            }),
+
+                        Forms\Components\TextInput::make('installment_months')
+                            ->label('عدد الأقساط')
+                            ->numeric()
+                            ->minValue(1)
+                            ->maxValue(120) // Max 10 years
+                            ->default(3)
+                            ->required()
+                            ->visible(fn (Get $get) => $get('has_installment_plan'))
+                            ->helperText('عدد الأقساط الشهرية'),
+
+                        Forms\Components\DatePicker::make('installment_start_date')
+                            ->label('تاريخ أول قسط')
+                            ->required()
+                            ->visible(fn (Get $get) => $get('has_installment_plan'))
+                            ->default(now()->addMonth()->startOfMonth()) // Default to next month
+                            ->helperText('تاريخ استحقاق القسط الأول'),
+
+                        Forms\Components\Textarea::make('installment_notes')
+                            ->label('ملاحظات التقسيط')
+                            ->visible(fn (Get $get) => $get('has_installment_plan'))
+                            ->rows(2),
+                    ])
+                    ->visible(fn (Get $get) => $get('payment_method') === 'credit')
+                    ->collapsible()
+                    ->collapsed(false),
+
                 Forms\Components\Textarea::make('notes')
                     ->label('ملاحظات')
                     ->columnSpanFull()
@@ -791,6 +832,7 @@ class SalesInvoiceResource extends Resource
     {
         return [
             RelationManagers\PaymentsRelationManager::class,
+            RelationManagers\InstallmentsRelationManager::class,
         ];
     }
 }

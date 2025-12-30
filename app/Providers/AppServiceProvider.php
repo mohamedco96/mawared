@@ -32,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
             'revenue' => \App\Models\Revenue::class,
             'fixed_asset' => \App\Models\FixedAsset::class,
             'initial_capital' => \App\Models\TreasuryTransaction::class, // Initial capital transactions
+            'shareholder_capital' => \App\Models\TreasuryTransaction::class, // Shareholder capital transactions
             'financial_transaction' => \App\Models\TreasuryTransaction::class, // Self-reference for standalone transactions
             'user' => \App\Models\User::class,
             'product' => \App\Models\Product::class,
