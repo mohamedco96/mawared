@@ -105,7 +105,7 @@ class SalesInvoiceResource extends Resource
                             ->required()
                             ->reactive()
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                // Auto-fill paid_amount based on payment method
+                                // Calculate total for remaining_amount updates
                                 $items = $get('items') ?? [];
                                 $subtotal = collect($items)->sum('total');
                                 $discountType = $get('discount_type') ?? 'fixed';
@@ -119,9 +119,11 @@ class SalesInvoiceResource extends Resource
                                 $netTotal = $subtotal - $totalDiscount;
 
                                 if ($state === 'cash') {
-                                    $set('paid_amount', $netTotal);
+                                    // For cash: DO NOT set paid_amount (dehydrate handles it)
+                                    // Just set remaining_amount to 0
                                     $set('remaining_amount', 0);
                                 } else {
+                                    // For credit: reset paid_amount and set remaining to total
                                     $set('paid_amount', 0);
                                     $set('remaining_amount', $netTotal);
                                 }
@@ -409,62 +411,43 @@ class SalesInvoiceResource extends Resource
 
                                 return number_format($total, 2);
                             }),
+                        // Input for CREDIT (Editable Down Payment)
                         Forms\Components\TextInput::make('paid_amount')
-                            ->label('المبلغ المدفوع')
+                            ->label('المبلغ المدفوع (مقدم)')
                             ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->default(0)
                             ->step(0.0001)
                             ->minValue(0)
+                            // A. VISIBILITY: Only show for Credit
+                            ->visible(fn (Get $get) => $get('payment_method') === 'credit')
+                            // B. DEHYDRATION MAGIC: If Cash, save Total. If Credit, save User Input.
+                            ->dehydrated(true)
+                            ->dehydrateStateUsing(function ($state, Get $get) {
+                                if ($get('payment_method') === 'cash') {
+                                    return floatval($get('total'));
+                                }
+                                return floatval($state);
+                            })
+                            // C. REACTIVITY: Only needed for updating remaining_amount in Credit mode
                             ->live(debounce: 500)
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                $items = $get('items') ?? [];
-                                $subtotal = collect($items)->sum('total');
-                                $discountType = $get('discount_type') ?? 'fixed';
-                                $discountValue = $get('discount_value') ?? 0;
-
-                                $totalDiscount = $discountType === 'percentage'
-                                    ? $subtotal * ($discountValue / 100)
-                                    : $discountValue;
-
-                                $netTotal = $subtotal - $totalDiscount;
-                                $paidAmount = floatval($state ?? 0);
-
-                                $set('remaining_amount', max(0, $netTotal - $paidAmount));
-                                $set('subtotal', $subtotal);
-                                $set('total', $netTotal);
+                                $total = floatval($get('total'));
+                                $paid = floatval($state);
+                                $set('remaining_amount', max(0, $total - $paid));
                             })
                             ->rules([
                                 'numeric',
                                 'min:0',
                                 fn (Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
-                                    if ($value === null || $value === '') {
-                                        return;
-                                    }
-
-                                    $items = $get('../../items') ?? [];
-                                    $subtotal = collect($items)->sum('total');
-                                    $discountType = $get('../discount_type') ?? 'fixed';
-                                    $discountValue = floatval($get('../discount_value') ?? 0);
-
-                                    $totalDiscount = $discountType === 'percentage'
-                                        ? $subtotal * ($discountValue / 100)
-                                        : $discountValue;
-
-                                    $netTotal = $subtotal - $totalDiscount;
-                                    $paidAmount = floatval($value);
-
-                                    if ($paidAmount > $netTotal) {
-                                        $fail('لا يمكن دفع مبلغ (' . number_format($paidAmount, 2) . ') أكبر من إجمالي الفاتورة (' . number_format($netTotal, 2) . ').');
-                                    }
-
-                                    if ($paidAmount < 0) {
-                                        $fail('المبلغ المدفوع يجب أن لا يكون سالباً.');
+                                    if ($get('payment_method') === 'credit') {
+                                        $total = floatval($get('total'));
+                                        if ($value > $total) {
+                                            $fail('لا يمكن دفع مبلغ أكبر من إجمالي الفاتورة.');
+                                        }
                                     }
                                 },
                             ])
-                            ->validationAttribute('المبلغ المدفوع')
-                            ->helperText('يتم ملؤه تلقائياً حسب طريقة الدفع أو يمكن تعديله يدوياً')
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\TextInput::make('remaining_amount')
                             ->label('المبلغ المتبقي')
@@ -472,7 +455,8 @@ class SalesInvoiceResource extends Resource
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->default(0)
                             ->disabled()
-                            ->dehydrated(),
+                            ->dehydrated()
+                            ->visible(fn (Get $get) => $get('payment_method') === 'credit'),
                         Forms\Components\Hidden::make('subtotal')
                             ->default(0)
                             ->dehydrated(),
@@ -557,15 +541,16 @@ class SalesInvoiceResource extends Resource
         $set('discount', $totalDiscount); // OLD field for backward compatibility
         $set('total', $netTotal);
 
-        // Auto-fill paid_amount based on payment method
-        $currentPaidAmount = floatval($get('paid_amount') ?? 0);
-
-        // Only auto-fill if payment method is cash or if current paid amount exceeds net total
+        // Handle remaining_amount based on payment method
         if ($paymentMethod === 'cash') {
-            $set('paid_amount', $netTotal);
+            // For cash: DO NOTHING to paid_amount (dehydrate logic handles saving)
+            // Just set remaining_amount to 0 (cash payments are always full)
             $set('remaining_amount', 0);
         } else {
-            // For credit, only reset if current paid_amount exceeds net total
+            // For credit: update remaining_amount based on current paid_amount
+            $currentPaidAmount = floatval($get('paid_amount') ?? 0);
+
+            // Reset if current paid_amount exceeds net total
             if ($currentPaidAmount > $netTotal) {
                 $set('paid_amount', 0);
                 $set('remaining_amount', $netTotal);
