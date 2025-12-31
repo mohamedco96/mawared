@@ -9,6 +9,7 @@
         "php": "^8.2",
         "ar-php/ar-php": "^1.0",
         "barryvdh/laravel-dompdf": "^3.1",
+        "bezhansalleh/filament-shield": "^3.9",
         "filament/filament": "^3.0",
         "khaled.alshamaa/ar-php": "^7.0",
         "laravel/framework": "^12.0",

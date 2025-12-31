@@ -17,13 +17,13 @@ class UserResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-user-circle';
 
-    protected static ?string $navigationLabel = 'الموظفين';
+    protected static ?string $navigationLabel = 'المستخدمين';
 
-    protected static ?string $modelLabel = 'موظف';
+    protected static ?string $modelLabel = 'مستخدم';
 
-    protected static ?string $pluralModelLabel = 'الموظفين';
+    protected static ?string $pluralModelLabel = 'المستخدمين';
 
-    protected static ?string $navigationGroup = 'الإدارة';
+    protected static ?string $navigationGroup = 'إدارة النظام';
 
     protected static ?int $navigationSort = 1;
 
@@ -51,6 +51,13 @@ class UserResource extends Resource
                             ->dehydrateStateUsing(fn ($state) => Hash::make($state))
                             ->required(fn (string $context): bool => $context === 'create')
                             ->maxLength(255),
+                        Forms\Components\Select::make('roles')
+                            ->label('الدور')
+                            ->relationship('roles', 'name')
+                            ->multiple()
+                            ->preload()
+                            ->searchable()
+                            ->native(false),
                     ])
                     ->columns(2),
 
@@ -101,6 +108,11 @@ class UserResource extends Resource
                     ->label('الراتب')
                     ->numeric(decimalPlaces: 2)
                     ->sortable(),
+                Tables\Columns\TextColumn::make('roles.name')
+                    ->label('الأدوار')
+                    ->badge()
+                    ->separator(',')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('تاريخ الإنشاء')
                     ->dateTime()
