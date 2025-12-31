@@ -42,6 +42,7 @@ class AdminPanelProvider extends PanelProvider
                 'المبيعات',         // Sales
                 'المشتريات',        // Purchases
                 'المالية والشركاء', // Finance & Partners
+                'التقارير',         // Reports
                 'الإدارة',          // Administration
             ])
             ->sidebarCollapsibleOnDesktop()

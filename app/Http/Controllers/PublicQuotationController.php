@@ -13,6 +13,9 @@ class PublicQuotationController extends Controller
     {
         $quotation = Quotation::with([
             'partner',
+            'items.product' => function ($query) {
+                $query->withTrashed();
+            },
             'items.product.smallUnit',
             'items.product.largeUnit',
             'items.product.category',
@@ -33,6 +36,9 @@ class PublicQuotationController extends Controller
     {
         $quotation = Quotation::with([
             'partner',
+            'items.product' => function ($query) {
+                $query->withTrashed();
+            },
             'items.product.smallUnit',
             'items.product.largeUnit',
         ])

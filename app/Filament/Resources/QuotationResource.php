@@ -178,6 +178,7 @@ class QuotationResource extends Resource
                                     ->relationship('product', 'name')
                                     ->required()
                                     ->searchable(['name', 'barcode', 'sku'])
+                                    ->getOptionLabelFromRecordUsing(fn (Product $record) => "{$record->name} - {$record->barcode}")
                                     ->preload()
                                     ->live()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {

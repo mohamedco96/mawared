@@ -223,6 +223,11 @@ class ProductResource extends Resource
                 ->withSum('stockMovements', 'quantity')
             )
             ->columns([
+                Tables\Columns\ImageColumn::make('image')
+                    ->label('الصورة')
+                    ->circular()
+                    ->defaultImageUrl(url('/images/placeholder-product.png'))
+                    ->size(40),
                 Tables\Columns\TextColumn::make('name')
                     ->label('الاسم')
                     ->searchable()
