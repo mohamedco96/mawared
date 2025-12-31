@@ -16,7 +16,11 @@ class Product extends Model
     use HasFactory, HasUlids, SoftDeletes, LogsActivity;
 
     protected $fillable = [
+        'category_id',
         'name',
+        'description',
+        'image',
+        'images',
         'barcode',
         'large_barcode',
         'sku',
@@ -29,11 +33,14 @@ class Product extends Model
         'wholesale_price',
         'large_retail_price',
         'large_wholesale_price',
+        'is_active',
+        'is_public',
     ];
 
     protected function casts(): array
     {
         return [
+            'images' => 'array',
             'min_stock' => 'integer',
             'avg_cost' => 'decimal:4',
             'factor' => 'integer',
@@ -41,6 +48,8 @@ class Product extends Model
             'wholesale_price' => 'decimal:4',
             'large_retail_price' => 'decimal:4',
             'large_wholesale_price' => 'decimal:4',
+            'is_active' => 'boolean',
+            'is_public' => 'boolean',
         ];
     }
 
@@ -58,6 +67,27 @@ class Product extends Model
     public function stockMovements(): HasMany
     {
         return $this->hasMany(StockMovement::class);
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(ProductCategory::class);
+    }
+
+    // Scopes
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function scopePublic($query)
+    {
+        return $query->where('is_public', true);
+    }
+
+    public function scopeCatalog($query)
+    {
+        return $query->active()->public();
     }
 
     // Helper Methods
@@ -102,8 +132,12 @@ class Product extends Model
             $hasSalesInvoiceItems = \App\Models\SalesInvoiceItem::where('product_id', $product->id)->exists();
             $hasPurchaseInvoiceItems = \App\Models\PurchaseInvoiceItem::where('product_id', $product->id)->exists();
 
-            if ($hasStockMovements || $hasSalesInvoiceItems || $hasPurchaseInvoiceItems) {
-                throw new \Exception('لا يمكن حذف المنتج لوجود فواتير أو حركات مخزون مرتبطة به');
+            // Check for quotation items (will be created in Phase 1)
+            $hasQuotationItems = class_exists('\App\Models\QuotationItem')
+                && \App\Models\QuotationItem::where('product_id', $product->id)->exists();
+
+            if ($hasStockMovements || $hasSalesInvoiceItems || $hasPurchaseInvoiceItems || $hasQuotationItems) {
+                throw new \Exception('لا يمكن حذف المنتج لوجود فواتير أو حركات مخزون أو عروض أسعار مرتبطة به');
             }
         });
     }

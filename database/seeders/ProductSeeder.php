@@ -16,10 +16,27 @@ class ProductSeeder extends Seeder
         $pieceUnit = Unit::where('name', 'قطعة')->first();
         $cartonUnit = Unit::where('name', 'كرتونة')->first();
 
+        // Get categories
+        $platesCategory = \App\Models\ProductCategory::where('slug', 'plates-dishes')->first();
+        $cupsCategory = \App\Models\ProductCategory::where('slug', 'cups-mugs')->first();
+        $potsCategory = \App\Models\ProductCategory::where('slug', 'cooking-pots')->first();
+        $cutleryCategory = \App\Models\ProductCategory::where('slug', 'cutlery')->first();
+        $toolsCategory = \App\Models\ProductCategory::where('slug', 'kitchen-tools')->first();
+        $storageCategory = \App\Models\ProductCategory::where('slug', 'storage-containers')->first();
+        $miscCategory = \App\Models\ProductCategory::where('slug', 'miscellaneous')->first();
+
         $products = [
             // Plates & Dishes (أطباق وصحون)
             [
+                'category_id' => $platesCategory->id,
                 'name' => 'طبق تقديم دائري 30 سم',
+                'description' => 'طبق تقديم دائري أنيق بقطر 30 سم، مصنوع من السيراميك الفاخر',
+                'image' => 'https://picsum.photos/seed/plate-round-30/600/600',
+                'images' => [
+                    'https://picsum.photos/seed/plate-round-30-1/600/600',
+                    'https://picsum.photos/seed/plate-round-30-2/600/600',
+                ],
+                'is_public' => true,
                 'barcode' => '6111000001001',
                 'large_barcode' => '6111000001001C',
                 'sku' => 'PLATE-ROUND-30',
@@ -34,7 +51,15 @@ class ProductSeeder extends Seeder
                 'large_wholesale_price' => 250.00,
             ],
             [
+                'category_id' => $platesCategory->id,
                 'name' => 'صحن طعام سيراميك 25 سم',
+                'description' => 'صحن طعام عملي من السيراميك بقطر 25 سم، مناسب للاستخدام اليومي',
+                'image' => 'https://picsum.photos/seed/plate-ceramic-25/600/600',
+                'images' => [
+                    'https://picsum.photos/seed/plate-ceramic-25-1/600/600',
+                    'https://picsum.photos/seed/plate-ceramic-25-2/600/600',
+                ],
+                'is_public' => true,
                 'barcode' => '6111000001002',
                 'large_barcode' => '6111000001002C',
                 'sku' => 'PLATE-CERAMIC-25',
@@ -49,7 +74,14 @@ class ProductSeeder extends Seeder
                 'large_wholesale_price' => 400.00,
             ],
             [
+                'category_id' => $platesCategory->id,
                 'name' => 'صحن حلويات زجاج 20 سم',
+                'description' => 'صحن حلويات أنيق من الزجاج الشفاف بقطر 20 سم',
+                'image' => 'https://picsum.photos/seed/plate-glass-20/600/600',
+                'images' => [
+                    'https://picsum.photos/seed/plate-glass-20-1/600/600',
+                ],
+                'is_public' => true,
                 'barcode' => '6111000001003',
                 'large_barcode' => '6111000001003C',
                 'sku' => 'PLATE-GLASS-20',
@@ -66,7 +98,15 @@ class ProductSeeder extends Seeder
 
             // Cups & Mugs (أكواب وفناجين)
             [
+                'category_id' => $cupsCategory->id,
                 'name' => 'كوب شاي زجاج شفاف',
+                'description' => 'كوب شاي زجاجي شفاف بتصميم عصري وأنيق',
+                'image' => 'https://picsum.photos/seed/cup-tea-glass/600/600',
+                'images' => [
+                    'https://picsum.photos/seed/cup-tea-glass-1/600/600',
+                    'https://picsum.photos/seed/cup-tea-glass-2/600/600',
+                ],
+                'is_public' => true,
                 'barcode' => '6111000002001',
                 'large_barcode' => '6111000002001C',
                 'sku' => 'CUP-TEA-GLASS',
@@ -81,7 +121,14 @@ class ProductSeeder extends Seeder
                 'large_wholesale_price' => 190.00,
             ],
             [
+                'category_id' => $cupsCategory->id,
                 'name' => 'فنجان قهوة سيراميك',
+                'description' => 'فنجان قهوة فاخر من السيراميك مع صحن',
+                'image' => 'https://picsum.photos/seed/cup-coffee/600/600',
+                'images' => [
+                    'https://picsum.photos/seed/cup-coffee-1/600/600',
+                ],
+                'is_public' => true,
                 'barcode' => '6111000002002',
                 'large_barcode' => '6111000002002C',
                 'sku' => 'CUP-COFFEE-CERAMIC',
@@ -96,7 +143,15 @@ class ProductSeeder extends Seeder
                 'large_wholesale_price' => 150.00,
             ],
             [
+                'category_id' => $cupsCategory->id,
                 'name' => 'كوب ماء زجاج 250 مل',
+                'description' => 'كوب ماء زجاجي بسعة 250 مل، مثالي للاستخدام اليومي',
+                'image' => 'https://picsum.photos/seed/glass-water/600/600',
+                'images' => [
+                    'https://picsum.photos/seed/glass-water-1/600/600',
+                    'https://picsum.photos/seed/glass-water-2/600/600',
+                ],
+                'is_public' => true,
                 'barcode' => '6111000002003',
                 'large_barcode' => '6111000002003C',
                 'sku' => 'GLASS-WATER-250',
@@ -113,7 +168,15 @@ class ProductSeeder extends Seeder
 
             // Pots & Pans (أواني طبخ)
             [
+                'category_id' => $potsCategory->id,
                 'name' => 'طنجرة ضغط ستانلس 7 لتر',
+                'description' => 'طنجرة ضغط احترافية من الستانلس ستيل بسعة 7 لتر',
+                'image' => 'https://picsum.photos/seed/pot-pressure/600/600',
+                'images' => [
+                    'https://picsum.photos/seed/pot-pressure-1/600/600',
+                    'https://picsum.photos/seed/pot-pressure-2/600/600',
+                ],
+                'is_public' => true,
                 'barcode' => '6111000003001',
                 'large_barcode' => '6111000003001C',
                 'sku' => 'POT-PRESSURE-7L',
@@ -128,7 +191,14 @@ class ProductSeeder extends Seeder
                 'large_wholesale_price' => 1450.00,
             ],
             [
+                'category_id' => $potsCategory->id,
                 'name' => 'مقلاة تيفال 28 سم',
+                'description' => 'مقلاة غير لاصقة من تيفال بقطر 28 سم',
+                'image' => 'https://picsum.photos/seed/pan-tefal/600/600',
+                'images' => [
+                    'https://picsum.photos/seed/pan-tefal-1/600/600',
+                ],
+                'is_public' => true,
                 'barcode' => '6111000003002',
                 'large_barcode' => '6111000003002C',
                 'sku' => 'PAN-TEFAL-28',
@@ -143,7 +213,15 @@ class ProductSeeder extends Seeder
                 'large_wholesale_price' => 1400.00,
             ],
             [
+                'category_id' => $potsCategory->id,
                 'name' => 'حلة طبخ ألومنيوم 5 لتر',
+                'description' => 'حلة طبخ من الألومنيوم المقوى بسعة 5 لتر',
+                'image' => 'https://picsum.photos/seed/pot-aluminum/600/600',
+                'images' => [
+                    'https://picsum.photos/seed/pot-aluminum-1/600/600',
+                    'https://picsum.photos/seed/pot-aluminum-2/600/600',
+                ],
+                'is_public' => true,
                 'barcode' => '6111000003003',
                 'large_barcode' => '6111000003003C',
                 'sku' => 'POT-ALUMINUM-5L',
@@ -160,7 +238,14 @@ class ProductSeeder extends Seeder
 
             // Cutlery (أدوات المائدة)
             [
+                'category_id' => $cutleryCategory->id,
                 'name' => 'طقم ملاعق ستانلس 6 قطع',
+                'description' => 'طقم ملاعق فاخر من الستانلس ستيل يحتوي على 6 قطع',
+                'image' => 'https://picsum.photos/seed/spoon-set/600/600',
+                'images' => [
+                    'https://picsum.photos/seed/spoon-set-1/600/600',
+                ],
+                'is_public' => true,
                 'barcode' => '6111000004001',
                 'large_barcode' => '6111000004001C',
                 'sku' => 'SPOON-SET-6PC',
@@ -175,7 +260,14 @@ class ProductSeeder extends Seeder
                 'large_wholesale_price' => 580.00,
             ],
             [
+                'category_id' => $cutleryCategory->id,
                 'name' => 'طقم شوك ستانلس 6 قطع',
+                'description' => 'طقم شوك أنيق من الستانلس ستيل يحتوي على 6 قطع',
+                'image' => 'https://picsum.photos/seed/fork-set/600/600',
+                'images' => [
+                    'https://picsum.photos/seed/fork-set-1/600/600',
+                ],
+                'is_public' => true,
                 'barcode' => '6111000004002',
                 'large_barcode' => '6111000004002C',
                 'sku' => 'FORK-SET-6PC',
@@ -190,7 +282,15 @@ class ProductSeeder extends Seeder
                 'large_wholesale_price' => 580.00,
             ],
             [
+                'category_id' => $cutleryCategory->id,
                 'name' => 'طقم سكاكين ستانلس 6 قطع',
+                'description' => 'طقم سكاكين حادة من الستانلس ستيل يحتوي على 6 قطع',
+                'image' => 'https://picsum.photos/seed/knife-set/600/600',
+                'images' => [
+                    'https://picsum.photos/seed/knife-set-1/600/600',
+                    'https://picsum.photos/seed/knife-set-2/600/600',
+                ],
+                'is_public' => true,
                 'barcode' => '6111000004003',
                 'large_barcode' => '6111000004003C',
                 'sku' => 'KNIFE-SET-6PC',
@@ -207,7 +307,14 @@ class ProductSeeder extends Seeder
 
             // Kitchen Tools (أدوات المطبخ)
             [
+                'category_id' => $toolsCategory->id,
                 'name' => 'ملعقة طبخ خشبية كبيرة',
+                'description' => 'ملعقة طبخ خشبية كبيرة الحجم للاستخدام اليومي',
+                'image' => 'https://picsum.photos/seed/spoon-wood/600/600',
+                'images' => [
+                    'https://picsum.photos/seed/spoon-wood-1/600/600',
+                ],
+                'is_public' => true,
                 'barcode' => '6111000005001',
                 'large_barcode' => '6111000005001C',
                 'sku' => 'SPOON-WOOD-LARGE',
@@ -222,7 +329,14 @@ class ProductSeeder extends Seeder
                 'large_wholesale_price' => 130.00,
             ],
             [
+                'category_id' => $toolsCategory->id,
                 'name' => 'مصفاة استانلس متوسطة',
+                'description' => 'مصفاة متوسطة الحجم من الستانلس ستيل',
+                'image' => 'https://picsum.photos/seed/strainer/600/600',
+                'images' => [
+                    'https://picsum.photos/seed/strainer-1/600/600',
+                ],
+                'is_public' => true,
                 'barcode' => '6111000005002',
                 'large_barcode' => '6111000005002C',
                 'sku' => 'STRAINER-STEEL-MED',
@@ -237,7 +351,14 @@ class ProductSeeder extends Seeder
                 'large_wholesale_price' => 350.00,
             ],
             [
+                'category_id' => $toolsCategory->id,
                 'name' => 'لوح تقطيع بلاستيك كبير',
+                'description' => 'لوح تقطيع كبير من البلاستيك المقوى',
+                'image' => 'https://picsum.photos/seed/board-plastic/600/600',
+                'images' => [
+                    'https://picsum.photos/seed/board-plastic-1/600/600',
+                ],
+                'is_public' => true,
                 'barcode' => '6111000005003',
                 'large_barcode' => '6111000005003C',
                 'sku' => 'BOARD-PLASTIC-LARGE',
@@ -254,7 +375,15 @@ class ProductSeeder extends Seeder
 
             // Storage Containers (علب حفظ)
             [
+                'category_id' => $storageCategory->id,
                 'name' => 'علبة حفظ بلاستيك 1 لتر',
+                'description' => 'علبة حفظ محكمة الإغلاق بسعة 1 لتر',
+                'image' => 'https://picsum.photos/seed/container-1l/600/600',
+                'images' => [
+                    'https://picsum.photos/seed/container-1l-1/600/600',
+                    'https://picsum.photos/seed/container-1l-2/600/600',
+                ],
+                'is_public' => true,
                 'barcode' => '6111000006001',
                 'large_barcode' => '6111000006001C',
                 'sku' => 'CONTAINER-1L',
@@ -269,7 +398,14 @@ class ProductSeeder extends Seeder
                 'large_wholesale_price' => 300.00,
             ],
             [
+                'category_id' => $storageCategory->id,
                 'name' => 'علبة حفظ زجاج 500 مل',
+                'description' => 'علبة حفظ زجاجية بسعة 500 مل مع غطاء محكم',
+                'image' => 'https://picsum.photos/seed/container-glass/600/600',
+                'images' => [
+                    'https://picsum.photos/seed/container-glass-1/600/600',
+                ],
+                'is_public' => true,
                 'barcode' => '6111000006002',
                 'large_barcode' => '6111000006002C',
                 'sku' => 'CONTAINER-GLASS-500ML',
@@ -284,7 +420,14 @@ class ProductSeeder extends Seeder
                 'large_wholesale_price' => 200.00,
             ],
             [
+                'category_id' => $storageCategory->id,
                 'name' => 'طقم علب حفظ 3 قطع',
+                'description' => 'طقم من 3 علب حفظ بأحجام مختلفة',
+                'image' => 'https://picsum.photos/seed/container-set/600/600',
+                'images' => [
+                    'https://picsum.photos/seed/container-set-1/600/600',
+                ],
+                'is_public' => true,
                 'barcode' => '6111000006003',
                 'large_barcode' => '6111000006003C',
                 'sku' => 'CONTAINER-SET-3PC',
@@ -301,7 +444,15 @@ class ProductSeeder extends Seeder
 
             // Kitchen Gadgets (أدوات متنوعة)
             [
+                'category_id' => $miscCategory->id,
                 'name' => 'فتاحة علب كهربائية',
+                'description' => 'فتاحة علب كهربائية سهلة الاستخدام',
+                'image' => 'https://picsum.photos/seed/opener-electric/600/600',
+                'images' => [
+                    'https://picsum.photos/seed/opener-electric-1/600/600',
+                    'https://picsum.photos/seed/opener-electric-2/600/600',
+                ],
+                'is_public' => true,
                 'barcode' => '6111000007001',
                 'large_barcode' => '6111000007001C',
                 'sku' => 'OPENER-ELECTRIC',

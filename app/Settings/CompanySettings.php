@@ -22,6 +22,7 @@ class CompanySettings extends Settings
     public string $return_prefix_sales;
     public string $return_prefix_purchase;
     public string $transfer_prefix;
+    public string $quotation_prefix;
     public bool $enable_multi_warehouse;
     public bool $enable_multi_treasury;
     public int $default_payment_terms_days;

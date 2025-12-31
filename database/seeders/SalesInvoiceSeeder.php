@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Installment;
 use App\Models\Partner;
 use App\Models\Product;
 use App\Models\SalesInvoice;
@@ -22,8 +23,8 @@ class SalesInvoiceSeeder extends Seeder
         $user = User::first();
         $products = Product::all();
 
-        // Create 5 draft sales invoices
-        for ($i = 1; $i <= 5; $i++) {
+        // Create 10 draft sales invoices (5 with installments)
+        for ($i = 1; $i <= 10; $i++) {
             $customer = $customers->random();
 
             $paymentMethod = $i % 2 == 0 ? 'cash' : 'credit';
@@ -97,6 +98,62 @@ class SalesInvoiceSeeder extends Seeder
                 'paid_amount' => $paidAmount,
                 'remaining_amount' => $total - $paidAmount,
             ]);
+
+            // Add installments for invoices 6-10 (credit invoices with installment plans)
+            if ($i > 5 && $paymentMethod === 'credit' && $total > 0) {
+                $numberOfInstallments = rand(3, 6); // 3 to 6 installments
+                $installmentAmount = $total / $numberOfInstallments;
+                $totalInstallmentAmount = 0;
+
+                for ($k = 1; $k <= $numberOfInstallments; $k++) {
+                    // For the last installment, adjust to match exact total
+                    $amount = ($k === $numberOfInstallments)
+                        ? ($total - $totalInstallmentAmount)
+                        : $installmentAmount;
+
+                    $totalInstallmentAmount += $amount;
+
+                    // Calculate due date (30 days apart starting from today)
+                    $dueDate = now()->addDays($k * 30)->toDateString();
+
+                    // Determine status based on due date and random chance
+                    $isPastDue = $dueDate < now()->toDateString();
+                    $isPaid = rand(0, 10) < 3; // 30% chance of being paid
+                    $isOverdue = $isPastDue && !$isPaid;
+
+                    $status = 'pending';
+                    $paidInstallmentAmount = 0;
+                    $paidAt = null;
+                    $paidBy = null;
+
+                    if ($isPaid) {
+                        $status = 'paid';
+                        $paidInstallmentAmount = $amount;
+                        $paidAt = now()->subDays(rand(1, 60));
+                        $paidBy = $user->id;
+                    } elseif ($isOverdue) {
+                        $status = 'overdue';
+                        // 30% chance of partial payment on overdue
+                        if (rand(0, 10) < 3) {
+                            $paidInstallmentAmount = $amount * (rand(20, 80) / 100);
+                            $paidAt = now()->subDays(rand(1, 30));
+                            $paidBy = $user->id;
+                        }
+                    }
+
+                    Installment::create([
+                        'sales_invoice_id' => $invoice->id,
+                        'installment_number' => $k,
+                        'amount' => $amount,
+                        'due_date' => $dueDate,
+                        'status' => $status,
+                        'paid_amount' => $paidInstallmentAmount,
+                        'paid_at' => $paidAt,
+                        'paid_by' => $paidBy,
+                        'notes' => $k === 1 ? 'القسط الأول من خطة التقسيط' : null,
+                    ]);
+                }
+            }
         }
     }
 }

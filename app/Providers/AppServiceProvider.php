@@ -39,6 +39,7 @@ class AppServiceProvider extends ServiceProvider
             'partner' => \App\Models\Partner::class,
             'stock_movement' => \App\Models\StockMovement::class,
             'treasury_transaction' => \App\Models\TreasuryTransaction::class,
+            'quotation' => \App\Models\Quotation::class,
         ]);
     }
 }

@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
             WarehouseSeeder::class,
             TreasurySeeder::class,
             PartnerSeeder::class,
+            ProductCategorySeeder::class,
             ProductSeeder::class,
 
             // Transaction seeders (draft only to avoid triggering business logic)
@@ -37,6 +38,9 @@ class DatabaseSeeder extends Seeder
             WarehouseTransferSeeder::class,
             ExpenseSeeder::class,
             RevenueSeeder::class,
+
+            // Quotation seeder
+            QuotationSeeder::class,
 
             // Fixed Assets seeder (added after treasury integration)
             FixedAssetSeeder::class,

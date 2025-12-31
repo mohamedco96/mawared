@@ -62,10 +62,13 @@ class FixedAssetSeeder extends Seeder
                 'created_by' => null,
             ]));
 
-            // Auto-post for demo purposes
-            $treasuryService->postFixedAssetPurchase($asset);
-
-            $this->command->info("✓ Created and posted fixed asset: {$asset->name} ({$asset->purchase_amount} EGP)");
+            // Auto-post for demo purposes (skip if insufficient balance)
+            try {
+                $treasuryService->postFixedAssetPurchase($asset);
+                $this->command->info("✓ Created and posted fixed asset: {$asset->name} ({$asset->purchase_amount} EGP)");
+            } catch (\Exception $e) {
+                $this->command->warn("✓ Created fixed asset (not posted - insufficient balance): {$asset->name} ({$asset->purchase_amount} EGP)");
+            }
         }
 
         $totalValue = FixedAsset::sum('purchase_amount');
