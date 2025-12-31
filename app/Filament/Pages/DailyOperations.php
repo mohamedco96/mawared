@@ -15,7 +15,7 @@ class DailyOperations extends Page implements HasTable
 {
     use InteractsWithTable;
 
-    protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
+    protected static ?string $navigationIcon = 'heroicon-o-home';
 
     protected static string $view = 'filament.pages.daily-operations';
 
@@ -23,9 +23,9 @@ class DailyOperations extends Page implements HasTable
 
     protected static ?string $title = 'العمليات اليومية';
 
-    protected static ?string $navigationGroup = 'نظرة عامة';
+    protected static ?string $navigationGroup = null;
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 0;
 
     public $activeTab = 'sales';
 

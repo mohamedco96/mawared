@@ -23,7 +23,7 @@ class ProductResource extends Resource
 
     protected static ?string $pluralModelLabel = 'المنتجات';
 
-    protected static ?string $navigationGroup = 'إدارة المخزون';
+    protected static ?string $navigationGroup = 'المخزون';
 
     protected static ?int $navigationSort = 1;
 

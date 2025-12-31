@@ -6,7 +6,7 @@ return [
         'slug' => 'shield/roles',
         'navigation_sort' => 2,
         'navigation_badge' => true,
-        'navigation_group' => 'إدارة النظام',
+        'navigation_group' => 'إعدادات النظام',
         'sub_navigation_position' => null,
         'is_globally_searchable' => false,
         'show_model_path' => true,

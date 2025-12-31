@@ -19,8 +19,8 @@ class ActivityLogResource extends Resource
     protected static ?string $navigationLabel = 'سجل النشاطات';
     protected static ?string $modelLabel = 'نشاط';
     protected static ?string $pluralModelLabel = 'سجل النشاطات';
-    protected static ?string $navigationGroup = 'الإدارة';
-    protected static ?int $navigationSort = 100;
+    protected static ?string $navigationGroup = 'إعدادات النظام';
+    protected static ?int $navigationSort = 5;
 
     public static function form(Form $form): Form
     {

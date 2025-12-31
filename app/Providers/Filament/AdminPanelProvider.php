@@ -38,13 +38,11 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
             ->navigationGroups([
-                'نظرة عامة',        // Overview
-                'إدارة المخزون',    // Inventory Management
                 'المبيعات',         // Sales
                 'المشتريات',        // Purchases
-                'المالية والشركاء', // Finance & Partners
-                'التقارير',         // Reports
-                'إدارة النظام',      // System Management
+                'المخزون',          // Inventory
+                'الإدارة المالية',  // Financials
+                'إعدادات النظام',   // System Settings
             ])
             ->sidebarCollapsibleOnDesktop()
             ->font('Cairo')

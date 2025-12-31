@@ -22,7 +22,7 @@ class GeneralSettings extends Page implements HasForms
 
     protected static ?string $title = 'إعدادات الشركة';
 
-    protected static ?string $navigationGroup = 'إدارة النظام';
+    protected static ?string $navigationGroup = 'إعدادات النظام';
 
     protected static ?int $navigationSort = 3;
 

@@ -29,7 +29,7 @@ class WarehouseTransferResource extends Resource
 
     protected static ?string $pluralModelLabel = 'نقل المخزون';
 
-    protected static ?string $navigationGroup = 'إدارة المخزون';
+    protected static ?string $navigationGroup = 'المخزون';
 
     protected static ?int $navigationSort = 2;
 

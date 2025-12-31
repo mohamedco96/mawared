@@ -25,9 +25,9 @@ class FixedAssetResource extends Resource
 
     protected static ?string $pluralModelLabel = 'الأصول الثابتة';
 
-    protected static ?string $navigationGroup = 'الإدارة';
+    protected static ?string $navigationGroup = 'الإدارة المالية';
 
-    protected static ?int $navigationSort = 11;
+    protected static ?int $navigationSort = 4;
 
     public static function form(Form $form): Form
     {

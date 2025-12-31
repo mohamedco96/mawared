@@ -23,9 +23,9 @@ class PartnerStatement extends Page implements HasForms
 
     protected static ?string $title = 'كشف حساب عميل';
 
-    protected static ?string $navigationGroup = 'التقارير';
+    protected static ?string $navigationGroup = 'الإدارة المالية';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 5;
 
     public ?array $data = [];
 

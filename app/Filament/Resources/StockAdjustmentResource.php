@@ -25,7 +25,7 @@ class StockAdjustmentResource extends Resource
 
     protected static ?string $pluralModelLabel = 'تسويات المخزون';
 
-    protected static ?string $navigationGroup = 'إدارة المخزون';
+    protected static ?string $navigationGroup = 'المخزون';
 
     protected static ?int $navigationSort = 3;
 

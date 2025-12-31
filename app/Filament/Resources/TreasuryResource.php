@@ -23,9 +23,9 @@ class TreasuryResource extends Resource
 
     protected static ?string $pluralModelLabel = 'الخزائن';
 
-    protected static ?string $navigationGroup = 'المالية والشركاء';
+    protected static ?string $navigationGroup = 'الإدارة المالية';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
     {

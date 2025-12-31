@@ -24,9 +24,9 @@ class WarehouseResource extends Resource
 
     protected static ?string $pluralModelLabel = 'المخازن';
 
-    protected static ?string $navigationGroup = 'إدارة المخزون';
+    protected static ?string $navigationGroup = 'المخزون';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 4;
 
     public static function form(Form $form): Form
     {

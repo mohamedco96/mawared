@@ -21,9 +21,9 @@ class ProfitLossReport extends Page implements HasForms
 
     protected static ?string $title = 'المركز المالي وقائمة الدخل';
 
-    protected static ?string $navigationGroup = 'المالية والشركاء';
+    protected static ?string $navigationGroup = 'الإدارة المالية';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 7;
 
     public ?array $data = [];
 

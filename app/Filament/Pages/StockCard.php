@@ -24,9 +24,9 @@ class StockCard extends Page implements HasForms
 
     protected static ?string $title = 'كارت الصنف';
 
-    protected static ?string $navigationGroup = 'التقارير';
+    protected static ?string $navigationGroup = 'الإدارة المالية';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 6;
 
     public ?array $data = [];
 

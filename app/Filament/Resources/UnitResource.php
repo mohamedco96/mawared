@@ -23,9 +23,9 @@ class UnitResource extends Resource
 
     protected static ?string $pluralModelLabel = 'وحدات القياس';
 
-    protected static ?string $navigationGroup = 'إدارة المخزون';
+    protected static ?string $navigationGroup = 'المخزون';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 6;
 
     public static function form(Form $form): Form
     {
