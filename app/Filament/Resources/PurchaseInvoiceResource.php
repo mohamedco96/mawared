@@ -24,7 +24,7 @@ class PurchaseInvoiceResource extends Resource
 {
     protected static ?string $model = PurchaseInvoice::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-shopping-bag';
+    protected static ?string $navigationIcon = 'heroicon-o-truck';
 
     protected static ?string $navigationLabel = 'فواتير الشراء';
 
@@ -35,6 +35,19 @@ class PurchaseInvoiceResource extends Resource
     protected static ?string $navigationGroup = 'المشتريات';
 
     protected static ?int $navigationSort = 1;
+
+    protected static ?string $recordTitleAttribute = 'invoice_number';
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = static::getModel()::where('status', 'draft')->count();
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): string|array|null
+    {
+        return 'warning';
+    }
 
     public static function form(Form $form): Form
     {

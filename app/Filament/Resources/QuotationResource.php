@@ -33,6 +33,46 @@ class QuotationResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
+    protected static ?string $recordTitleAttribute = 'quotation_number';
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = static::getModel()::where('status', 'draft')->count();
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): string|array|null
+    {
+        return 'gray';
+    }
+
+    public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
+    {
+        return $record->quotation_number;
+    }
+
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        return [
+            'العميل' => $record->customer_name,
+            'الإجمالي' => number_format($record->total, 2) . ' ج.م',
+            'الحالة' => match($record->status) {
+                'draft' => 'مسودة',
+                'sent' => 'مرسل',
+                'accepted' => 'مقبول',
+                'converted' => 'محول',
+                'rejected' => 'مرفوض',
+                'expired' => 'منتهي',
+                default => $record->status,
+            },
+        ];
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['quotation_number'];
+    }
+
     public static function form(Form $form): Form
     {
         $companySettings = app(CompanySettings::class);

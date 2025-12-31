@@ -36,6 +36,38 @@ class SalesInvoiceResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
+    protected static ?string $recordTitleAttribute = 'invoice_number';
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = static::getModel()::where('status', 'draft')->count();
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): string|array|null
+    {
+        return 'warning';
+    }
+
+    public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
+    {
+        return $record->invoice_number;
+    }
+
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        return [
+            'العميل' => $record->partner?->name,
+            'الإجمالي' => number_format($record->total, 2) . ' ج.م',
+            'الحالة' => $record->status === 'posted' ? 'مؤكدة' : 'مسودة',
+        ];
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['invoice_number', 'partner.name'];
+    }
+
     public static function form(Form $form): Form
     {
         return $form

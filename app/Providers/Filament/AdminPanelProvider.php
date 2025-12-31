@@ -45,6 +45,8 @@ class AdminPanelProvider extends PanelProvider
                 'إعدادات النظام',   // System Settings
             ])
             ->sidebarCollapsibleOnDesktop()
+            ->collapsibleNavigationGroups(true)
+            ->maxContentWidth('full')
             ->font('Cairo')
             ->renderHook(
                 'panels::head.end',

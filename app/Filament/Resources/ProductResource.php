@@ -27,6 +27,54 @@ class ProductResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
+    protected static ?string $recordTitleAttribute = 'name';
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = static::getModel()::query()
+            ->whereHas('stockMovements', function ($query) {
+                $query->select('product_id')
+                    ->selectRaw('SUM(quantity) as total_stock')
+                    ->groupBy('product_id')
+                    ->havingRaw('SUM(quantity) <= products.min_stock AND SUM(quantity) > 0');
+            })
+            ->count();
+
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): string|array|null
+    {
+        $hasLowStock = static::getModel()::query()
+            ->whereHas('stockMovements', function ($query) {
+                $query->select('product_id')
+                    ->selectRaw('SUM(quantity) as total_stock')
+                    ->groupBy('product_id')
+                    ->havingRaw('SUM(quantity) <= products.min_stock AND SUM(quantity) > 0');
+            })
+            ->exists();
+
+        return $hasLowStock ? 'danger' : 'gray';
+    }
+
+    public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
+    {
+        return $record->name;
+    }
+
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        return [
+            'SKU' => $record->sku,
+            'الباركود' => $record->barcode,
+        ];
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'sku', 'barcode'];
+    }
+
     public static function form(Form $form): Form
     {
         return $form

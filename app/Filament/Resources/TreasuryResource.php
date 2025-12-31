@@ -15,7 +15,7 @@ class TreasuryResource extends Resource
 {
     protected static ?string $model = Treasury::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-building-library';
+    protected static ?string $navigationIcon = 'heroicon-o-banknotes';
 
     protected static ?string $navigationLabel = 'الخزائن';
 
