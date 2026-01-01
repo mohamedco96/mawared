@@ -749,7 +749,19 @@ class SalesInvoiceResource extends Resource
                                     ->required()
                                     ->minValue(0.01)
                                     ->suffix('ج.م')
-                                    ->step(0.01),
+                                    ->step(0.01)
+                                    ->default(fn (SalesInvoice $record) => floatval($record->current_remaining))
+                                    ->rules([
+                                        'required',
+                                        'numeric',
+                                        'min:0.01',
+                                        fn (SalesInvoice $record): \Closure => function (string $attribute, $value, \Closure $fail) use ($record) {
+                                            $remainingAmount = floatval($record->current_remaining);
+                                            if (floatval($value) > $remainingAmount) {
+                                                $fail('لا يمكن دفع مبلغ (' . number_format($value, 2) . ' ج.م) أكبر من المبلغ المتبقي (' . number_format($remainingAmount, 2) . ' ج.م).');
+                                            }
+                                        },
+                                    ]),
 
                                 Forms\Components\DatePicker::make('payment_date')
                                     ->label('تاريخ الدفع')

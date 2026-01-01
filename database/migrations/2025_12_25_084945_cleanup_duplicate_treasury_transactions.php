@@ -13,6 +13,15 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // DISABLED - CRITICAL SAFETY FIX
+        // Pattern-based deletion is too risky for production
+        // This migration could accidentally delete legitimate transactions
+        // Manual review and targeted cleanup required instead
+
+        Log::warning('Cleanup migration DISABLED for safety - pattern-based deletion too risky');
+        return;
+
+        /* DISABLED CODE - DO NOT UNCOMMENT WITHOUT CAREFUL REVIEW
         DB::transaction(function () {
             // Delete duplicate credit transactions (those with "(Credit)" or "(Paid Portion)" or "(آجل)" in description)
             // These are the transactions that incorrectly recorded the remaining_amount
@@ -35,6 +44,7 @@ return new class extends Migration
 
             echo "✓ Deleted {$deletedCount} duplicate treasury transactions\n";
         });
+        */
     }
 
     /**

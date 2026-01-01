@@ -75,13 +75,24 @@ class EditSalesInvoice extends EditRecord
                 $subtotal += $item['total'] ?? 0;
             }
         }
-        
+
         $discount = $data['discount'] ?? 0;
         $total = $subtotal - $discount;
-        
+
         $data['subtotal'] = $subtotal;
         $data['total'] = $total;
-        
+
+        // FIX: Ensure paid_amount is set correctly for cash invoices
+        // For cash payment: paid_amount should equal total
+        // For credit payment: paid_amount comes from user input (or default 0)
+        if (($data['payment_method'] ?? null) === 'cash') {
+            $data['paid_amount'] = $total;
+            $data['remaining_amount'] = 0;
+        } elseif (($data['payment_method'] ?? null) === 'credit') {
+            $data['paid_amount'] = floatval($data['paid_amount'] ?? 0);
+            $data['remaining_amount'] = $total - $data['paid_amount'];
+        }
+
         return $data;
     }
 

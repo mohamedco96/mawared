@@ -18,7 +18,7 @@ class CreateTreasuryTransaction extends CreateRecord
         if (isset($data['final_amount']) && $data['final_amount'] > 0) {
             $data['amount'] = $data['final_amount'];
         }
-        
+
         // Set amount sign based on type
         if (in_array($data['type'], ['payment', 'partner_drawing', 'employee_advance'])) {
             $data['amount'] = -abs($data['amount']);
@@ -26,8 +26,15 @@ class CreateTreasuryTransaction extends CreateRecord
             $data['amount'] = abs($data['amount']);
         }
 
+        // Set reference_type for collection/payment transactions with partners
+        // This is CRITICAL for partner balance calculations
+        if (in_array($data['type'], ['collection', 'payment']) && !empty($data['partner_id'])) {
+            $data['reference_type'] = 'financial_transaction';
+            $data['reference_id'] = null;
+        }
+
         unset($data['final_amount'], $data['discount'], $data['current_balance_display'], $data['employee_advance_balance_display']);
-        
+
         return $data;
     }
 
@@ -42,14 +49,8 @@ class CreateTreasuryTransaction extends CreateRecord
             });
         }
 
-        // Update employee advance balance if employee is involved
-        if ($this->record->employee_id && $this->record->type === 'employee_advance') {
-            DB::transaction(function () {
-                $user = \App\Models\User::findOrFail($this->record->employee_id);
-                if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'advance_balance')) {
-                    $user->increment('advance_balance', abs($this->record->amount));
-                }
-            });
-        }
+        // REMOVED: Employee advance balance update
+        // This is now handled by TreasuryService::recordEmployeeAdvance()
+        // to prevent double incrementing (CRITICAL FIX)
     }
 }

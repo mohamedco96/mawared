@@ -462,9 +462,9 @@ class FinancialMathTest extends TestCase
         $this->assertEquals(100, $payment->discount);
         $this->assertEquals(1000900, $this->treasuryService->getTreasuryBalance($this->treasury->id)); // 1,000,000 + 900
 
-        // Balance should still be 100 (invoice total 1000 - payment 900)
-        // The discount is recorded but doesn't reduce the balance in current implementation
+        // Balance should be 0 (invoice total 1000 - payment 900 - discount 100)
+        // FIXED: The discount is now properly reducing the partner balance
         $this->customer->refresh();
-        $this->assertEquals(100, round($this->customer->current_balance, 2));
+        $this->assertEquals(0, round($this->customer->current_balance, 2));
     }
 }

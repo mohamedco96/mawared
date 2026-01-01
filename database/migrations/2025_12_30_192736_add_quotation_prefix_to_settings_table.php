@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         // Insert quotation_prefix setting if it doesn't exist
-        \Illuminate\Support\Facades\DB::table('settings')->insert([
+        \Illuminate\Support\Facades\DB::table('settings')->insertOrIgnore([
             'group' => 'company',
             'name' => 'quotation_prefix',
             'locked' => false,

@@ -393,15 +393,22 @@ class PurchaseInvoiceResource extends Resource
                                     }
 
                                     $discountType = $get('discount_type') ?? 'fixed';
-                                    $items = $get('../../items') ?? [];
-                                    $subtotal = collect($items)->sum('total');
+                                    $items = $get('items') ?? [];
+
+                                    // Calculate subtotal from items manually
+                                    $subtotal = 0;
+                                    foreach ($items as $item) {
+                                        $quantity = floatval($item['quantity'] ?? 0);
+                                        $unitCost = floatval($item['unit_cost'] ?? 0);
+                                        $subtotal += $quantity * $unitCost;
+                                    }
 
                                     if ($discountType === 'percentage') {
                                         if (floatval($value) > 100) {
                                             $fail('نسبة الخصم لا يمكن أن تتجاوز 100%.');
                                         }
                                     } else {
-                                        // Fixed discount
+                                        // Fixed discount - validate against calculated subtotal
                                         if (floatval($value) > $subtotal) {
                                             $fail('قيمة الخصم (' . number_format($value, 2) . ') لا يمكن أن تتجاوز المجموع الفرعي (' . number_format($subtotal, 2) . ').');
                                         }
@@ -473,15 +480,25 @@ class PurchaseInvoiceResource extends Resource
                                         return;
                                     }
 
-                                    $items = $get('../../items') ?? [];
-                                    $subtotal = collect($items)->sum('total');
-                                    $discountType = $get('../discount_type') ?? 'fixed';
-                                    $discountValue = floatval($get('../discount_value') ?? 0);
+                                    $items = $get('items') ?? [];
 
+                                    // Calculate subtotal from items manually
+                                    $subtotal = 0;
+                                    foreach ($items as $item) {
+                                        $quantity = floatval($item['quantity'] ?? 0);
+                                        $unitCost = floatval($item['unit_cost'] ?? 0);
+                                        $subtotal += $quantity * $unitCost;
+                                    }
+
+                                    $discountType = $get('discount_type') ?? 'fixed';
+                                    $discountValue = floatval($get('discount_value') ?? 0);
+
+                                    // Calculate total discount
                                     $totalDiscount = $discountType === 'percentage'
                                         ? $subtotal * ($discountValue / 100)
                                         : $discountValue;
 
+                                    // Calculate final total after discount
                                     $netTotal = $subtotal - $totalDiscount;
                                     $paidAmount = floatval($value);
 
@@ -729,7 +746,19 @@ class PurchaseInvoiceResource extends Resource
                                     ->required()
                                     ->minValue(0.01)
                                     ->suffix('ج.م')
-                                    ->step(0.01),
+                                    ->step(0.01)
+                                    ->default(fn (PurchaseInvoice $record) => floatval($record->current_remaining))
+                                    ->rules([
+                                        'required',
+                                        'numeric',
+                                        'min:0.01',
+                                        fn (PurchaseInvoice $record): \Closure => function (string $attribute, $value, \Closure $fail) use ($record) {
+                                            $remainingAmount = floatval($record->current_remaining);
+                                            if (floatval($value) > $remainingAmount) {
+                                                $fail('لا يمكن دفع مبلغ (' . number_format($value, 2) . ' ج.م) أكبر من المبلغ المتبقي (' . number_format($remainingAmount, 2) . ' ج.م).');
+                                            }
+                                        },
+                                    ]),
 
                                 Forms\Components\DatePicker::make('payment_date')
                                     ->label('تاريخ الدفع')

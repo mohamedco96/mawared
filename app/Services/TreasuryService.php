@@ -132,10 +132,13 @@ class TreasuryService
 
     /**
      * Get treasury balance from transactions
+     * CRITICAL FIX: Uses lockForUpdate() to prevent race conditions
      */
     public function getTreasuryBalance(string $treasuryId): string
     {
+        // Use lockForUpdate() to prevent race conditions during concurrent transactions
         $balance = TreasuryTransaction::where('treasury_id', $treasuryId)
+            ->lockForUpdate()
             ->sum('amount');
 
         \Log::info('TreasuryService::getTreasuryBalance', [

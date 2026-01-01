@@ -22,6 +22,7 @@ class Partner extends Model
         'region',
         'is_banned',
         'current_balance',
+        'opening_balance',
     ];
 
     protected function casts(): array
@@ -29,6 +30,7 @@ class Partner extends Model
         return [
             'is_banned' => 'boolean',
             'current_balance' => 'decimal:4',
+            'opening_balance' => 'decimal:4',
         ];
     }
 
@@ -71,6 +73,9 @@ class Partner extends Model
      */
     public function calculateBalance(): float
     {
+        // Get opening balance (default to 0 if not set)
+        $openingBalance = floatval($this->opening_balance ?? 0);
+
         if ($this->type === 'customer') {
             // Customer owes us money (positive balance means they owe us)
 
@@ -93,12 +98,28 @@ class Partner extends Model
                 ->where('reference_type', 'financial_transaction')
                 ->sum('amount');
 
+            // What we paid them back (payment transactions - negative in DB)
+            // This happens when customer overpaid and we refund them
+            $payments = $this->treasuryTransactions()
+                ->where('type', 'payment')
+                ->where('reference_type', 'financial_transaction')
+                ->sum('amount'); // Already negative
+
+            // Settlement discounts given during payments (amount + discount = total debt reduction)
+            $discounts = $this->invoicePayments()
+                ->sum('discount');
+
             // IMPORTANT: Cash refunds do NOT affect customer balance
             // When a customer returns items for CASH, they take money from treasury but their debt stays the same
             // Only CREDIT returns (captured in $returnsTotal) reduce customer debt
-            // Formula: Balance = Remaining Amount on Invoices - Credit Returns - Subsequent Payments
 
-            return $salesTotal - $returnsTotal - $collections;
+            // Formula explanation for customers (positive balance = they owe us):
+            // Start with: Opening Balance + What they bought (Sales)
+            // Subtract: What they returned (Returns) + What they paid (Collections) + Discounts
+            // Add back: What we refunded to them (abs of negative Payments)
+            // Since Payments is negative, we subtract it to add back the absolute value
+
+            return $openingBalance + $salesTotal - $returnsTotal - $collections - $discounts - $payments;
 
         } elseif ($this->type === 'supplier') {
             // Supplier is owed money by us (negative balance means we owe them)
@@ -122,17 +143,32 @@ class Partner extends Model
                 ->where('reference_type', 'financial_transaction')
                 ->sum('amount'); // Already negative
 
+            // What they paid us back (collection transactions - positive in DB)
+            // This happens when supplier refunds us or pays us back for overpayments
+            $collections = $this->treasuryTransactions()
+                ->where('type', 'collection')
+                ->where('reference_type', 'financial_transaction')
+                ->sum('amount'); // Positive
+
+            // Settlement discounts received during payments (amount + discount = total debt reduction)
+            $discounts = $this->invoicePayments()
+                ->sum('discount');
+
             // IMPORTANT: Cash refunds do NOT affect supplier balance
             // When we return items for CASH, supplier gives us money but our debt stays the same
             // Only CREDIT returns (captured in $returnsTotal) reduce what we owe them
-            // Formula: Balance = -(Remaining Amount on Invoices - Credit Returns - Subsequent Payments)
 
-            // Return negative value (we owe them)
-            return -1 * ($purchaseTotal - $returnsTotal + $payments);
+            // Formula explanation for suppliers (positive balance = we owe them):
+            // Start with: Opening Balance + What we bought (Purchases)
+            // Subtract: What we returned (Returns) + What we paid (abs of negative Payments) + Collections from them + Discounts
+            // Since Payments is negative, we use -Payments to get positive amount
+            // Collections reduce debt, so we subtract them
+
+            return $openingBalance - ($purchaseTotal - $returnsTotal + $payments + $collections - $discounts);
 
         } else { // shareholder
             // Shareholders track capital deposits, drawings, etc. via treasury transactions only
-            return $this->treasuryTransactions()->sum('amount');
+            return $openingBalance + $this->treasuryTransactions()->sum('amount');
         }
     }
 

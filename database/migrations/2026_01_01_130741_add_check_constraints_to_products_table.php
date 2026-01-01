@@ -20,11 +20,15 @@ return new class extends Migration
         DB::table('products')->where('large_wholesale_price', '<', 0)->update(['large_wholesale_price' => 0]);
 
         // Add check constraints to ensure price fields and min_stock cannot be negative
-        DB::statement('ALTER TABLE products ADD CONSTRAINT chk_min_stock_non_negative CHECK (min_stock >= 0)');
-        DB::statement('ALTER TABLE products ADD CONSTRAINT chk_retail_price_non_negative CHECK (retail_price >= 0)');
-        DB::statement('ALTER TABLE products ADD CONSTRAINT chk_wholesale_price_non_negative CHECK (wholesale_price >= 0)');
-        DB::statement('ALTER TABLE products ADD CONSTRAINT chk_large_retail_price_non_negative CHECK (large_retail_price >= 0 OR large_retail_price IS NULL)');
-        DB::statement('ALTER TABLE products ADD CONSTRAINT chk_large_wholesale_price_non_negative CHECK (large_wholesale_price >= 0 OR large_wholesale_price IS NULL)');
+        // Note: SQLite doesn't support ALTER TABLE ADD CONSTRAINT for CHECK constraints
+        // Only add these constraints for MySQL/PostgreSQL
+        if (DB::connection()->getDriverName() !== 'sqlite') {
+            DB::statement('ALTER TABLE products ADD CONSTRAINT chk_min_stock_non_negative CHECK (min_stock >= 0)');
+            DB::statement('ALTER TABLE products ADD CONSTRAINT chk_retail_price_non_negative CHECK (retail_price >= 0)');
+            DB::statement('ALTER TABLE products ADD CONSTRAINT chk_wholesale_price_non_negative CHECK (wholesale_price >= 0)');
+            DB::statement('ALTER TABLE products ADD CONSTRAINT chk_large_retail_price_non_negative CHECK (large_retail_price >= 0 OR large_retail_price IS NULL)');
+            DB::statement('ALTER TABLE products ADD CONSTRAINT chk_large_wholesale_price_non_negative CHECK (large_wholesale_price >= 0 OR large_wholesale_price IS NULL)');
+        }
     }
 
     /**
@@ -33,10 +37,13 @@ return new class extends Migration
     public function down(): void
     {
         // Drop check constraints
-        DB::statement('ALTER TABLE products DROP CONSTRAINT IF EXISTS chk_min_stock_non_negative');
-        DB::statement('ALTER TABLE products DROP CONSTRAINT IF EXISTS chk_retail_price_non_negative');
-        DB::statement('ALTER TABLE products DROP CONSTRAINT IF EXISTS chk_wholesale_price_non_negative');
-        DB::statement('ALTER TABLE products DROP CONSTRAINT IF EXISTS chk_large_retail_price_non_negative');
-        DB::statement('ALTER TABLE products DROP CONSTRAINT IF EXISTS chk_large_wholesale_price_non_negative');
+        // Note: SQLite doesn't support ALTER TABLE ADD CONSTRAINT for CHECK constraints
+        if (DB::connection()->getDriverName() !== 'sqlite') {
+            DB::statement('ALTER TABLE products DROP CONSTRAINT IF EXISTS chk_min_stock_non_negative');
+            DB::statement('ALTER TABLE products DROP CONSTRAINT IF EXISTS chk_retail_price_non_negative');
+            DB::statement('ALTER TABLE products DROP CONSTRAINT IF EXISTS chk_wholesale_price_non_negative');
+            DB::statement('ALTER TABLE products DROP CONSTRAINT IF EXISTS chk_large_retail_price_non_negative');
+            DB::statement('ALTER TABLE products DROP CONSTRAINT IF EXISTS chk_large_wholesale_price_non_negative');
+        }
     }
 };

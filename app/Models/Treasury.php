@@ -32,4 +32,10 @@ class Treasury extends Model
     {
         return $this->hasMany(Revenue::class);
     }
+
+    // Accessors
+    public function getBalanceAttribute(): float
+    {
+        return (float) $this->treasuryTransactions()->sum('amount');
+    }
 }

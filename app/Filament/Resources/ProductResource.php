@@ -429,11 +429,25 @@ class ProductResource extends Resource
                         $replica->large_barcode = null;
                         $replica->sku = null;
                     }),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->failureNotification(function ($exception) {
+                        return \Filament\Notifications\Notification::make()
+                            ->danger()
+                            ->title('فشل حذف المنتج')
+                            ->body($exception->getMessage())
+                            ->send();
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->failureNotification(function ($exception) {
+                            return \Filament\Notifications\Notification::make()
+                                ->danger()
+                                ->title('فشل حذف المنتجات')
+                                ->body($exception->getMessage())
+                                ->send();
+                        }),
                 ]),
             ]);
     }
