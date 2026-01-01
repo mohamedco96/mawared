@@ -43,14 +43,21 @@ class UserResource extends Resource
                             ->email()
                             ->required()
                             ->unique(ignoreRecord: true)
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->default(null),
                         Forms\Components\TextInput::make('password')
                             ->label('كلمة المرور')
                             ->password()
                             ->dehydrated(fn ($state) => filled($state))
                             ->dehydrateStateUsing(fn ($state) => Hash::make($state))
                             ->required(fn (string $context): bool => $context === 'create')
-                            ->maxLength(255),
+                            ->minLength(8)
+                            ->regex('/^(?=.*[A-Za-z])(?=.*\d).+$/')
+                            ->validationMessages([
+                                'regex' => 'يجب أن تحتوي كلمة المرور على أحرف وأرقام',
+                            ])
+                            ->maxLength(255)
+                            ->default(null),
                         Forms\Components\Select::make('roles')
                             ->label('الدور')
                             ->relationship('roles', 'name')
@@ -65,7 +72,12 @@ class UserResource extends Resource
                     ->schema([
                         Forms\Components\TextInput::make('national_id')
                             ->label('الهوية الوطنية')
-                            ->maxLength(255),
+                            ->numeric()
+                            ->length(14)
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'numeric'])
+                            ->validationMessages([
+                                'length' => 'يجب أن يكون الرقم القومي 14 رقم بالضبط',
+                            ]),
                         Forms\Components\Select::make('salary_type')
                             ->label('نوع الراتب')
                             ->options([

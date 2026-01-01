@@ -7,13 +7,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
 class TreasuryTransaction extends Model
 {
-    use HasFactory, HasUlids, SoftDeletes, LogsActivity;
+    use HasFactory, HasUlids, LogsActivity;
 
     protected $fillable = [
         'treasury_id',
@@ -62,7 +61,6 @@ class TreasuryTransaction extends Model
             ->setDescriptionForEvent(fn(string $eventName) => match($eventName) {
                 'created' => 'تم إنشاء معاملة خزينة',
                 'updated' => 'تم تحديث معاملة خزينة',
-                'deleted' => 'تم حذف معاملة خزينة',
                 default => "معاملة خزينة {$eventName}",
             });
     }

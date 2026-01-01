@@ -15,6 +15,11 @@ class LatestActivitiesWidget extends BaseWidget
 
     protected static ?string $heading = 'آخر النشاطات';
 
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('widget_LatestActivitiesWidget') ?? false;
+    }
+
     public function table(Table $table): Table
     {
         return $table

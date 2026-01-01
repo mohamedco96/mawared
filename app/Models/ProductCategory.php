@@ -79,17 +79,40 @@ class ProductCategory extends Model
             }
         });
 
+        static::saving(function (ProductCategory $category) {
+            // Prevent category from being its own parent
+            if ($category->parent_id === $category->id) {
+                throw new \Exception('لا يمكن للتصنيف أن يكون أب لنفسه');
+            }
+
+            // Prevent circular references (category cannot be a descendant of itself)
+            if ($category->parent_id && $category->exists) {
+                $parentId = $category->parent_id;
+                $visited = [$category->id];
+
+                while ($parentId) {
+                    if (in_array($parentId, $visited)) {
+                        throw new \Exception('لا يمكن إنشاء تسلسل دائري في التصنيفات');
+                    }
+
+                    $visited[] = $parentId;
+                    $parent = static::find($parentId);
+                    $parentId = $parent?->parent_id;
+                }
+            }
+        });
+
         static::deleting(function (ProductCategory $category) {
             // Check for related products
             $hasProducts = $category->products()->exists();
             if ($hasProducts) {
-                throw new \Exception('لا يمكن حذف التصنيف لوجود منتجات مرتبطة به');
+                return false; // Prevent deletion
             }
 
             // Check for child categories
             $hasChildren = $category->children()->exists();
             if ($hasChildren) {
-                throw new \Exception('لا يمكن حذف التصنيف لوجود تصنيفات فرعية مرتبطة به');
+                return false; // Prevent deletion
             }
         });
     }

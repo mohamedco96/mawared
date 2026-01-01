@@ -27,6 +27,11 @@ class DailyOperations extends Page implements HasTable
 
     protected static ?int $navigationSort = 0;
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->can('page_DailyOperations') ?? false;
+    }
+
     public $activeTab = 'sales';
 
     public function mount(): void
@@ -109,7 +114,7 @@ class DailyOperations extends Page implements HasTable
                     ->default('—'),
                 Tables\Columns\TextColumn::make('amount')
                     ->label('المبلغ')
-                    ->money('SAR')
+                    ->money('EGP')
                     ->sortable()
                     ->color('success'),
                 Tables\Columns\TextColumn::make('description')
@@ -155,7 +160,7 @@ class DailyOperations extends Page implements HasTable
                     ->default('—'),
                 Tables\Columns\TextColumn::make('amount')
                     ->label('المبلغ')
-                    ->money('SAR')
+                    ->money('EGP')
                     ->sortable()
                     ->color(fn ($state) => $state >= 0 ? 'success' : 'danger'),
                 Tables\Columns\TextColumn::make('description')

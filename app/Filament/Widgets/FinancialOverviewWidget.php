@@ -17,6 +17,11 @@ class FinancialOverviewWidget extends StatsOverviewWidget
 
     protected static ?string $pollingInterval = null;
 
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('widget_FinancialOverviewWidget') ?? false;
+    }
+
     protected function getStats(): array
     {
         return Cache::remember('dashboard.financial_overview', 300, function () {

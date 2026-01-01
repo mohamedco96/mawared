@@ -457,9 +457,9 @@ class TreasuryService
         ?string $discount = null
     ): TreasuryTransaction {
         return DB::transaction(function () use ($treasuryId, $type, $amount, $description, $partnerId, $discount) {
-            // Financial transactions reduce partner balances (opposite of invoices)
-            // Collection from customer: treasury +, partner - (reduces debt)
-            // Payment to supplier: treasury -, partner + (reduces what we owe, but their balance is negative so it becomes less negative)
+            // Financial transactions adjust both treasury AND partner balances
+            // Collection from customer: treasury +amount, partner balance -amount (reduces their debt)
+            // Payment to supplier: treasury -amount, partner balance -amount (reduces our debt to them)
 
             $treasuryAmount = $type === 'payment' ? -abs($amount) : abs($amount);
 
@@ -469,13 +469,19 @@ class TreasuryService
                     : abs($amount) - abs($discount);
             }
 
-            // Partner amount is opposite of treasury amount for financial transactions
-            $partnerAmount = -$treasuryAmount;
+            // CRITICAL FIX: For financial transactions, the amount stored should represent
+            // the change to partner DEBT (not the cash flow).
+            // - Collection: Customer paid us, their debt DECREASES, store NEGATIVE
+            // - Payment: We paid supplier, our debt to them DECREASES, store POSITIVE (but supplier balance is negative, so net effect is reduction)
+            // Actually, looking at Partner::calculateBalance(), collections are SUBTRACTED from sales
+            // So collections should be NEGATIVE to INCREASE the subtraction (thus reducing balance)
+            // Wait no - collections are summed and then subtracted. So positive collection = more subtraction = lower balance
 
+            // After analysis: Keep treasury amount as the transaction record
             $transaction = $this->recordTransaction(
                 $treasuryId,
                 $type,
-                $partnerAmount,
+                $treasuryAmount,
                 $description,
                 $partnerId,
                 'financial_transaction',

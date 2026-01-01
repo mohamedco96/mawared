@@ -59,10 +59,20 @@ class FinancialIntegrityTest extends TestCase
         $this->pieceUnit = Unit::create(['name' => 'قطعة', 'symbol' => 'قطعة']);
         $this->cartonUnit = Unit::create(['name' => 'كرتونة', 'symbol' => 'كرتونة']);
 
-        // Create treasury with zero balance
+        // Create treasury with initial capital
         $this->treasury = Treasury::create([
             'name' => 'Main Treasury',
             'type' => 'cash',
+        ]);
+
+        // Inject initial capital (simulates owner investment)
+        \App\Models\TreasuryTransaction::create([
+            'treasury_id' => $this->treasury->id,
+            'type' => 'income',
+            'amount' => 1000000, // 1 million initial capital for testing
+            'description' => 'Initial Capital for Testing',
+            'reference_type' => 'capital_injection',
+            'reference_id' => null,
         ]);
 
         // Create warehouse
@@ -145,15 +155,20 @@ class FinancialIntegrityTest extends TestCase
             'total' => 1000.00,
         ]);
 
+        // Record initial treasury balance
+        $initialBalance = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+
         // Post invoice (creates stock movement and treasury transaction)
         $this->stockService->postPurchaseInvoice($invoice);
-        $invoice->update(['status' => 'posted']);
         $this->treasuryService->postPurchaseInvoice($invoice, $this->treasury->id);
+        $invoice->update(['status' => 'posted']);
+        // Recalculate balance after status update (so posted invoice is included in calculation)
+        $this->treasuryService->updatePartnerBalance($this->supplier->id);
 
-        // ASSERT: Treasury Balance
-        $treasuryBalance = $this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals(-1000.00, (float)$treasuryBalance);
-        // WHY: Treasury paid 1000 EGP cash to supplier (negative = outflow)
+        // ASSERT: Treasury Balance (check the change)
+        $treasuryBalance = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+        $this->assertEquals($initialBalance - 1000.00, $treasuryBalance);
+        // WHY: Treasury paid 1000 EGP cash to supplier (balance decreased by 1000)
 
         // ASSERT: Supplier Balance
         $this->supplier->refresh();
@@ -212,19 +227,24 @@ class FinancialIntegrityTest extends TestCase
             'total' => 1000.00,
         ]);
 
+        // Record initial balance before posting
+        $initialBalance = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+
         // Post the invoice
         $this->stockService->postSalesInvoice($invoice);
-        $invoice->update(['status' => 'posted']);
         $this->treasuryService->postSalesInvoice($invoice, $this->treasury->id);
+        $invoice->update(['status' => 'posted']);
+        // Recalculate balance after status update
+        $this->treasuryService->updatePartnerBalance($this->customer->id);
 
         // ASSERT AFTER POSTING (before payment)
         $this->customer->refresh();
         $this->assertEquals(1000.00, round((float)$this->customer->current_balance, 2));
         // WHY: Customer owes 1000 EGP (credit sale, no cash received yet)
 
-        $treasuryBalance = $this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals(0.00, round((float)$treasuryBalance, 2));
-        // WHY: No cash received yet (credit sale)
+        $treasuryBalance = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+        $this->assertEquals($initialBalance, $treasuryBalance);
+        // WHY: No cash received yet (credit sale), balance unchanged
 
         // ACT: Customer makes partial payment of 200 EGP
         $payment = $this->treasuryService->recordInvoicePayment(
@@ -240,9 +260,9 @@ class FinancialIntegrityTest extends TestCase
         $this->assertEquals(800.00, round((float)$this->customer->current_balance, 2));
         // WHY: 1000 - 200 = 800 EGP remaining debt
 
-        $treasuryBalance = $this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals(200.00, round((float)$treasuryBalance, 2));
-        // WHY: ONLY 200 EGP cash collected (not the full 1000)
+        $treasuryBalance = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+        $this->assertEquals($initialBalance + 200.00, $treasuryBalance);
+        // WHY: Balance increased by 200 EGP cash collected
 
         // ASSERT: Invoice Status
         $invoice->refresh();
@@ -294,8 +314,10 @@ class FinancialIntegrityTest extends TestCase
         ]);
 
         $this->stockService->postPurchaseInvoice($purchase1);
-        $purchase1->update(['status' => 'posted']);
         $this->treasuryService->postPurchaseInvoice($purchase1, $this->treasury->id);
+        $purchase1->update(['status' => 'posted']);
+        // Recalculate balance after status update
+        $this->treasuryService->updatePartnerBalance($this->supplier->id);
 
         // ASSERT AFTER FIRST PURCHASE
         $this->productA->refresh();
@@ -327,8 +349,10 @@ class FinancialIntegrityTest extends TestCase
         ]);
 
         $this->stockService->postPurchaseInvoice($purchase2);
-        $purchase2->update(['status' => 'posted']);
         $this->treasuryService->postPurchaseInvoice($purchase2, $this->treasury->id);
+        $purchase2->update(['status' => 'posted']);
+        // Recalculate balance after status update
+        $this->treasuryService->updatePartnerBalance($this->supplier->id);
 
         // ASSERT AFTER SECOND PURCHASE: Weighted Average
         $this->productA->refresh();
@@ -426,8 +450,10 @@ class FinancialIntegrityTest extends TestCase
         ]);
 
         $this->stockService->postSalesInvoice($invoice);
-        $invoice->update(['status' => 'posted']);
         $this->treasuryService->postSalesInvoice($invoice, $this->treasury->id);
+        $invoice->update(['status' => 'posted']);
+        // Recalculate balance after status update
+        $this->treasuryService->updatePartnerBalance($this->customer->id);
 
         // Pay 800, leaving 200 remaining
         $this->treasuryService->recordInvoicePayment($invoice, 800.00, 0, $this->treasury->id);
@@ -460,19 +486,17 @@ class FinancialIntegrityTest extends TestCase
     /** @test */
     public function test_negative_treasury_balance_validation_exists()
     {
-        // ARRANGE: Treasury starts with 0 balance
-        $currentBalance = $this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals(0.00, (float)$currentBalance);
-        // WHY: Fresh treasury starts empty
+        // ARRANGE: Record initial balance
+        $initialBalance = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
 
-        // ACT & ASSERT: Try to create expense of 5000 EGP when treasury has 0
+        // ACT & ASSERT: Try to create expense that would exceed balance
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('لا يمكن إتمام العملية');
 
         $this->treasuryService->recordTransaction(
             $this->treasury->id,
             'expense',
-            -5000.00, // Negative amount (expense)
+            -($initialBalance + 5000.00), // Try to spend more than available
             'Large expense exceeding balance',
             null,
             'test',
@@ -481,9 +505,9 @@ class FinancialIntegrityTest extends TestCase
         // WHY: TreasuryService::recordTransaction validates negative balance
 
         // ASSERT: Treasury balance unchanged (won't run due to exception)
-        $balanceAfter = $this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals(0.00, (float)$balanceAfter);
-        // WHY: Transaction rejected, balance remains at 0
+        $balanceAfter = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+        $this->assertEquals($initialBalance, $balanceAfter);
+        // WHY: Transaction rejected, balance remains unchanged
     }
 
     // ============================
@@ -532,14 +556,19 @@ class FinancialIntegrityTest extends TestCase
             'total' => $subtotal, // Item total before discount
         ]);
 
+        // Record initial balance before sale
+        $initialBalance = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+
         $this->stockService->postSalesInvoice($invoice);
-        $invoice->update(['status' => 'posted']);
         $this->treasuryService->postSalesInvoice($invoice, $this->treasury->id);
+        $invoice->update(['status' => 'posted']);
+        // Recalculate balance after status update
+        $this->treasuryService->updatePartnerBalance($this->customer->id);
 
         // ASSERT AFTER SALE
-        $treasuryAfterSale = $this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals(90.00, round((float)$treasuryAfterSale, 2));
-        // WHY: Treasury received 90 EGP (net after 10% discount)
+        $treasuryAfterSale = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+        $this->assertEquals($initialBalance + 90.00, $treasuryAfterSale);
+        // WHY: Treasury increased by 90 EGP (net after 10% discount)
 
         $this->customer->refresh();
         $this->assertEquals(0.00, round((float)$this->customer->current_balance, 2));
@@ -568,13 +597,15 @@ class FinancialIntegrityTest extends TestCase
         ]);
 
         $this->stockService->postSalesReturn($return);
-        $return->update(['status' => 'posted']);
         $this->treasuryService->postSalesReturn($return, $this->treasury->id);
+        $return->update(['status' => 'posted']);
+        // Recalculate balance after status update
+        $this->treasuryService->updatePartnerBalance($this->customer->id);
 
         // ASSERT AFTER RETURN
-        $treasuryAfterReturn = $this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals(0.00, round((float)$treasuryAfterReturn, 2));
-        // WHY: 90 collected - 90 refunded = 0 (refund is NET PRICE after discount, user preference)
+        $treasuryAfterReturn = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+        $this->assertEquals($initialBalance, $treasuryAfterReturn);
+        // WHY: Balance returned to initial (90 collected - 90 refunded, refund is NET PRICE after discount)
 
         $this->customer->refresh();
         $this->assertEquals(0.00, round((float)$this->customer->current_balance, 2));
@@ -616,8 +647,10 @@ class FinancialIntegrityTest extends TestCase
         ]);
 
         $this->stockService->postSalesInvoice($invoice);
-        $invoice->update(['status' => 'posted']);
         $this->treasuryService->postSalesInvoice($invoice, $this->treasury->id);
+        $invoice->update(['status' => 'posted']);
+        // Recalculate balance after status update
+        $this->treasuryService->updatePartnerBalance($this->customer->id);
 
         // Add a payment
         $this->treasuryService->recordInvoicePayment($invoice, 500.00, 0, $this->treasury->id);
@@ -668,9 +701,14 @@ class FinancialIntegrityTest extends TestCase
             'total' => 1000.00,
         ]);
 
+        // Record initial balance before sale
+        $initialBalance = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+
         $this->stockService->postSalesInvoice($invoice);
-        $invoice->update(['status' => 'posted']);
         $this->treasuryService->postSalesInvoice($invoice, $this->treasury->id);
+        $invoice->update(['status' => 'posted']);
+        // Recalculate balance after status update
+        $this->treasuryService->updatePartnerBalance($this->customer->id);
 
         // FIRST RETURN: 3 items
         $return1 = SalesReturn::create([
@@ -695,12 +733,15 @@ class FinancialIntegrityTest extends TestCase
         ]);
 
         $this->stockService->postSalesReturn($return1);
-        $return1->update(['status' => 'posted']);
         $this->treasuryService->postSalesReturn($return1, $this->treasury->id);
+        $return1->update(['status' => 'posted']);
+        // Recalculate balance after status update
+        $this->treasuryService->updatePartnerBalance($this->customer->id);
 
         // ASSERT AFTER FIRST RETURN
-        $this->assertTreasuryBalance(700.00, 'After first return');
-        // WHY: 1000 (sale) - 300 (refund) = 700
+        $treasuryAfterFirstReturn = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+        $this->assertEquals($initialBalance + 1000.00 - 300.00, $treasuryAfterFirstReturn);
+        // WHY: Balance increased by 1000 (sale) then decreased by 300 (refund)
 
         $this->assertStockQuantity($this->productA->id, 43, 'After first return');
         // WHY: 50 - 10 (sold) + 3 (returned) = 43
@@ -728,12 +769,15 @@ class FinancialIntegrityTest extends TestCase
         ]);
 
         $this->stockService->postSalesReturn($return2);
-        $return2->update(['status' => 'posted']);
         $this->treasuryService->postSalesReturn($return2, $this->treasury->id);
+        $return2->update(['status' => 'posted']);
+        // Recalculate balance after status update
+        $this->treasuryService->updatePartnerBalance($this->customer->id);
 
         // FINAL ASSERTIONS
-        $this->assertTreasuryBalance(500.00, 'After second return');
-        // WHY: 1000 - 300 - 200 = 500
+        $treasuryAfterSecondReturn = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+        $this->assertEquals($initialBalance + 1000.00 - 300.00 - 200.00, $treasuryAfterSecondReturn);
+        // WHY: Balance increased by 1000 (sale) then decreased by 300 (refund1) and 200 (refund2)
 
         $this->assertStockQuantity($this->productA->id, 45, 'After second return');
         // WHY: 50 - 10 + 3 + 2 = 45
@@ -774,9 +818,14 @@ class FinancialIntegrityTest extends TestCase
             'total' => 1000.00,
         ]);
 
+        // Record initial balance before posting
+        $initialBalance = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+
         $this->stockService->postSalesInvoice($invoice);
-        $invoice->update(['status' => 'posted']);
         $this->treasuryService->postSalesInvoice($invoice, $this->treasury->id);
+        $invoice->update(['status' => 'posted']);
+        // Recalculate balance after status update
+        $this->treasuryService->updatePartnerBalance($this->customer->id);
 
         // ACT: Pay with settlement discount
         $payment = $this->treasuryService->recordInvoicePayment(
@@ -792,10 +841,10 @@ class FinancialIntegrityTest extends TestCase
         $this->assertEquals(100.00, (float)$payment->discount);
         // WHY: Payment amount and discount recorded separately
 
-        // ASSERT: Treasury balance
-        $treasuryBalance = $this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals(900.00, round((float)$treasuryBalance, 2));
-        // WHY: Treasury receives ONLY 900 cash (discount is forgiven)
+        // ASSERT: Treasury balance change
+        $treasuryBalance = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+        $this->assertEquals($initialBalance + 900.00, $treasuryBalance);
+        // WHY: Treasury balance increased by 900 cash (discount is forgiven, not collected)
 
         // ASSERT: Customer balance
         $this->customer->refresh();
@@ -819,6 +868,9 @@ class FinancialIntegrityTest extends TestCase
         // 5. Return 1 Defective Item to Supplier (Cost 100, get refund 100)
         // FINAL CHECK: Verify all balances match expected values
 
+        // Record initial treasury balance at start of test
+        $initialBalance = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+
         // STEP 1: Deposit Capital (10,000 EGP)
         $revenue = Revenue::create([
             'title' => 'Initial Capital',
@@ -830,8 +882,9 @@ class FinancialIntegrityTest extends TestCase
         ]);
         $this->treasuryService->postRevenue($revenue);
 
-        $this->assertTreasuryBalance(10000.00, 'After capital deposit');
-        // WHY: +10,000 revenue
+        $balanceAfterCapital = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+        $this->assertEquals($initialBalance + 10000.00, $balanceAfterCapital);
+        // WHY: Balance increased by 10,000 revenue
 
         // STEP 2: Buy Goods (5,000 EGP cash)
         $purchase = PurchaseInvoice::create([
@@ -858,11 +911,14 @@ class FinancialIntegrityTest extends TestCase
         ]);
 
         $this->stockService->postPurchaseInvoice($purchase);
-        $purchase->update(['status' => 'posted']);
         $this->treasuryService->postPurchaseInvoice($purchase, $this->treasury->id);
+        $purchase->update(['status' => 'posted']);
+        // Recalculate balance after status update
+        $this->treasuryService->updatePartnerBalance($this->supplier->id);
 
-        $this->assertTreasuryBalance(5000.00, 'After purchasing goods');
-        // WHY: 10,000 - 5,000 = 5,000
+        $balanceAfterPurchase = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+        $this->assertEquals($initialBalance + 10000.00 - 5000.00, $balanceAfterPurchase);
+        // WHY: Balance increased by 10,000 (capital) then decreased by 5,000 (purchase)
 
         $this->assertStockQuantity($this->productA->id, 50, 'After purchase');
         // WHY: +50 units purchased
@@ -895,10 +951,13 @@ class FinancialIntegrityTest extends TestCase
         ]);
 
         $this->stockService->postSalesInvoice($sale);
-        $sale->update(['status' => 'posted']);
         $this->treasuryService->postSalesInvoice($sale, $this->treasury->id);
+        $sale->update(['status' => 'posted']);
+        // Recalculate balance after status update
+        $this->treasuryService->updatePartnerBalance($this->customer->id);
 
-        $this->assertTreasuryBalance(5000.00, 'After credit sale (no cash yet)');
+        $balanceAfterSale = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+        $this->assertEquals($initialBalance + 10000.00 - 5000.00, $balanceAfterSale);
         // WHY: Treasury unchanged (credit sale, no cash received)
 
         $this->assertStockQuantity($this->productA->id, 10, 'After selling 40 units');
@@ -910,8 +969,9 @@ class FinancialIntegrityTest extends TestCase
         // STEP 4: Collect 4,000 from Customer
         $this->treasuryService->recordInvoicePayment($sale, 4000.00, 0, $this->treasury->id);
 
-        $this->assertTreasuryBalance(9000.00, 'After collecting 4,000');
-        // WHY: 5,000 + 4,000 = 9,000
+        $balanceAfterCollection = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+        $this->assertEquals($initialBalance + 10000.00 - 5000.00 + 4000.00, $balanceAfterCollection);
+        // WHY: Balance increased by 4,000 from customer payment
 
         $this->assertPartnerBalance($this->customer->id, 4000.00, 'Customer after partial payment');
         // WHY: 8,000 - 4,000 = 4,000 remaining debt
@@ -939,30 +999,36 @@ class FinancialIntegrityTest extends TestCase
         ]);
 
         $this->stockService->postPurchaseReturn($purchaseReturn);
-        $purchaseReturn->update(['status' => 'posted']);
         $this->treasuryService->postPurchaseReturn($purchaseReturn, $this->treasury->id);
+        $purchaseReturn->update(['status' => 'posted']);
+        // Recalculate balance after status update
+        $this->treasuryService->updatePartnerBalance($this->supplier->id);
 
-        $this->assertTreasuryBalance(9100.00, 'After supplier refund');
-        // WHY: 9,000 + 100 (refund from supplier) = 9,100
+        $balanceAfterRefund = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+        $this->assertEquals($initialBalance + 10000.00 - 5000.00 + 4000.00 + 100.00, $balanceAfterRefund);
+        // WHY: Balance increased by 100 from supplier refund
 
         $this->assertStockQuantity($this->productA->id, 9, 'After returning 1 defective unit');
         // WHY: 10 - 1 = 9 remaining
 
         // FINAL INTEGRITY CHECK: Verify all balances
         // Expected Final State:
-        // Treasury: 10,000 (capital) - 5,000 (purchase) + 4,000 (collection) + 100 (refund) = 9,100
+        // Treasury: initial + 10,000 (capital) - 5,000 (purchase) + 4,000 (collection) + 100 (refund) = initial + 9,100
         // Customer Balance: 8,000 (sale) - 4,000 (payment) = 4,000 owed
         // Supplier Balance: 0 (cash purchase, cash refund)
         // Stock: 50 (bought) - 40 (sold) - 1 (returned to supplier) = 9 units
 
-        $this->assertTreasuryBalance(9100.00, 'FINAL Treasury Balance');
+        $finalBalance = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+        $this->assertEquals($initialBalance + 9100.00, $finalBalance);
+        // WHY: Net balance change is +9,100 from all operations
+
         $this->assertPartnerBalance($this->customer->id, 4000.00, 'FINAL Customer Balance');
         $this->assertPartnerBalance($this->supplier->id, 0.00, 'FINAL Supplier Balance');
         $this->assertStockQuantity($this->productA->id, 9, 'FINAL Stock Quantity');
 
         // COMPREHENSIVE ASSERTION: Recalculate from scratch
-        $calculatedTreasuryBalance = $this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals(9100.00, round((float)$calculatedTreasuryBalance, 2));
+        $calculatedTreasuryBalance = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
+        $this->assertEquals($initialBalance + 9100.00, round($calculatedTreasuryBalance, 2));
 
         $this->customer->refresh();
         $recalculatedCustomerBalance = $this->customer->calculateBalance();
@@ -1006,8 +1072,10 @@ class FinancialIntegrityTest extends TestCase
         ]);
 
         $this->stockService->postSalesInvoice($invoice);
-        $invoice->update(['status' => 'posted']);
         $this->treasuryService->postSalesInvoice($invoice, $this->treasury->id);
+        $invoice->update(['status' => 'posted']);
+        // Recalculate balance after status update
+        $this->treasuryService->updatePartnerBalance($this->customer->id);
 
         // ACT & ASSERT: Try to update total
         $this->expectException(\Exception::class);
@@ -1046,8 +1114,10 @@ class FinancialIntegrityTest extends TestCase
             'total' => 1000.00,
         ]);
         $this->stockService->postSalesInvoice($sale1);
-        $sale1->update(['status' => 'posted']);
         $this->treasuryService->postSalesInvoice($sale1, $this->treasury->id);
+        $sale1->update(['status' => 'posted']);
+        // Recalculate balance after status update
+        $this->treasuryService->updatePartnerBalance($this->customer->id);
 
         // 2. Cash sale 500
         $sale2 = SalesInvoice::create([
@@ -1072,8 +1142,10 @@ class FinancialIntegrityTest extends TestCase
             'total' => 500.00,
         ]);
         $this->stockService->postSalesInvoice($sale2);
-        $sale2->update(['status' => 'posted']);
         $this->treasuryService->postSalesInvoice($sale2, $this->treasury->id);
+        $sale2->update(['status' => 'posted']);
+        // Recalculate balance after status update
+        $this->treasuryService->updatePartnerBalance($this->customer->id);
 
         // 3. Payment 300
         $this->treasuryService->recordInvoicePayment($sale1, 300.00, 0, $this->treasury->id);
@@ -1099,8 +1171,10 @@ class FinancialIntegrityTest extends TestCase
             'total' => 200.00,
         ]);
         $this->stockService->postSalesReturn($return);
-        $return->update(['status' => 'posted']);
         $this->treasuryService->postSalesReturn($return, $this->treasury->id);
+        $return->update(['status' => 'posted']);
+        // Recalculate balance after status update
+        $this->treasuryService->updatePartnerBalance($this->customer->id);
 
         // ASSERT: Compare current_balance vs calculateBalance()
         $this->customer->refresh();
@@ -1167,8 +1241,10 @@ class FinancialIntegrityTest extends TestCase
 
         // Post invoice
         $this->stockService->postSalesInvoice($invoice);
-        $invoice->update(['status' => 'posted']);
         $this->treasuryService->postSalesInvoice($invoice, $this->treasury->id);
+        $invoice->update(['status' => 'posted']);
+        // Recalculate balance after status update
+        $this->treasuryService->updatePartnerBalance($this->customer->id);
 
         // ASSERT: Posted, not paid
         $invoice->refresh();
@@ -1231,6 +1307,8 @@ class FinancialIntegrityTest extends TestCase
         $this->stockService->postPurchaseInvoice($purchase);
         $this->treasuryService->postPurchaseInvoice($purchase, $this->treasury->id);
         $purchase->update(['status' => 'posted']);
+        // Recalculate balance after status update
+        $this->treasuryService->updatePartnerBalance($this->supplier->id);
     }
 
     /**

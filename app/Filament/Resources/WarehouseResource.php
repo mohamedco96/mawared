@@ -34,6 +34,12 @@ class WarehouseResource extends Resource
             ->schema([
                 Forms\Components\Section::make('معلومات المخزن')
                     ->schema([
+                        Forms\Components\TextInput::make('id')
+                            ->label('رقم المخزن')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->visible(fn ($record) => $record !== null),
+
                         Forms\Components\TextInput::make('name')
                             ->label('اسم المخزن')
                             ->required()

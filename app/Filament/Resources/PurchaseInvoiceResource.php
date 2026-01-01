@@ -496,6 +496,7 @@ class PurchaseInvoiceResource extends Resource
                             ])
                             ->validationAttribute('المبلغ المدفوع')
                             ->helperText('يتم ملؤه تلقائياً حسب طريقة الدفع أو يمكن تعديله يدوياً')
+                            ->visible(fn (Get $get) => $get('payment_method') !== 'cash')
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\TextInput::make('remaining_amount')
                             ->label('المبلغ المتبقي')
@@ -503,7 +504,8 @@ class PurchaseInvoiceResource extends Resource
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->default(0)
                             ->disabled()
-                            ->dehydrated(),
+                            ->dehydrated()
+                            ->visible(fn (Get $get) => $get('payment_method') !== 'cash'),
                         Forms\Components\Hidden::make('subtotal')
                             ->default(0)
                             ->dehydrated(),

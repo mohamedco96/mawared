@@ -6,10 +6,12 @@ use App\Filament\Resources\ProductCategoryResource\Pages;
 use App\Models\ProductCategory;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 class ProductCategoryResource extends Resource
@@ -36,7 +38,12 @@ class ProductCategoryResource extends Resource
                     ->schema([
                         Forms\Components\Select::make('parent_id')
                             ->label('التصنيف الأب')
-                            ->relationship('parent', 'name')
+                            ->relationship('parent', 'name', function ($query, $get, $record) {
+                                // Exclude current category from parent options
+                                if ($record) {
+                                    $query->where('id', '!=', $record->id);
+                                }
+                            })
                             ->searchable()
                             ->preload()
                             ->native(false)
@@ -166,12 +173,59 @@ class ProductCategoryResource extends Resource
                 Tables\Actions\EditAction::make()
                     ->label('تعديل'),
                 Tables\Actions\DeleteAction::make()
-                    ->label('حذف'),
+                    ->label('حذف')
+                    ->before(function (Tables\Actions\DeleteAction $action, Model $record) {
+                        // Check for related products
+                        if ($record->products()->exists()) {
+                            Notification::make()
+                                ->danger()
+                                ->title('لا يمكن حذف التصنيف')
+                                ->body('لا يمكن حذف التصنيف لوجود منتجات مرتبطة به')
+                                ->persistent()
+                                ->send();
+
+                            $action->cancel();
+                        }
+
+                        // Check for child categories
+                        if ($record->children()->exists()) {
+                            Notification::make()
+                                ->danger()
+                                ->title('لا يمكن حذف التصنيف')
+                                ->body('لا يمكن حذف التصنيف لوجود تصنيفات فرعية مرتبطة به')
+                                ->persistent()
+                                ->send();
+
+                            $action->cancel();
+                        }
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
-                        ->label('حذف المحدد'),
+                        ->label('حذف المحدد')
+                        ->before(function (Tables\Actions\DeleteBulkAction $action, $records) {
+                            $cannotDelete = [];
+
+                            foreach ($records as $record) {
+                                if ($record->products()->exists()) {
+                                    $cannotDelete[] = $record->name . ' (يحتوي على منتجات)';
+                                } elseif ($record->children()->exists()) {
+                                    $cannotDelete[] = $record->name . ' (يحتوي على تصنيفات فرعية)';
+                                }
+                            }
+
+                            if (count($cannotDelete) > 0) {
+                                Notification::make()
+                                    ->danger()
+                                    ->title('لا يمكن حذف بعض التصنيفات')
+                                    ->body('التصنيفات التالية لا يمكن حذفها: ' . implode(', ', $cannotDelete))
+                                    ->persistent()
+                                    ->send();
+
+                                $action->cancel();
+                            }
+                        }),
                 ]),
             ]);
     }

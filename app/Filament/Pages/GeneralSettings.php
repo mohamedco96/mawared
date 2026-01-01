@@ -26,6 +26,11 @@ class GeneralSettings extends Page implements HasForms
 
     protected static ?int $navigationSort = 3;
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->can('page_GeneralSettings') ?? false;
+    }
+
     public ?array $data = [];
 
     public function mount(): void
@@ -85,11 +90,9 @@ class GeneralSettings extends Page implements HasForms
                             ->email()
                             ->required(),
                         Forms\Components\TextInput::make('company_tax_number')
-                            ->label('الرقم الضريبي')
-                            ->required(),
+                            ->label('الرقم الضريبي'),
                         Forms\Components\TextInput::make('company_commercial_register')
-                            ->label('السجل التجاري')
-                            ->required(),
+                            ->label('السجل التجاري'),
                         Forms\Components\FileUpload::make('logo')
                             ->label('شعار الشركة')
                             ->image()
@@ -191,8 +194,8 @@ class GeneralSettings extends Page implements HasForms
         $settings->company_address = $data['company_address'];
         $settings->company_phone = $data['company_phone'];
         $settings->company_email = $data['company_email'];
-        $settings->company_tax_number = $data['company_tax_number'];
-        $settings->company_commercial_register = $data['company_commercial_register'];
+        $settings->company_tax_number = $data['company_tax_number'] ?? null;
+        $settings->company_commercial_register = $data['company_commercial_register'] ?? null;
         $settings->logo = $data['logo'] ?? '';
         $settings->currency = $data['currency'];
         $settings->currency_symbol = $data['currency_symbol'];

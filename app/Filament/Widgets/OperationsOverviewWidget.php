@@ -19,6 +19,11 @@ class OperationsOverviewWidget extends StatsOverviewWidget
 
     protected static bool $isLazy = true;
 
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('widget_OperationsOverviewWidget') ?? false;
+    }
+
     protected function getStats(): array
     {
         return Cache::remember('dashboard.operations_overview', 300, function () {

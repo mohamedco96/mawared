@@ -36,10 +36,12 @@ class AppServiceProvider extends ServiceProvider
             'financial_transaction' => \App\Models\TreasuryTransaction::class, // Self-reference for standalone transactions
             'user' => \App\Models\User::class,
             'product' => \App\Models\Product::class,
+            'product_category' => \App\Models\ProductCategory::class,
             'partner' => \App\Models\Partner::class,
             'stock_movement' => \App\Models\StockMovement::class,
             'treasury_transaction' => \App\Models\TreasuryTransaction::class,
             'quotation' => \App\Models\Quotation::class,
+            'installment' => \App\Models\Installment::class,
         ]);
     }
 }

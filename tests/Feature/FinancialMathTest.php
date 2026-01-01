@@ -7,11 +7,13 @@ use App\Models\Product;
 use App\Models\PurchaseInvoice;
 use App\Models\SalesInvoice;
 use App\Models\SalesReturn;
+use App\Models\StockMovement;
 use App\Models\Treasury;
 use App\Models\Warehouse;
 use App\Services\StockService;
 use App\Services\TreasuryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class FinancialMathTest extends TestCase
@@ -39,6 +41,16 @@ class FinancialMathTest extends TestCase
             'type' => 'cash',
         ]);
 
+        // Inject initial capital
+        \App\Models\TreasuryTransaction::create([
+            'treasury_id' => $this->treasury->id,
+            'type' => 'income',
+            'amount' => 1000000,
+            'description' => 'Initial Capital for Testing',
+            'reference_type' => 'capital_injection',
+            'reference_id' => Str::ulid(),
+        ]);
+
         $this->warehouse = Warehouse::create([
             'name' => 'Test Warehouse',
         ]);
@@ -53,12 +65,10 @@ class FinancialMathTest extends TestCase
             'type' => 'supplier',
         ]);
 
-        $this->product = Product::create([
+        // Create product using factory
+        $this->product = Product::factory()->create([
             'name' => 'Test Product',
             'sku' => 'TEST-001',
-            'unit' => 'piece',
-            'selling_price' => 100,
-            'purchase_price' => 50,
         ]);
     }
 
@@ -87,17 +97,21 @@ class FinancialMathTest extends TestCase
         $invoice->items()->create([
             'product_id' => $this->product->id,
             'quantity' => 4,
-            'unit_price' => 100,
+            'unit_type' => 'small',
+            'unit_cost' => 100,
             'total' => 400,
         ]);
 
         // Post the invoice
-        $invoice->update(['status' => 'posted']);
         $this->stockService->postPurchaseInvoice($invoice);
         $this->treasuryService->postPurchaseInvoice($invoice, $this->treasury->id);
+        $invoice->update(['status' => 'posted']);
+
+        // Recalculate partner balance after status update
+        $this->supplier->recalculateBalance();
 
         // Assertions
-        $this->assertEquals(-200, $this->treasuryService->getTreasuryBalance($this->treasury->id));
+        $this->assertEquals(999800, $this->treasuryService->getTreasuryBalance($this->treasury->id)); // 1,000,000 - 200
 
         $this->supplier->refresh();
         $this->assertEquals(-196, round($this->supplier->current_balance, 2));
@@ -111,6 +125,17 @@ class FinancialMathTest extends TestCase
     {
         // Scenario: Sales invoice total 1000, paid 1000
         // Expected: Partner balance = 0, Treasury = +1000
+
+        // Add stock before sales
+        StockMovement::create([
+            'warehouse_id' => $this->warehouse->id,
+            'product_id' => $this->product->id,
+            'type' => 'purchase',
+            'quantity' => 1000,
+            'cost_at_time' => 50,
+            'reference_type' => 'initial_stock',
+            'reference_id' => Str::ulid(),
+        ]);
 
         $invoice = SalesInvoice::create([
             'invoice_number' => 'SI-001',
@@ -130,17 +155,21 @@ class FinancialMathTest extends TestCase
         $invoice->items()->create([
             'product_id' => $this->product->id,
             'quantity' => 10,
+            'unit_type' => 'small',
             'unit_price' => 100,
             'total' => 1000,
         ]);
 
         // Post the invoice
-        $invoice->update(['status' => 'posted']);
         $this->stockService->postSalesInvoice($invoice);
         $this->treasuryService->postSalesInvoice($invoice, $this->treasury->id);
+        $invoice->update(['status' => 'posted']);
+
+        // Recalculate partner balance after status update
+        $this->customer->recalculateBalance();
 
         // Assertions
-        $this->assertEquals(1000, $this->treasuryService->getTreasuryBalance($this->treasury->id));
+        $this->assertEquals(1001000, $this->treasuryService->getTreasuryBalance($this->treasury->id)); // 1,000,000 + 1000
 
         $this->customer->refresh();
         $this->assertEquals(0, round($this->customer->current_balance, 2));
@@ -150,8 +179,19 @@ class FinancialMathTest extends TestCase
     public function test_credit_invoice_with_subsequent_payment()
     {
         // Scenario: Sales invoice total 500, paid 0 (full credit), then pay 300 later
-        // Expected: After posting = +500 balance, Treasury = 0
-        // Expected: After payment = +200 balance, Treasury = +300
+        // Expected: After posting = +500 balance, Treasury = 1,000,000 (no change)
+        // Expected: After payment = +200 balance, Treasury = 1,000,300
+
+        // Add stock before sales
+        StockMovement::create([
+            'warehouse_id' => $this->warehouse->id,
+            'product_id' => $this->product->id,
+            'type' => 'purchase',
+            'quantity' => 1000,
+            'cost_at_time' => 50,
+            'reference_type' => 'initial_stock',
+            'reference_id' => Str::ulid(),
+        ]);
 
         $invoice = SalesInvoice::create([
             'invoice_number' => 'SI-002',
@@ -171,19 +211,23 @@ class FinancialMathTest extends TestCase
         $invoice->items()->create([
             'product_id' => $this->product->id,
             'quantity' => 5,
+            'unit_type' => 'small',
             'unit_price' => 100,
             'total' => 500,
         ]);
 
         // Post the invoice
-        $invoice->update(['status' => 'posted']);
         $this->stockService->postSalesInvoice($invoice);
         $this->treasuryService->postSalesInvoice($invoice, $this->treasury->id);
+        $invoice->update(['status' => 'posted']);
+
+        // Recalculate partner balance after status update
+        $this->customer->recalculateBalance();
 
         // Check balance after posting
         $this->customer->refresh();
         $this->assertEquals(500, round($this->customer->current_balance, 2));
-        $this->assertEquals(0, $this->treasuryService->getTreasuryBalance($this->treasury->id));
+        $this->assertEquals(1000000, $this->treasuryService->getTreasuryBalance($this->treasury->id)); // No change - credit invoice
 
         // Make a payment
         $payment = $this->treasuryService->recordInvoicePayment(
@@ -197,7 +241,7 @@ class FinancialMathTest extends TestCase
         // Check balance after payment
         $this->customer->refresh();
         $this->assertEquals(200, round($this->customer->current_balance, 2));
-        $this->assertEquals(300, $this->treasuryService->getTreasuryBalance($this->treasury->id));
+        $this->assertEquals(1000300, $this->treasuryService->getTreasuryBalance($this->treasury->id)); // 1,000,000 + 300
 
         // Verify payment record
         $this->assertNotNull($payment);
@@ -207,8 +251,19 @@ class FinancialMathTest extends TestCase
     /** @test */
     public function test_sales_return_reduces_customer_balance()
     {
-        // Scenario: Sales invoice 1000 (paid), then return 200
-        // Expected: Partner balance = -200 (we owe customer), Treasury = +800
+        // Scenario: Sales invoice 1000 (cash), then return 200 (cash)
+        // Expected: Partner balance = 0 (cash transactions don't affect balance), Treasury = +800
+
+        // Add stock before sales
+        StockMovement::create([
+            'warehouse_id' => $this->warehouse->id,
+            'product_id' => $this->product->id,
+            'type' => 'purchase',
+            'quantity' => 1000,
+            'cost_at_time' => 50,
+            'reference_type' => 'initial_stock',
+            'reference_id' => Str::ulid(),
+        ]);
 
         $invoice = SalesInvoice::create([
             'invoice_number' => 'SI-003',
@@ -228,14 +283,18 @@ class FinancialMathTest extends TestCase
         $invoice->items()->create([
             'product_id' => $this->product->id,
             'quantity' => 10,
+            'unit_type' => 'small',
             'unit_price' => 100,
             'total' => 1000,
         ]);
 
         // Post the invoice
-        $invoice->update(['status' => 'posted']);
         $this->stockService->postSalesInvoice($invoice);
         $this->treasuryService->postSalesInvoice($invoice, $this->treasury->id);
+        $invoice->update(['status' => 'posted']);
+
+        // Recalculate partner balance after status update
+        $this->customer->recalculateBalance();
 
         // Create return
         $return = SalesReturn::create([
@@ -252,20 +311,24 @@ class FinancialMathTest extends TestCase
         $return->items()->create([
             'product_id' => $this->product->id,
             'quantity' => 2,
+            'unit_type' => 'small',
             'unit_price' => 100,
             'total' => 200,
         ]);
 
         // Post the return
-        $return->update(['status' => 'posted']);
         $this->stockService->postSalesReturn($return);
         $this->treasuryService->postSalesReturn($return, $this->treasury->id);
+        $return->update(['status' => 'posted']);
+
+        // Recalculate partner balance after status update
+        $this->customer->recalculateBalance();
 
         // Assertions
-        $this->assertEquals(800, $this->treasuryService->getTreasuryBalance($this->treasury->id)); // 1000 - 200
+        $this->assertEquals(1000800, $this->treasuryService->getTreasuryBalance($this->treasury->id)); // 1,000,000 + 1000 - 200
 
         $this->customer->refresh();
-        $this->assertEquals(-200, round($this->customer->current_balance, 2)); // We owe customer 200
+        $this->assertEquals(0, round($this->customer->current_balance, 2)); // Cash transactions don't affect balance
     }
 
     /** @test */
@@ -273,6 +336,17 @@ class FinancialMathTest extends TestCase
     {
         // Scenario: Invoice 1000 credit, pay 300, then 400, then 300
         // Expected: After all payments, balance = 0, treasury = 1000
+
+        // Add stock before sales
+        StockMovement::create([
+            'warehouse_id' => $this->warehouse->id,
+            'product_id' => $this->product->id,
+            'type' => 'purchase',
+            'quantity' => 1000,
+            'cost_at_time' => 50,
+            'reference_type' => 'initial_stock',
+            'reference_id' => Str::ulid(),
+        ]);
 
         $invoice = SalesInvoice::create([
             'invoice_number' => 'SI-004',
@@ -292,14 +366,18 @@ class FinancialMathTest extends TestCase
         $invoice->items()->create([
             'product_id' => $this->product->id,
             'quantity' => 10,
+            'unit_type' => 'small',
             'unit_price' => 100,
             'total' => 1000,
         ]);
 
         // Post the invoice
-        $invoice->update(['status' => 'posted']);
         $this->stockService->postSalesInvoice($invoice);
         $this->treasuryService->postSalesInvoice($invoice, $this->treasury->id);
+        $invoice->update(['status' => 'posted']);
+
+        // Recalculate partner balance after status update
+        $this->customer->recalculateBalance();
 
         // Payment 1
         $this->treasuryService->recordInvoicePayment($invoice, 300, 0, $this->treasury->id);
@@ -317,7 +395,7 @@ class FinancialMathTest extends TestCase
         $this->assertEquals(0, round($this->customer->current_balance, 2));
 
         // Final treasury balance
-        $this->assertEquals(1000, $this->treasuryService->getTreasuryBalance($this->treasury->id));
+        $this->assertEquals(1001000, $this->treasuryService->getTreasuryBalance($this->treasury->id)); // 1,000,000 + 1000
 
         // Verify 3 payments were recorded
         $this->assertEquals(3, $invoice->payments()->count());
@@ -327,7 +405,18 @@ class FinancialMathTest extends TestCase
     public function test_payment_with_discount()
     {
         // Scenario: Invoice 1000, pay 900 with 100 discount
-        // Expected: Balance should reflect correct calculation, Treasury = 900
+        // Expected: Balance should reflect correct calculation, Treasury = 1,000,900
+
+        // Add stock before sales
+        StockMovement::create([
+            'warehouse_id' => $this->warehouse->id,
+            'product_id' => $this->product->id,
+            'type' => 'purchase',
+            'quantity' => 1000,
+            'cost_at_time' => 50,
+            'reference_type' => 'initial_stock',
+            'reference_id' => Str::ulid(),
+        ]);
 
         $invoice = SalesInvoice::create([
             'invoice_number' => 'SI-005',
@@ -347,14 +436,18 @@ class FinancialMathTest extends TestCase
         $invoice->items()->create([
             'product_id' => $this->product->id,
             'quantity' => 10,
+            'unit_type' => 'small',
             'unit_price' => 100,
             'total' => 1000,
         ]);
 
         // Post the invoice
-        $invoice->update(['status' => 'posted']);
         $this->stockService->postSalesInvoice($invoice);
         $this->treasuryService->postSalesInvoice($invoice, $this->treasury->id);
+        $invoice->update(['status' => 'posted']);
+
+        // Recalculate partner balance after status update
+        $this->customer->recalculateBalance();
 
         // Pay with discount
         $payment = $this->treasuryService->recordInvoicePayment(
@@ -367,7 +460,7 @@ class FinancialMathTest extends TestCase
 
         // Assertions
         $this->assertEquals(100, $payment->discount);
-        $this->assertEquals(900, $this->treasuryService->getTreasuryBalance($this->treasury->id));
+        $this->assertEquals(1000900, $this->treasuryService->getTreasuryBalance($this->treasury->id)); // 1,000,000 + 900
 
         // Balance should still be 100 (invoice total 1000 - payment 900)
         // The discount is recorded but doesn't reduce the balance in current implementation

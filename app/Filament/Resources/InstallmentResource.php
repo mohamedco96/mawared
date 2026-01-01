@@ -131,13 +131,13 @@ class InstallmentResource extends Resource
 
                 Tables\Columns\TextColumn::make('amount')
                     ->label('المبلغ')
-                    ->money('SAR')
+                    ->money('EGP')
                     ->sortable()
                     ->weight(FontWeight::Bold),
 
                 Tables\Columns\TextColumn::make('paid_amount')
                     ->label('المدفوع')
-                    ->money('SAR')
+                    ->money('EGP')
                     ->sortable()
                     ->color(fn ($state, Installment $record) =>
                         bccomp((string) $state, (string) $record->amount, 4) === 0 ? 'success' : 'warning'
@@ -145,7 +145,7 @@ class InstallmentResource extends Resource
 
                 Tables\Columns\TextColumn::make('remaining_amount')
                     ->label('المتبقي')
-                    ->money('SAR')
+                    ->money('EGP')
                     ->state(fn (Installment $record) => bcsub((string) $record->amount, (string) $record->paid_amount, 4))
                     ->color(fn ($state) => bccomp((string) $state, '0', 4) === 0 ? 'success' : 'danger'),
 

@@ -19,6 +19,11 @@ class CashFlowChartWidget extends ChartWidget
 
     protected static ?string $pollingInterval = null;
 
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('widget_CashFlowChartWidget') ?? false;
+    }
+
     protected function getType(): string
     {
         return 'bar';

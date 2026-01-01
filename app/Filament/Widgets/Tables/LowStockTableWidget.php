@@ -22,6 +22,11 @@ class LowStockTableWidget extends BaseWidget
 
     protected static bool $isLazy = true;
 
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('widget_LowStockTableWidget') ?? false;
+    }
+
     protected function getTableQuery(): Builder
     {
         return Product::query()

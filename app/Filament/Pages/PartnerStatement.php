@@ -27,6 +27,11 @@ class PartnerStatement extends Page implements HasForms
 
     protected static ?int $navigationSort = 5;
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->can('page_PartnerStatement') ?? false;
+    }
+
     public ?array $data = [];
 
     public $reportData = null;

@@ -28,6 +28,11 @@ class StockCard extends Page implements HasForms
 
     protected static ?int $navigationSort = 6;
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->can('page_StockCard') ?? false;
+    }
+
     public ?array $data = [];
 
     public $reportData = null;

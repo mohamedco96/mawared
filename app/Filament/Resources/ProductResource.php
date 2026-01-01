@@ -6,10 +6,11 @@ use App\Filament\Resources\ProductResource\Pages;
 use App\Models\Product;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\DB;
 
 class ProductResource extends Resource
 {
@@ -109,9 +110,45 @@ class ProductResource extends Resource
                             ->inputMode('decimal')
                             ->extraInputAttributes(['dir' => 'ltr'])
                             ->default(0)
+                            ->minValue(0)
                             ->required(),
                     ])
                     ->columns(3),
+
+                Forms\Components\Section::make('الصور')
+                    ->schema([
+                        Forms\Components\FileUpload::make('image')
+                            ->label('الصورة الرئيسية')
+                            ->image()
+                            ->directory('products')
+                            ->disk('public')
+                            ->visibility('public')
+                            ->maxSize(2048)
+                            ->imageEditor()
+                            ->imageEditorAspectRatios(['16:9', '4:3', '1:1'])
+                            ->openable()
+                            ->downloadable()
+                            ->previewable()
+                            ->helperText('الصورة الرئيسية للمنتج (الحد الأقصى: 2 ميجابايت)')
+                            ->columnSpanFull(),
+                        Forms\Components\FileUpload::make('images')
+                            ->label('صور إضافية')
+                            ->image()
+                            ->directory('products')
+                            ->disk('public')
+                            ->visibility('public')
+                            ->multiple()
+                            ->maxFiles(10)
+                            ->maxSize(2048)
+                            ->imageEditor()
+                            ->imageEditorAspectRatios(['16:9', '4:3', '1:1'])
+                            ->openable()
+                            ->downloadable()
+                            ->previewable()
+                            ->helperText('يمكن إضافة حتى 10 صور إضافية (الحد الأقصى لكل صورة: 2 ميجابايت)')
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible(),
 
                 Forms\Components\Section::make('نظام الوحدات المزدوج')
                     ->schema([
@@ -196,6 +233,7 @@ class ProductResource extends Resource
                             ->default(0)
                             ->required()
                             ->step(0.01)
+                            ->minValue(0)
                             ->live(onBlur: true)
                             ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, $state) {
                                 $factor = $get('factor') ?? 1;
@@ -214,6 +252,7 @@ class ProductResource extends Resource
                             ->default(0)
                             ->required()
                             ->step(0.01)
+                            ->minValue(0)
                             ->live(onBlur: true)
                             ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, $state) {
                                 $factor = $get('factor') ?? 1;
@@ -236,6 +275,7 @@ class ProductResource extends Resource
                             ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->step(0.01)
+                            ->minValue(0)
                             ->nullable(),
                         Forms\Components\TextInput::make('large_wholesale_price')
                             ->label('سعر الجملة')
@@ -243,6 +283,7 @@ class ProductResource extends Resource
                             ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->step(0.01)
+                            ->minValue(0)
                             ->nullable(),
                     ])
                     ->columns(2)
@@ -274,6 +315,7 @@ class ProductResource extends Resource
                 Tables\Columns\ImageColumn::make('image')
                     ->label('الصورة')
                     ->circular()
+                    ->disk('public')
                     ->defaultImageUrl(url('/images/placeholder-product.png'))
                     ->size(40),
                 Tables\Columns\TextColumn::make('name')
@@ -308,8 +350,13 @@ class ProductResource extends Resource
                     ->sortable()
                     ->badge()
                     ->color(function ($state, Product $record) {
-                        if ($state < 0) return 'danger';
-                        if ($state < ($record->min_stock ?? 0)) return 'warning';
+                        if ($state < 0) {
+                            return 'danger';
+                        }
+                        if ($state < ($record->min_stock ?? 0)) {
+                            return 'warning';
+                        }
+
                         return 'success';
                     }),
             ])
@@ -332,7 +379,7 @@ class ProductResource extends Resource
                             ->native(false),
                     ])
                     ->query(function ($query, array $data) {
-                        if (!isset($data['level'])) {
+                        if (! isset($data['level'])) {
                             return $query;
                         }
 
@@ -340,7 +387,7 @@ class ProductResource extends Resource
                             $q->select('product_id')
                                 ->selectRaw('SUM(quantity) as total_stock')
                                 ->groupBy('product_id')
-                                ->havingRaw(match($data['level']) {
+                                ->havingRaw(match ($data['level']) {
                                     'out_of_stock' => 'SUM(quantity) <= 0',
                                     'low_stock' => 'SUM(quantity) > 0 AND SUM(quantity) < products.min_stock',
                                     'in_stock' => 'SUM(quantity) > 0',
@@ -388,6 +435,101 @@ class ProductResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+            ]);
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                Infolists\Components\Section::make('معلومات أساسية')
+                    ->schema([
+                        Infolists\Components\TextEntry::make('name')
+                            ->label('اسم المنتج'),
+                        Infolists\Components\TextEntry::make('barcode')
+                            ->label('الباركود (الوحدة الصغيرة)'),
+                        Infolists\Components\TextEntry::make('large_barcode')
+                            ->label('الباركود (الوحدة الكبيرة)')
+                            ->visible(fn ($record) => $record->large_barcode !== null),
+                        Infolists\Components\TextEntry::make('sku')
+                            ->label('رمز المنتج'),
+                        Infolists\Components\TextEntry::make('min_stock')
+                            ->label('الحد الأدنى للمخزون')
+                            ->numeric(),
+                    ])
+                    ->columns(3),
+
+                Infolists\Components\Section::make('الصور')
+                    ->schema([
+                        Infolists\Components\ImageEntry::make('image')
+                            ->label('الصورة الرئيسية')
+                            ->disk('public')
+                            ->columnSpanFull(),
+                        Infolists\Components\TextEntry::make('images')
+                            ->label('صور إضافية')
+                            ->formatStateUsing(function ($state, $record) {
+                                if (empty($state) || ! is_array($state)) {
+                                    return null;
+                                }
+
+                                $disk = \Illuminate\Support\Facades\Storage::disk('public');
+                                $html = '<div class="flex flex-wrap gap-4">';
+                                foreach ($state as $image) {
+                                    $url = $disk->url($image);
+                                    $html .= '<img src="'.$url.'" alt="صورة إضافية" class="w-32 h-32 object-cover rounded-lg">';
+                                }
+                                $html .= '</div>';
+
+                                return new \Illuminate\Support\HtmlString($html);
+                            })
+                            ->visible(fn ($record) => ! empty($record->images) && is_array($record->images))
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible(),
+
+                Infolists\Components\Section::make('نظام الوحدات المزدوج')
+                    ->schema([
+                        Infolists\Components\TextEntry::make('smallUnit.name')
+                            ->label('الوحدة الصغيرة (الأساسية)'),
+                        Infolists\Components\TextEntry::make('largeUnit.name')
+                            ->label('الوحدة الكبيرة (الكرتون)')
+                            ->visible(fn ($record) => $record->large_unit_id !== null),
+                        Infolists\Components\TextEntry::make('factor')
+                            ->label('معامل التحويل')
+                            ->visible(fn ($record) => $record->large_unit_id !== null),
+                    ])
+                    ->columns(3),
+
+                Infolists\Components\Section::make('الأسعار - الوحدة الصغيرة')
+                    ->schema([
+                        Infolists\Components\TextEntry::make('retail_price')
+                            ->label('سعر التجزئة')
+                            ->numeric(decimalPlaces: 2),
+                        Infolists\Components\TextEntry::make('wholesale_price')
+                            ->label('سعر الجملة')
+                            ->numeric(decimalPlaces: 2),
+                    ])
+                    ->columns(2),
+
+                Infolists\Components\Section::make('الأسعار - الوحدة الكبيرة')
+                    ->schema([
+                        Infolists\Components\TextEntry::make('large_retail_price')
+                            ->label('سعر التجزئة')
+                            ->numeric(decimalPlaces: 2),
+                        Infolists\Components\TextEntry::make('large_wholesale_price')
+                            ->label('سعر الجملة')
+                            ->numeric(decimalPlaces: 2),
+                    ])
+                    ->columns(2)
+                    ->visible(fn ($record) => $record->large_unit_id !== null),
+
+                Infolists\Components\Section::make('معلومات إضافية')
+                    ->schema([
+                        Infolists\Components\TextEntry::make('avg_cost')
+                            ->label('متوسط التكلفة')
+                            ->numeric(decimalPlaces: 4),
+                    ])
+                    ->collapsible(),
             ]);
     }
 

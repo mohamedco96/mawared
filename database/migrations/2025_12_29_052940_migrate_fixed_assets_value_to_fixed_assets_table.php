@@ -63,13 +63,11 @@ return new class extends Migration
         $migratedAsset = FixedAsset::where('name', 'أصول ثابتة مسجلة سابقاً')->first();
 
         if ($migratedAsset) {
-            // Delete treasury transaction first
-            $migratedAsset->treasuryTransactions()->delete();
-
-            // Delete the asset
+            // Note: Treasury transactions are preserved for audit trail
+            // Only delete the asset itself
             $migratedAsset->forceDelete();
 
-            \Log::info('✓ Rolled back fixed assets migration');
+            \Log::info('✓ Rolled back fixed assets migration (treasury transactions preserved)');
         }
     }
 };

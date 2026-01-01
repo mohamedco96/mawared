@@ -316,6 +316,11 @@ class ActivityLogResource extends Resource
         return false;
     }
 
+    public static function canViewAny(): bool
+    {
+        return auth()->user()?->can('view_any_activity::log') ?? false;
+    }
+
     protected static function getSubjectUrl($record): ?string
     {
         if (!$record->subject || !$record->subject_type) {

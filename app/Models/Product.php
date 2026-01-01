@@ -13,7 +13,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 
 class Product extends Model
 {
-    use HasFactory, HasUlids, SoftDeletes, LogsActivity;
+    use HasFactory, HasUlids, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'category_id',
@@ -96,12 +96,32 @@ class Product extends Model
         if ($unitType === 'large' && $this->large_unit_id) {
             return $quantity * $this->factor;
         }
+
         return $quantity;
     }
 
     // Model Events
     protected static function booted(): void
     {
+        // Validate non-negative values before saving
+        static::saving(function (Product $product) {
+            if ($product->min_stock < 0) {
+                throw new \InvalidArgumentException('الحد الأدنى للمخزون لا يمكن أن يكون قيمة سالبة');
+            }
+            if ($product->retail_price < 0) {
+                throw new \InvalidArgumentException('سعر التجزئة لا يمكن أن يكون قيمة سالبة');
+            }
+            if ($product->wholesale_price < 0) {
+                throw new \InvalidArgumentException('سعر الجملة لا يمكن أن يكون قيمة سالبة');
+            }
+            if ($product->large_retail_price !== null && $product->large_retail_price < 0) {
+                throw new \InvalidArgumentException('سعر التجزئة للوحدة الكبيرة لا يمكن أن يكون قيمة سالبة');
+            }
+            if ($product->large_wholesale_price !== null && $product->large_wholesale_price < 0) {
+                throw new \InvalidArgumentException('سعر الجملة للوحدة الكبيرة لا يمكن أن يكون قيمة سالبة');
+            }
+        });
+
         static::creating(function (Product $product) {
             // Auto-generate barcode if null
             if (empty($product->barcode)) {
@@ -166,7 +186,7 @@ class Product extends Model
         return [
             'باركود' => $this->barcode,
             'رمز المنتج' => $this->sku,
-            'السعر' => number_format($this->retail_price, 2) . ' ج.م',
+            'السعر' => number_format($this->retail_price, 2).' ج.م',
         ];
     }
 
@@ -180,7 +200,7 @@ class Product extends Model
         return LogOptions::defaults()
             ->logOnly($this->fillable)
             ->logOnlyDirty()
-            ->setDescriptionForEvent(fn(string $eventName) => match($eventName) {
+            ->setDescriptionForEvent(fn (string $eventName) => match ($eventName) {
                 'created' => 'تم إنشاء منتج',
                 'updated' => 'تم تحديث منتج',
                 'deleted' => 'تم حذف منتج',

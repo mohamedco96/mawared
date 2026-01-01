@@ -25,6 +25,11 @@ class ProfitLossReport extends Page implements HasForms
 
     protected static ?int $navigationSort = 7;
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->can('page_ProfitLossReport') ?? false;
+    }
+
     public ?array $data = [];
 
     public $from_date;

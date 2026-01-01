@@ -15,4 +15,9 @@ class Backups extends BaseBackups
     protected static ?int $navigationSort = 4;
 
     protected static ?string $navigationIcon = 'heroicon-o-circle-stack';
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->can('page_Backups') ?? false;
+    }
 }

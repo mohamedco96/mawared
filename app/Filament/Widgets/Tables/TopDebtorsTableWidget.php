@@ -19,6 +19,11 @@ class TopDebtorsTableWidget extends BaseWidget
 
     protected static ?string $pollingInterval = null;
 
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('widget_TopDebtorsTableWidget') ?? false;
+    }
+
     protected function getTableQuery(): Builder
     {
         return Partner::query()

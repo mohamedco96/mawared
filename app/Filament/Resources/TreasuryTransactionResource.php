@@ -353,12 +353,10 @@ class TreasuryTransactionResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                // Edit and delete actions removed - treasury transactions are immutable for audit trail
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                // No bulk actions - treasury transactions should not be deleted
             ])
             ->defaultSort('created_at', 'desc');
     }
@@ -368,7 +366,7 @@ class TreasuryTransactionResource extends Resource
         return [
             'index' => Pages\ListTreasuryTransactions::route('/'),
             'create' => Pages\CreateTreasuryTransaction::route('/create'),
-            'edit' => Pages\EditTreasuryTransaction::route('/{record}/edit'),
+            // Edit page removed - treasury transactions are immutable for audit trail
         ];
     }
 }

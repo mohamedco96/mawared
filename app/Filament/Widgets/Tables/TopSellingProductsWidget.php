@@ -20,6 +20,11 @@ class TopSellingProductsWidget extends BaseWidget
 
     protected static bool $isLazy = true;
 
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('widget_TopSellingProductsWidget') ?? false;
+    }
+
     protected function getTableQuery(): Builder
     {
         // Get top selling products by joining with sales invoice items

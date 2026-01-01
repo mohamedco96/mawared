@@ -74,10 +74,11 @@ class Partner extends Model
         if ($this->type === 'customer') {
             // Customer owes us money (positive balance means they owe us)
 
-            // What they bought on credit (cash invoices have paid_amount = total, so remaining_amount = 0)
+            // What they bought on credit (only the unpaid portion - remaining_amount)
+            // Cash invoices have remaining_amount = 0, so they don't affect balance
             $salesTotal = $this->salesInvoices()
                 ->where('status', 'posted')
-                ->sum('total');
+                ->sum('remaining_amount');
 
             // What they returned (CREDIT returns only - cash returns don't reduce debt)
             $returnsTotal = $this->salesReturns()
@@ -85,29 +86,28 @@ class Partner extends Model
                 ->where('payment_method', 'credit')
                 ->sum('total');
 
-            // What they paid (collection transactions from posted invoices + financial transactions)
+            // What they paid via subsequent payments (collection transactions)
+            // Only count financial transactions (not initial invoice payments which are already in paid_amount)
             $collections = $this->treasuryTransactions()
                 ->where('type', 'collection')
-                ->where(function ($q) {
-                    $q->whereIn('reference_type', ['sales_invoice', 'financial_transaction'])
-                      ->orWhereNull('reference_type');
-                })
+                ->where('reference_type', 'financial_transaction')
                 ->sum('amount');
 
             // IMPORTANT: Cash refunds do NOT affect customer balance
             // When a customer returns items for CASH, they take money from treasury but their debt stays the same
             // Only CREDIT returns (captured in $returnsTotal) reduce customer debt
-            // Formula: Balance = Credit Sales - Credit Returns - Payments
+            // Formula: Balance = Remaining Amount on Invoices - Credit Returns - Subsequent Payments
 
             return $salesTotal - $returnsTotal - $collections;
 
         } elseif ($this->type === 'supplier') {
             // Supplier is owed money by us (negative balance means we owe them)
 
-            // What we bought on credit (cash invoices have paid_amount = total, so remaining_amount = 0)
+            // What we bought on credit (only the unpaid portion - remaining_amount)
+            // Cash invoices have remaining_amount = 0, so they don't affect balance
             $purchaseTotal = $this->purchaseInvoices()
                 ->where('status', 'posted')
-                ->sum('total');
+                ->sum('remaining_amount');
 
             // What we returned (CREDIT returns only - cash returns don't reduce debt)
             $returnsTotal = $this->purchaseReturns()
@@ -115,19 +115,17 @@ class Partner extends Model
                 ->where('payment_method', 'credit')
                 ->sum('total');
 
-            // What we paid them (payment transactions - already negative in DB)
+            // What we paid them via subsequent payments (payment transactions - already negative in DB)
+            // Only count financial transactions (not initial invoice payments which are already in paid_amount)
             $payments = $this->treasuryTransactions()
                 ->where('type', 'payment')
-                ->where(function ($q) {
-                    $q->whereIn('reference_type', ['purchase_invoice', 'financial_transaction'])
-                      ->orWhereNull('reference_type');
-                })
+                ->where('reference_type', 'financial_transaction')
                 ->sum('amount'); // Already negative
 
             // IMPORTANT: Cash refunds do NOT affect supplier balance
             // When we return items for CASH, supplier gives us money but our debt stays the same
             // Only CREDIT returns (captured in $returnsTotal) reduce what we owe them
-            // Formula: Balance = -(Credit Purchases - Credit Returns - Payments)
+            // Formula: Balance = -(Remaining Amount on Invoices - Credit Returns - Subsequent Payments)
 
             // Return negative value (we owe them)
             return -1 * ($purchaseTotal - $returnsTotal + $payments);

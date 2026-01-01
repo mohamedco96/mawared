@@ -11,8 +11,8 @@ class CompanySettings extends Settings
     public string $company_address;
     public string $company_phone;
     public string $company_email;
-    public string $company_tax_number;
-    public string $company_commercial_register;
+    public ?string $company_tax_number = null;
+    public ?string $company_commercial_register = null;
     public string $logo = '';
     public string $currency;
     public string $currency_symbol;
