@@ -608,11 +608,44 @@ class SalesInvoiceResource extends Resource
                 Tables\Columns\TextColumn::make('warehouse.name')
                     ->label('المخزن')
                     ->sortable(),
+                Tables\Columns\TextColumn::make('returns_count')
+                    ->label('المرتجعات')
+                    ->counts('returns')
+                    ->badge()
+                    ->color(fn ($state) => $state > 0 ? 'warning' : 'gray')
+                    ->formatStateUsing(fn ($state) => $state > 0 ? $state : '—')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('status')
                     ->label('الحالة')
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => $state === 'posted' ? 'مؤكدة' : 'مسودة')
                     ->color(fn (string $state): string => $state === 'posted' ? 'success' : 'warning'),
+                Tables\Columns\TextColumn::make('payment_status')
+                    ->label('حالة الدفع')
+                    ->badge()
+                    ->state(function ($record): string {
+                        if ($record->status === 'draft') {
+                            return 'مسودة';
+                        }
+
+                        $remaining = floatval($record->remaining_amount);
+                        $total = floatval($record->total);
+
+                        if ($remaining <= 0.01) {
+                            return 'مدفوع بالكامل';
+                        } elseif ($remaining < $total) {
+                            return 'مدفوع جزئياً';
+                        } else {
+                            return 'غير مدفوع';
+                        }
+                    })
+                    ->color(fn (string $state): string => match ($state) {
+                        'مدفوع بالكامل' => 'success',
+                        'مدفوع جزئياً' => 'warning',
+                        'غير مدفوع' => 'danger',
+                        'مسودة' => 'gray',
+                        default => 'gray',
+                    }),
                 Tables\Columns\TextColumn::make('payment_method')
                     ->label('طريقة الدفع')
                     ->formatStateUsing(fn (string $state): string => $state === 'cash' ? 'نقدي' : 'آجل')
@@ -652,6 +685,15 @@ class SalesInvoiceResource extends Resource
                     ->relationship('partner', 'name')
                     ->searchable()
                     ->preload(),
+                Tables\Filters\TernaryFilter::make('has_returns')
+                    ->label('لديه مرتجعات')
+                    ->placeholder('الكل')
+                    ->trueLabel('لديه مرتجعات')
+                    ->falseLabel('ليس لديه مرتجعات')
+                    ->queries(
+                        true: fn ($query) => $query->has('returns'),
+                        false: fn ($query) => $query->doesntHave('returns'),
+                    ),
                 Tables\Filters\Filter::make('created_at')
                     ->label('تاريخ الإنشاء')
                     ->form([

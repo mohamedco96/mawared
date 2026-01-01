@@ -4,13 +4,11 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\RevenueResource\Pages;
 use App\Models\Revenue;
-use App\Services\TreasuryService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\DB;
 
 class RevenueResource extends Resource
 {
@@ -141,28 +139,11 @@ class RevenueResource extends Resource
                     }),
             ])
             ->actions([
-                Tables\Actions\Action::make('post')
-                    ->label('تسجيل')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->action(function (Revenue $record) {
-                        $treasuryService = app(TreasuryService::class);
-
-                        DB::transaction(function () use ($record, $treasuryService) {
-                            // Post revenue (creates treasury transaction)
-                            $treasuryService->postRevenue($record);
-                        });
-                    })
-                    ->visible(fn (Revenue $record) => !$record->treasuryTransactions()->exists()),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\ViewAction::make()
+                    ->modalHeading(fn ($record) => 'تفاصيل الإيراد'),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                //
             ])
             ->defaultSort('revenue_date', 'desc');
     }
@@ -172,7 +153,6 @@ class RevenueResource extends Resource
         return [
             'index' => Pages\ListRevenues::route('/'),
             'create' => Pages\CreateRevenue::route('/create'),
-            'edit' => Pages\EditRevenue::route('/{record}/edit'),
         ];
     }
 }

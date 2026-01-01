@@ -60,18 +60,29 @@ class FinancialReportService
         $purchaseReturns = $this->calculatePurchaseReturns($fromDate, $toDate);
         $expenses = $this->calculateExpenses($fromDate, $toDate);
         $revenues = $this->calculateRevenues($fromDate, $toDate);
-        $salesDiscounts = $this->calculateSalesDiscounts($fromDate, $toDate);
+
+        // Settlement discount calculations (payment-time discounts)
+        // These are SEPARATE from invoice trade discounts which are already included in invoice totals
+        $discountReceived = $this->calculateDiscountReceived($fromDate, $toDate);
+        $discountAllowed = $this->calculateDiscountAllowed($fromDate, $toDate);
 
         // Income Statement calculations
-        $debitTotal = $beginningInventory + $totalPurchases + $salesReturns + $expenses;
-        $creditTotal = $endingInventory + $totalSales + $purchaseReturns + $revenues;
+        // NOTE: Trade discounts are already deducted in invoice totals (total = subtotal - discount)
+        // We only add settlement discounts (payment-time discounts) as separate line items
+        $debitTotal = $beginningInventory + $totalPurchases + $salesReturns + $expenses + $discountAllowed;
+        $creditTotal = $endingInventory + $totalSales + $purchaseReturns + $revenues + $discountReceived;
         $netProfit = $creditTotal - $debitTotal;
 
-        // Financial Position calculations
+        // Financial Position calculations - CORRECT ACCOUNTING EQUATION
+        // Assets = Liabilities + Equity
         $totalAssets = $fixedAssetsValue + $endingInventory + $totalDebtors + $totalCash;
         $shareholderDrawings = $this->calculateShareholderDrawings();
+
+        // Equity = Capital + Net Profit - Drawings
         $equity = $shareholderCapital + $netProfit - $shareholderDrawings;
-        $totalLiabilities = $equity + $totalCreditors;
+
+        // Liabilities = Creditors (amounts owed to suppliers)
+        $totalLiabilities = $totalCreditors;
 
         return [
             'from_date' => $fromDate,
@@ -89,7 +100,9 @@ class FinancialReportService
             'total_purchases' => $totalPurchases,
             'sales_returns' => $salesReturns,
             'purchase_returns' => $purchaseReturns,
-            'sales_discounts' => $salesDiscounts,
+            // Trade discounts removed - already included in invoice totals
+            'discount_received' => $discountReceived,
+            'discount_allowed' => $discountAllowed,
             'expenses' => $expenses,
             'revenues' => $revenues,
             'net_profit' => $netProfit,
@@ -249,6 +262,34 @@ class FinancialReportService
     }
 
     /**
+     * Calculate total purchase discounts received in date range
+     */
+    protected function calculatePurchaseDiscounts($fromDate, $toDate): float
+    {
+        // Calculate fixed header discounts
+        $fixedDiscounts = PurchaseInvoice::where('status', 'posted')
+            ->whereBetween('created_at', [$fromDate, $toDate])
+            ->where('discount_type', 'fixed')
+            ->sum('discount_value');
+
+        // Calculate percentage header discounts using database-side calculation
+        $percentageDiscounts = PurchaseInvoice::where('status', 'posted')
+            ->whereBetween('created_at', [$fromDate, $toDate])
+            ->where('discount_type', 'percentage')
+            ->selectRaw('SUM(subtotal * (discount_value / 100)) as total_discount')
+            ->value('total_discount');
+
+        // Get item-level discounts
+        $itemDiscounts = DB::table('purchase_invoice_items')
+            ->join('purchase_invoices', 'purchase_invoice_items.purchase_invoice_id', '=', 'purchase_invoices.id')
+            ->where('purchase_invoices.status', 'posted')
+            ->whereBetween('purchase_invoices.created_at', [$fromDate, $toDate])
+            ->sum('purchase_invoice_items.discount');
+
+        return floatval($fixedDiscounts) + floatval($percentageDiscounts ?? 0) + floatval($itemDiscounts);
+    }
+
+    /**
      * Calculate total shareholder capital from capital_deposit transactions
      */
     protected function calculateShareholderCapital(): float
@@ -264,6 +305,34 @@ class FinancialReportService
     {
         return abs(TreasuryTransaction::where('type', 'partner_drawing')
             ->sum('amount'));
+    }
+
+    /**
+     * Calculate discount received (revenue) - discounts we received from suppliers
+     * This is from payments we made to suppliers (Purchase Invoices)
+     */
+    protected function calculateDiscountReceived($fromDate, $toDate): float
+    {
+        return \App\Models\InvoicePayment::whereHasMorph(
+            'payable',
+            [\App\Models\PurchaseInvoice::class]
+        )
+        ->whereBetween('payment_date', [$fromDate, $toDate])
+        ->sum('discount');
+    }
+
+    /**
+     * Calculate discount allowed (expense) - discounts we gave to customers
+     * This is from collections we received from customers (Sales Invoices)
+     */
+    protected function calculateDiscountAllowed($fromDate, $toDate): float
+    {
+        return \App\Models\InvoicePayment::whereHasMorph(
+            'payable',
+            [\App\Models\SalesInvoice::class]
+        )
+        ->whereBetween('payment_date', [$fromDate, $toDate])
+        ->sum('discount');
     }
 }
 

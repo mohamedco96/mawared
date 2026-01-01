@@ -21,8 +21,22 @@ class CreateSalesInvoice extends CreateRecord
             }
         }
 
-        $discount = $data['discount'] ?? 0;
-        $total = $subtotal - $discount;
+        // Calculate discount: use discount_value from header (not item-level discount)
+        // Item discounts are already deducted in subtotal calculation
+        $discountValue = $data['discount_value'] ?? 0;
+        $discountType = $data['discount_type'] ?? 'fixed';
+
+        // Calculate actual discount amount
+        if ($discountType === 'percentage') {
+            $calculatedDiscount = $subtotal * ($discountValue / 100);
+        } else {
+            $calculatedDiscount = $discountValue;
+        }
+
+        $total = $subtotal - $calculatedDiscount;
+
+        // Store the calculated discount for reference
+        $data['discount'] = $calculatedDiscount;
 
         $data['subtotal'] = $subtotal;
         $data['total'] = $total;

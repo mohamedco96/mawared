@@ -12,26 +12,38 @@
             $report = $this->reportData;
 
             // Income Statement calculations
+            // Note: Trade discounts are already included in invoice totals
+            // Only settlement discounts (payment-time discounts) are added separately
             $incomeDebitTotal =
                 $report['beginning_inventory'] +
                 $report['total_purchases'] +
                 $report['sales_returns'] +
-                $report['expenses'];
+                $report['expenses'] +
+                $report['discount_allowed'];
             $incomeCreditTotal =
                 $report['ending_inventory'] +
                 $report['total_sales'] +
                 $report['purchase_returns'] +
-                $report['revenues'];
+                $report['revenues'] +
+                $report['discount_received'];
             $netProfit = $incomeCreditTotal - $incomeDebitTotal;
 
-            // Financial Position calculations
+            // Financial Position calculations - CORRECT ACCOUNTING EQUATION
+            // Assets = Liabilities + Equity
             $assetsTotal =
                 $report['fixed_assets_value'] +
                 $report['ending_inventory'] +
                 $report['total_debtors'] +
                 $report['total_cash'];
+
+            // Equity = Capital + Net Profit - Drawings
             $equity = $report['shareholder_capital'] + $netProfit - $report['shareholder_drawings'];
-            $liabilitiesTotal = $equity + $report['total_creditors'];
+
+            // Liabilities = Creditors only (NOT including Equity)
+            $liabilitiesOnly = $report['total_creditors'];
+
+            // Total Liabilities & Equity = Liabilities + Equity (for balance sheet equation)
+            $liabilitiesTotal = $liabilitiesOnly + $equity;
         @endphp
 
         <div class="mt-8 space-y-8" dir="rtl">
@@ -79,6 +91,13 @@
                                     ج.م</span>
                             </div>
                             <div
+                                class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
+                                <span class="text-gray-700 dark:text-white">خصم مسموح به (تسوية)</span>
+                                <span
+                                    class="font-semibold text-gray-900 dark:text-white">{{ number_format($report['discount_allowed'], 2) }}
+                                    ج.م</span>
+                            </div>
+                            <div
                                 class="flex justify-between items-center py-3 mt-4 pt-3 border-t-2 border-gray-400 dark:border-primary-500 bg-gray-50 dark:bg-gray-800 -mx-6 px-6">
                                 <span class="text-lg font-bold text-gray-900 dark:text-white">الإجمالي</span>
                                 <span
@@ -120,6 +139,13 @@
                                 <span class="text-gray-700 dark:text-white">إيرادات</span>
                                 <span
                                     class="font-semibold text-gray-900 dark:text-white">{{ number_format($report['revenues'], 2) }}
+                                    ج.م</span>
+                            </div>
+                            <div
+                                class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
+                                <span class="text-gray-700 dark:text-white">خصم مكتسب (تسوية)</span>
+                                <span
+                                    class="font-semibold text-gray-900 dark:text-white">{{ number_format($report['discount_received'], 2) }}
                                     ج.م</span>
                             </div>
                             <div

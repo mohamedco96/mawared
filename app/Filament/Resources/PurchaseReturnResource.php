@@ -112,16 +112,9 @@ class PurchaseReturnResource extends Resource
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord)
                             ->visible(fn (Get $get) => $get('partner_id') !== null)
                             ->helperText('اختياري: اختر فاتورة لتحميل أصنافها تلقائياً'),
-                        Forms\Components\Select::make('payment_method')
-                            ->label('طريقة الدفع')
-                            ->options([
-                                'cash' => 'نقدي',
-                                'credit' => 'آجل',
-                            ])
+                        Forms\Components\Hidden::make('payment_method')
                             ->default('cash')
-                            ->required()
-                            ->native(false)
-                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                            ->dehydrated(),
                     ])
                     ->columns(3),
 
@@ -377,6 +370,14 @@ class PurchaseReturnResource extends Resource
                     ->label('المورد')
                     ->searchable()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('purchaseInvoice.invoice_number')
+                    ->label('فاتورة الشراء')
+                    ->searchable()
+                    ->sortable()
+                    ->badge()
+                    ->color('info')
+                    ->default('—')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('warehouse.name')
                     ->label('المخزن')
                     ->sortable(),
@@ -385,11 +386,6 @@ class PurchaseReturnResource extends Resource
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => $state === 'posted' ? 'مؤكدة' : 'مسودة')
                     ->color(fn (string $state): string => $state === 'posted' ? 'success' : 'warning'),
-                Tables\Columns\TextColumn::make('payment_method')
-                    ->label('طريقة الدفع')
-                    ->formatStateUsing(fn (string $state): string => $state === 'cash' ? 'نقدي' : 'آجل')
-                    ->badge()
-                    ->color(fn (string $state): string => $state === 'cash' ? 'success' : 'info'),
                 Tables\Columns\TextColumn::make('total')
                     ->label('الإجمالي')
                     ->numeric(decimalPlaces: 2)
@@ -407,13 +403,6 @@ class PurchaseReturnResource extends Resource
                         'posted' => 'مؤكدة',
                     ])
                     ->native(false),
-                Tables\Filters\SelectFilter::make('payment_method')
-                    ->label('طريقة الدفع')
-                    ->options([
-                        'cash' => 'نقدي',
-                        'credit' => 'آجل',
-                    ])
-                    ->native(false),
                 Tables\Filters\SelectFilter::make('warehouse_id')
                     ->label('المخزن')
                     ->relationship('warehouse', 'name')
@@ -424,6 +413,15 @@ class PurchaseReturnResource extends Resource
                     ->relationship('partner', 'name')
                     ->searchable()
                     ->preload(),
+                Tables\Filters\TernaryFilter::make('purchase_invoice_id')
+                    ->label('مرتبط بفاتورة')
+                    ->placeholder('الكل')
+                    ->trueLabel('مرتبط بفاتورة')
+                    ->falseLabel('غير مرتبط بفاتورة')
+                    ->queries(
+                        true: fn ($query) => $query->whereNotNull('purchase_invoice_id'),
+                        false: fn ($query) => $query->whereNull('purchase_invoice_id'),
+                    ),
                 Tables\Filters\Filter::make('created_at')
                     ->label('تاريخ الإنشاء')
                     ->form([

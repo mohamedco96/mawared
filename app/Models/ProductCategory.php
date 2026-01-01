@@ -80,8 +80,8 @@ class ProductCategory extends Model
         });
 
         static::saving(function (ProductCategory $category) {
-            // Prevent category from being its own parent
-            if ($category->parent_id === $category->id) {
+            // Prevent category from being its own parent (only check if category exists and parent_id is set)
+            if ($category->exists && $category->parent_id && $category->parent_id === $category->id) {
                 throw new \Exception('لا يمكن للتصنيف أن يكون أب لنفسه');
             }
 

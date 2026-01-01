@@ -158,13 +158,13 @@ class Partner extends Model
             // When we return items for CASH, supplier gives us money but our debt stays the same
             // Only CREDIT returns (captured in $returnsTotal) reduce what we owe them
 
-            // Formula explanation for suppliers (positive balance = we owe them):
-            // Start with: Opening Balance + What we bought (Purchases)
-            // Subtract: What we returned (Returns) + What we paid (abs of negative Payments) + Collections from them + Discounts
-            // Since Payments is negative, we use -Payments to get positive amount
-            // Collections reduce debt, so we subtract them
+            // Formula explanation for suppliers (negative balance = we owe them):
+            // purchaseTotal uses remaining_amount which ALREADY INCLUDES settlement discounts
+            // (When payment is made, remaining_amount is reduced by amount + discount)
+            // Collections from supplier (rare - they pay us back) reduce our debt
+            // Credit returns reduce our debt
 
-            return $openingBalance - ($purchaseTotal - $returnsTotal + $payments + $collections - $discounts);
+            return $openingBalance - $purchaseTotal + $returnsTotal - $collections;
 
         } else { // shareholder
             // Shareholders track capital deposits, drawings, etc. via treasury transactions only

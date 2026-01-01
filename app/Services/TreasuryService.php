@@ -211,6 +211,17 @@ class TreasuryService
                 'created_by' => auth()->id(),
             ]);
 
+            // CRITICAL FIX: Update invoice paid_amount to include settlement discount
+            // The total settled amount is the cash paid + discount given
+            $totalSettled = $amount + $discount;
+            $newPaidAmount = floatval($invoice->paid_amount) + $totalSettled;
+            $newRemainingAmount = floatval($invoice->total) - $newPaidAmount;
+
+            $invoice->update([
+                'paid_amount' => $newPaidAmount,
+                'remaining_amount' => max(0, $newRemainingAmount), // Ensure no negative remaining
+            ]);
+
             // Apply payment to installments if they exist
             if ($invoice instanceof \App\Models\SalesInvoice && $invoice->installments()->exists()) {
                 app(\App\Services\InstallmentService::class)

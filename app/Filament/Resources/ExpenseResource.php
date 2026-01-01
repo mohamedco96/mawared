@@ -4,14 +4,11 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\ExpenseResource\Pages;
 use App\Models\Expense;
-use App\Services\TreasuryService;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\DB;
 
 class ExpenseResource extends Resource
 {
@@ -36,7 +33,7 @@ class ExpenseResource extends Resource
                 Forms\Components\Section::make('معلومات المصروف')
                     ->schema([
                         Forms\Components\TextInput::make('title')
-                            ->label('العنوان')
+                            ->label('البيان')
                             ->required()
                             ->maxLength(255),
                         Forms\Components\Textarea::make('description')
@@ -71,7 +68,7 @@ class ExpenseResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('title')
-                    ->label('العنوان')
+                    ->label('البيان')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('description')
@@ -142,43 +139,11 @@ class ExpenseResource extends Resource
                     }),
             ])
             ->actions([
-                Tables\Actions\Action::make('post')
-                    ->label('تسجيل')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->action(function (Expense $record) {
-                        $treasuryService = app(TreasuryService::class);
-
-                        DB::transaction(function () use ($record, $treasuryService) {
-                            // Post expense (creates treasury transaction)
-                            $treasuryService->postExpense($record);
-                        });
-                    })
-                    ->visible(fn (Expense $record) => !$record->treasuryTransactions()->exists()),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\DeleteAction::make()
-                    ->visible(fn (Expense $record) => !$record->treasuryTransactions()->exists()),
+                Tables\Actions\ViewAction::make()
+                    ->modalHeading(fn ($record) => 'تفاصيل المصروف'),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make()
-                        ->action(function ($records) {
-                            $postedRecords = $records->filter(fn ($r) => $r->treasuryTransactions()->exists());
-                            $draftRecords = $records->filter(fn ($r) => !$r->treasuryTransactions()->exists());
-
-                            if ($postedRecords->count() > 0) {
-                                Notification::make()
-                                    ->warning()
-                                    ->title('تحذير')
-                                    ->body("تم تجاهل {$postedRecords->count()} مصروف مسجل. يمكن حذف المصروفات غير المسجلة فقط.")
-                                    ->send();
-                            }
-
-                            $draftRecords->each->delete();
-                        }),
-                ]),
+                //
             ])
             ->defaultSort('expense_date', 'desc');
     }
@@ -188,7 +153,6 @@ class ExpenseResource extends Resource
         return [
             'index' => Pages\ListExpenses::route('/'),
             'create' => Pages\CreateExpense::route('/create'),
-            'edit' => Pages\EditExpense::route('/{record}/edit'),
         ];
     }
 }

@@ -92,6 +92,11 @@ class SalesInvoice extends Model
         return $this->hasMany(Installment::class);
     }
 
+    public function returns(): HasMany
+    {
+        return $this->hasMany(SalesReturn::class, 'sales_invoice_id');
+    }
+
     // Helper Methods
 
     /**
@@ -174,14 +179,19 @@ class SalesInvoice extends Model
             // Get the original status before changes
             $originalStatus = $invoice->getOriginal('status');
 
-            // If already posted, prevent any updates
-            if ($originalStatus === 'posted' && $invoice->isDirty()) {
+            // Allow payment-related updates to posted invoices (paid_amount, remaining_amount, status)
+            $allowedFieldsForPosted = ['paid_amount', 'remaining_amount', 'status', 'updated_at'];
+            $dirtyFields = array_keys($invoice->getDirty());
+            $hasDisallowedChanges = !empty(array_diff($dirtyFields, $allowedFieldsForPosted));
+
+            // If already posted, prevent updates to fields other than payment-related
+            if ($originalStatus === 'posted' && $hasDisallowedChanges) {
                 throw new \Exception('Cannot update a posted invoice');
             }
 
             // Prevent changes to critical fields if installments exist
             if ($invoice->installments()->exists()) {
-                $protectedFields = ['total', 'paid_amount', 'remaining_amount', 'payment_method'];
+                $protectedFields = ['total', 'payment_method'];
                 foreach ($protectedFields as $field) {
                     if ($invoice->isDirty($field)) {
                         throw new \Exception('لا يمكن تعديل الفاتورة: توجد خطة أقساط مرتبطة بها');

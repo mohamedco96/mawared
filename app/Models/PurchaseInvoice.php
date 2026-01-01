@@ -81,6 +81,11 @@ class PurchaseInvoice extends Model
         return $this->morphMany(InvoicePayment::class, 'payable');
     }
 
+    public function returns(): HasMany
+    {
+        return $this->hasMany(PurchaseReturn::class, 'purchase_invoice_id');
+    }
+
     // Helper Methods
 
     /**
@@ -136,7 +141,7 @@ class PurchaseInvoice extends Model
      */
     public function isFullyPaid(): bool
     {
-        return bccomp((string) $this->current_remaining, '0', 4) === 0;
+        return bccomp((string) $this->remaining_amount, '0', 4) === 0;
     }
 
     /**
@@ -155,8 +160,13 @@ class PurchaseInvoice extends Model
             // Get the original status before changes
             $originalStatus = $invoice->getOriginal('status');
 
-            // If already posted, prevent any updates
-            if ($originalStatus === 'posted' && $invoice->isDirty()) {
+            // Allow payment-related updates to posted invoices (paid_amount, remaining_amount, status)
+            $allowedFieldsForPosted = ['paid_amount', 'remaining_amount', 'status', 'updated_at'];
+            $dirtyFields = array_keys($invoice->getDirty());
+            $hasDisallowedChanges = !empty(array_diff($dirtyFields, $allowedFieldsForPosted));
+
+            // If already posted, prevent updates to fields other than payment-related
+            if ($originalStatus === 'posted' && $hasDisallowedChanges) {
                 throw new \Exception('Cannot update a posted invoice');
             }
         });
