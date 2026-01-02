@@ -262,3 +262,22 @@
 .fi-pagination-item-active {
     @apply bg-primary-600 text-white shadow-sm;
 }
+
+/* 13. FORM ACTIONS SPACING - Consistent gap between content and action buttons */
+.fi-form-actions,
+.fi-fo-actions {
+    @apply mt-8;
+}
+
+/* Direct form buttons spacing */
+form > .fi-btn,
+form > button[type="submit"],
+form > button[type="button"] {
+    @apply mt-8;
+}
+
+/* Section form actions */
+.fi-section .fi-form-actions,
+.fi-section-content + .fi-btn {
+    @apply mt-8;
+}

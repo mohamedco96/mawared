@@ -17,30 +17,28 @@
             {{-- Product Info Card --}}
             <div class="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
                 <h2 class="text-xl font-bold mb-4 text-gray-900 dark:text-white">معلومات المنتج</h2>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
-                        <span class="text-gray-600 dark:text-gray-400">اسم المنتج:</span>
-                        <span class="font-bold text-gray-900 dark:text-white mr-2">{{ $report['product']->name }}</span>
+                        <span class="text-gray-600 dark:text-gray-400">اسم المنتج: </span>
+                        <span class="font-bold text-gray-900 dark:text-white">{{ $report['product']->name }}</span>
                     </div>
                     <div>
-                        <span class="text-gray-600 dark:text-gray-400">المخزن:</span>
-                        <span class="font-bold text-gray-900 dark:text-white mr-2">
-                            {{ $report['warehouse'] ? $report['warehouse']->name : 'جميع المخازن' }}
-                        </span>
+                        <span class="text-gray-600 dark:text-gray-400">المخزن: </span>
+                        <span class="font-bold text-gray-900 dark:text-white">{{ $report['warehouse'] ? $report['warehouse']->name : 'جميع المخازن' }}</span>
                     </div>
                     <div>
-                        <span class="text-gray-600 dark:text-gray-400">من تاريخ:</span>
-                        <span class="font-bold text-gray-900 dark:text-white mr-2">{{ $report['from_date'] }}</span>
+                        <span class="text-gray-600 dark:text-gray-400">من تاريخ: </span>
+                        <span class="font-bold text-gray-900 dark:text-white">{{ $report['from_date'] }}</span>
                     </div>
                     <div>
-                        <span class="text-gray-600 dark:text-gray-400">إلى تاريخ:</span>
-                        <span class="font-bold text-gray-900 dark:text-white mr-2">{{ $report['to_date'] }}</span>
+                        <span class="text-gray-600 dark:text-gray-400">إلى تاريخ: </span>
+                        <span class="font-bold text-gray-900 dark:text-white">{{ $report['to_date'] }}</span>
                     </div>
                 </div>
             </div>
 
             {{-- Stock Movements Table --}}
-            <div class="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div style="margin-top: 20px !important; display: block; clear: both;" class="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div class="bg-primary-600 text-white px-6 py-4">
                     <h2 class="text-xl font-bold">حركة المخزون</h2>
                 </div>

@@ -115,6 +115,27 @@ class AdminPanelProvider extends PanelProvider
                         .fi-sidebar-group {
                             margin-bottom: 0.5rem;
                         }
+
+                        /* Form Actions Spacing Fix - Ensure consistent gap between content and buttons */
+                        .fi-form-actions,
+                        .fi-fo-actions,
+                        form > .fi-btn,
+                        form > button[type="submit"] {
+                            margin-top: 2rem !important;
+                        }
+
+                        /* Additional spacing for action buttons within sections */
+                        .fi-section .fi-form-actions,
+                        .fi-section-content-ctn + .fi-btn,
+                        .fi-fo-field-wrp:last-child + .fi-btn {
+                            margin-top: 2rem !important;
+                        }
+
+                        /* Ensure proper spacing in custom forms */
+                        x-filament-panels\\:\\:page form > .fi-btn,
+                        x-filament-panels\\:\\:page form > button {
+                            margin-top: 2rem !important;
+                        }
                     </style>
                 ',
             )
@@ -125,12 +146,12 @@ class AdminPanelProvider extends PanelProvider
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
-                Pages\Dashboard::class,
+                \App\Filament\Pages\Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
-                Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
+                // Widgets\AccountWidget::class,
+                // Widgets\FilamentInfoWidget::class,
             ])
             ->plugin(
                 \ShuvroRoy\FilamentSpatieLaravelBackup\FilamentSpatieLaravelBackupPlugin::make()

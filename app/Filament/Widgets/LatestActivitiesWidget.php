@@ -53,16 +53,23 @@ class LatestActivitiesWidget extends BaseWidget
                         if (!$state) return '—';
 
                         $modelMap = [
-                            'App\Models\User' => 'مستخدم',
-                            'App\Models\Product' => 'منتج',
-                            'App\Models\Partner' => 'شريك',
-                            'App\Models\SalesInvoice' => 'فاتورة مبيعات',
-                            'App\Models\PurchaseInvoice' => 'فاتورة مشتريات',
-                            'App\Models\StockMovement' => 'حركة مخزون',
-                            'App\Models\TreasuryTransaction' => 'معاملة خزينة',
+                            'user' => 'مستخدم',
+                            'product' => 'منتج',
+                            'product_category' => 'فئة منتج',
+                            'partner' => 'شريك',
+                            'sales_invoice' => 'فاتورة مبيعات',
+                            'purchase_invoice' => 'فاتورة مشتريات',
+                            'sales_return' => 'مرتجع مبيعات',
+                            'purchase_return' => 'مرتجع مشتريات',
+                            'stock_movement' => 'حركة مخزون',
+                            'treasury_transaction' => 'معاملة خزينة',
+                            'initial_capital' => 'رأس المال الافتتاحي',
+                            'fixed_asset' => 'أصل ثابت',
+                            'quotation' => 'عرض سعر',
+                            'installment' => 'قسط',
                         ];
 
-                        return $modelMap[$state] ?? class_basename($state);
+                        return $modelMap[$state] ?? $state;
                     })
                     ->badge()
                     ->color('info'),

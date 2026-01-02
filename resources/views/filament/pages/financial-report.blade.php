@@ -46,7 +46,7 @@
             $liabilitiesTotal = $liabilitiesOnly + $equity;
         @endphp
 
-        <div class="mt-8 space-y-8" dir="rtl">
+        <div class="mt-8 space-y-16" dir="rtl">
             {{-- Section A: Income Statement (قائمة الدخل) --}}
             <div
                 class="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -172,7 +172,7 @@
             </div>
 
             {{-- Section B: Financial Position (المركز المالي) --}}
-            <div
+            <div style="margin-top: 20px !important; display: block; clear: both;"
                 class="bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div class="bg-primary-600 dark:bg-primary-600 text-white px-6 py-4">
                     <h2 class="text-xl font-bold">المركز المالي</h2>

@@ -34,7 +34,7 @@
             </div>
 
             {{-- Transactions Table --}}
-            <div class="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div style="margin-top: 20px !important; display: block; clear: both;" class="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div class="bg-primary-600 text-white px-6 py-4">
                     <h2 class="text-xl font-bold">كشف الحساب</h2>
                 </div>

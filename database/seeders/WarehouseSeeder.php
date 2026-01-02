@@ -14,19 +14,19 @@ class WarehouseSeeder extends Seeder
     {
         $warehouses = [
             [
-                'name' => 'مخزن القاهرة الرئيسي',
-                'code' => 'WH-CAI-001',
-                'address' => 'القاهرة - مدينة نصر',
+                'name' => 'مخزن دمياط الرئيسي',
+                'code' => 'WH-DM-001',
+                'address' => 'دمياط - رأس البر',
             ],
             [
-                'name' => 'مخزن الإسكندرية',
-                'code' => 'WH-ALX-001',
-                'address' => 'الإسكندرية - سموحة',
+                'name' => 'مخزن المنصورة',
+                'code' => 'WH-MNS-001',
+                'address' => 'المنصورة - المشاية',
             ],
             [
-                'name' => 'مخزن الجيزة',
-                'code' => 'WH-GIZ-001',
-                'address' => 'الجيزة - المهندسين',
+                'name' => 'مخزن طلخا',
+                'code' => 'WH-TLK-001',
+                'address' => 'طلخا - وسط البلد',
             ],
         ];
 

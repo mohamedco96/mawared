@@ -2,48 +2,68 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     /**
      * Seed the application's database.
      */
     public function run(): void
     {
         $this->call([
-            // System settings and users must run first
+            // ==================================================
+            // PHASE 1: SYSTEM FOUNDATION (MUST RUN FIRST)
+            // ==================================================
+
+            // General settings
             GeneralSettingSeeder::class,
+
+            // Roles and Permissions (BEFORE users so roles exist)
+            RolesAndPermissionsSeeder::class,
+
+            // Users with roles assigned
             AdminUserSeeder::class,
 
-            // Base data seeders
+            // ==================================================
+            // PHASE 2: BASE DATA STRUCTURE
+            // ==================================================
+
+            // Units (required for products)
             UnitSeeder::class,
+
+            // Warehouses (required for invoices)
             WarehouseSeeder::class,
-            TreasurySeeder::class,
-            PartnerSeeder::class,
+
+            // Product Categories (required for products)
             ProductCategorySeeder::class,
-            ProductSeeder::class,
 
-            // Transaction seeders (draft only to avoid triggering business logic)
-            SalesInvoiceSeeder::class,
-            PurchaseInvoiceSeeder::class,
-            SalesReturnSeeder::class,
-            PurchaseReturnSeeder::class,
-            InvoicePaymentSeeder::class,
-            StockAdjustmentSeeder::class,
-            WarehouseTransferSeeder::class,
-            ExpenseSeeder::class,
-            RevenueSeeder::class,
+            // ==================================================
+            // PHASE 3: COMPREHENSIVE DATA GENERATION
+            // ==================================================
 
-            // Quotation seeder
-            QuotationSeeder::class,
+            // Run the comprehensive seeder which creates:
+            // - Treasuries (4 treasuries)
+            // - Partners (30+ partners: customers, suppliers, shareholders)
+            // - Products (50+ products with various stock levels)
+            // - Opening Capital (from shareholders)
+            // - Purchase Invoices (40 invoices)
+            // - Sales Invoices (60 invoices)
+            // - Returns (20+ returns)
+            // - Expenses (30 expenses)
+            // - Revenues (10 revenues)
+            // - Treasury Transfers (10 transfers)
+            // - Subsequent Payments (25+ payments)
+            ComprehensiveDatabaseSeeder::class,
 
-            // Fixed Assets seeder (added after treasury integration)
+            // ==================================================
+            // PHASE 4: ADDITIONAL SEEDERS (OPTIONAL)
+            // ==================================================
+            // Uncomment if you want to add more specific data:
+
+            // QuotationSeeder::class,
             FixedAssetSeeder::class,
+            // HomeGoodsSeeder::class, // If you have specific product data
         ]);
     }
 }

@@ -65,15 +65,29 @@ class ActivityLogResource extends Resource
                     ->formatStateUsing(function ($state) {
                         if (!$state) return '—';
                         return match ($state) {
-                            'App\Models\User' => 'مستخدم',
-                            'App\Models\Product' => 'منتج',
-                            'App\Models\Partner' => 'شريك',
-                            'App\Models\SalesInvoice' => 'فاتورة مبيعات',
-                            'App\Models\PurchaseInvoice' => 'فاتورة مشتريات',
-                            'App\Models\StockMovement' => 'حركة مخزون',
-                            'App\Models\TreasuryTransaction' => 'معاملة مالية',
-                            'App\Models\FixedAsset' => 'أصل ثابت',
-                            default => class_basename($state),
+                            'user' => 'مستخدم',
+                            'product' => 'منتج',
+                            'product_category' => 'فئة منتج',
+                            'partner' => 'شريك',
+                            'sales_invoice' => 'فاتورة مبيعات',
+                            'purchase_invoice' => 'فاتورة مشتريات',
+                            'sales_return' => 'مرتجع مبيعات',
+                            'purchase_return' => 'مرتجع مشتريات',
+                            'stock_movement' => 'حركة مخزون',
+                            'treasury_transaction' => 'معاملة خزينة',
+                            'initial_capital' => 'رأس المال الافتتاحي',
+                            'shareholder_capital' => 'رأس مال الشركاء',
+                            'capital_deposit' => 'إيداع رأس مال',
+                            'shareholder_investment' => 'استثمار الشركاء',
+                            'financial_transaction' => 'معاملة مالية',
+                            'fixed_asset' => 'أصل ثابت',
+                            'warehouse_transfer' => 'نقل بين المخازن',
+                            'stock_adjustment' => 'تسوية مخزون',
+                            'expense' => 'مصروف',
+                            'revenue' => 'إيراد',
+                            'quotation' => 'عرض سعر',
+                            'installment' => 'قسط',
+                            default => $state,
                         };
                     })
                     ->badge()
@@ -147,14 +161,20 @@ class ActivityLogResource extends Resource
                 Tables\Filters\SelectFilter::make('subject_type')
                     ->label('نوع السجل')
                     ->options([
-                        'App\Models\User' => 'مستخدم',
-                        'App\Models\Product' => 'منتج',
-                        'App\Models\Partner' => 'شريك',
-                        'App\Models\SalesInvoice' => 'فاتورة مبيعات',
-                        'App\Models\PurchaseInvoice' => 'فاتورة مشتريات',
-                        'App\Models\StockMovement' => 'حركة مخزون',
-                        'App\Models\TreasuryTransaction' => 'معاملة مالية',
-                        'App\Models\FixedAsset' => 'أصل ثابت',
+                        'user' => 'مستخدم',
+                        'product' => 'منتج',
+                        'product_category' => 'فئة منتج',
+                        'partner' => 'شريك',
+                        'sales_invoice' => 'فاتورة مبيعات',
+                        'purchase_invoice' => 'فاتورة مشتريات',
+                        'sales_return' => 'مرتجع مبيعات',
+                        'purchase_return' => 'مرتجع مشتريات',
+                        'stock_movement' => 'حركة مخزون',
+                        'treasury_transaction' => 'معاملة خزينة',
+                        'initial_capital' => 'رأس المال الافتتاحي',
+                        'fixed_asset' => 'أصل ثابت',
+                        'quotation' => 'عرض سعر',
+                        'installment' => 'قسط',
                     ])
                     ->native(false),
 
@@ -214,15 +234,29 @@ class ActivityLogResource extends Resource
                             ->formatStateUsing(function ($state) {
                                 if (!$state) return '—';
                                 return match ($state) {
-                                    'App\Models\User' => 'مستخدم',
-                                    'App\Models\Product' => 'منتج',
-                                    'App\Models\Partner' => 'شريك',
-                                    'App\Models\SalesInvoice' => 'فاتورة مبيعات',
-                                    'App\Models\PurchaseInvoice' => 'فاتورة مشتريات',
-                                    'App\Models\StockMovement' => 'حركة مخزون',
-                                    'App\Models\TreasuryTransaction' => 'معاملة مالية',
-                                    'App\Models\FixedAsset' => 'أصل ثابت',
-                                    default => class_basename($state),
+                                    'user' => 'مستخدم',
+                                    'product' => 'منتج',
+                                    'product_category' => 'فئة منتج',
+                                    'partner' => 'شريك',
+                                    'sales_invoice' => 'فاتورة مبيعات',
+                                    'purchase_invoice' => 'فاتورة مشتريات',
+                                    'sales_return' => 'مرتجع مبيعات',
+                                    'purchase_return' => 'مرتجع مشتريات',
+                                    'stock_movement' => 'حركة مخزون',
+                                    'treasury_transaction' => 'معاملة خزينة',
+                                    'initial_capital' => 'رأس المال الافتتاحي',
+                                    'shareholder_capital' => 'رأس مال الشركاء',
+                                    'capital_deposit' => 'إيداع رأس مال',
+                                    'shareholder_investment' => 'استثمار الشركاء',
+                                    'financial_transaction' => 'معاملة مالية',
+                                    'fixed_asset' => 'أصل ثابت',
+                                    'warehouse_transfer' => 'نقل بين المخازن',
+                                    'stock_adjustment' => 'تسوية مخزون',
+                                    'expense' => 'مصروف',
+                                    'revenue' => 'إيراد',
+                                    'quotation' => 'عرض سعر',
+                                    'installment' => 'قسط',
+                                    default => $state,
                                 };
                             })
                             ->badge()
@@ -328,12 +362,14 @@ class ActivityLogResource extends Resource
         }
 
         $resourceMap = [
-            'App\Models\Product' => \App\Filament\Resources\ProductResource::class,
-            'App\Models\SalesInvoice' => \App\Filament\Resources\SalesInvoiceResource::class,
-            'App\Models\PurchaseInvoice' => \App\Filament\Resources\PurchaseInvoiceResource::class,
-            'App\Models\Partner' => \App\Filament\Resources\PartnerResource::class,
-            'App\Models\User' => \App\Filament\Resources\UserResource::class,
-            'App\Models\FixedAsset' => \App\Filament\Resources\FixedAssetResource::class,
+            'product' => \App\Filament\Resources\ProductResource::class,
+            'sales_invoice' => \App\Filament\Resources\SalesInvoiceResource::class,
+            'purchase_invoice' => \App\Filament\Resources\PurchaseInvoiceResource::class,
+            'partner' => \App\Filament\Resources\PartnerResource::class,
+            'user' => \App\Filament\Resources\UserResource::class,
+            'fixed_asset' => \App\Filament\Resources\FixedAssetResource::class,
+            'quotation' => \App\Filament\Resources\QuotationResource::class,
+            'installment' => \App\Filament\Resources\InstallmentResource::class,
         ];
 
         $resourceClass = $resourceMap[$record->subject_type] ?? null;
@@ -344,7 +380,7 @@ class ActivityLogResource extends Resource
 
         // Try 'view' first for invoices, then fallback to 'edit'
         try {
-            if (in_array($record->subject_type, ['App\Models\SalesInvoice', 'App\Models\PurchaseInvoice'])) {
+            if (in_array($record->subject_type, ['sales_invoice', 'purchase_invoice'])) {
                 return $resourceClass::getUrl('view', ['record' => $record->subject_id]);
             }
             return $resourceClass::getUrl('edit', ['record' => $record->subject_id]);

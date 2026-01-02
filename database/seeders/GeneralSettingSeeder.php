@@ -23,11 +23,11 @@ class GeneralSettingSeeder extends Seeder
             ],
             [
                 'key' => 'company_address',
-                'value' => 'القاهرة، مصر',
+                'value' => 'دمياط، مصر',
             ],
             [
                 'key' => 'company_phone',
-                'value' => '0223456789',
+                'value' => '0572345678',
             ],
             [
                 'key' => 'company_email',

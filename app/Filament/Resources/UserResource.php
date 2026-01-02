@@ -90,8 +90,14 @@ class UserResource extends Resource
                             ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->step(0.01),
+                        Forms\Components\TextInput::make('advance_balance')
+                            ->label('رصيد السلفة')
+                            ->numeric()
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                            ->step(0.01)
+                            ->default(0),
                     ])
-                    ->columns(3),
+                    ->columns(4),
             ]);
     }
 
@@ -118,6 +124,10 @@ class UserResource extends Resource
                     ->color(fn (?string $state): string => $state === 'daily' ? 'info' : 'success'),
                 Tables\Columns\TextColumn::make('salary_amount')
                     ->label('الراتب')
+                    ->numeric(decimalPlaces: 2)
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('advance_balance')
+                    ->label('رصيد السلفة')
                     ->numeric(decimalPlaces: 2)
                     ->sortable(),
                 Tables\Columns\TextColumn::make('roles.name')

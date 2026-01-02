@@ -45,7 +45,10 @@ class TreasuryTransaction extends Model
 
     public function reference(): MorphTo
     {
-        return $this->morphTo();
+        // Use morphTo with proper handling for null reference_id
+        // Some transaction types (capital_deposit, shareholder_investment, financial_transaction)
+        // don't reference actual models, they just track the transaction type
+        return $this->morphTo()->withDefault();
     }
 
     public function employee(): BelongsTo

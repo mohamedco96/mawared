@@ -194,7 +194,7 @@ class TreasuryService
                 $transactionAmount,
                 ($isSales ? 'تسديد فاتورة بيع ' : 'تسديد فاتورة شراء ')."#{$invoice->invoice_number}",
                 $invoice->partner_id,
-                'financial_transaction',
+                null, // No reference_type since this is a direct payment transaction
                 null
             );
 
@@ -507,7 +507,7 @@ class TreasuryService
                 $treasuryAmount,
                 $description,
                 $partnerId,
-                'financial_transaction',
+                null, // No reference_type for standalone financial transactions
                 null
             );
 

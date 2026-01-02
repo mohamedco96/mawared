@@ -52,7 +52,7 @@ class InstallmentResource extends Resource
                             ->label('المبلغ')
                             ->required()
                             ->numeric()
-                            ->prefix('ر.س')
+                            ->prefix('ج.م')
                             ->disabled(fn (?Installment $record) => $record !== null),
 
                         Forms\Components\DatePicker::make('due_date')
@@ -68,7 +68,7 @@ class InstallmentResource extends Resource
                         Forms\Components\TextInput::make('paid_amount')
                             ->label('المبلغ المدفوع')
                             ->numeric()
-                            ->prefix('ر.س')
+                            ->prefix('ج.م')
                             ->disabled()
                             ->default(0.0000),
 
