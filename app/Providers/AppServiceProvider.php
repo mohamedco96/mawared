@@ -20,9 +20,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Register Observers
-        \App\Models\Expense::observe(\App\Observers\ExpenseObserver::class);
-        \App\Models\PurchaseReturn::observe(\App\Observers\PurchaseReturnObserver::class);
+        // أضف هذا السطر لإجبار الروابط على أن تكون آمنة
+        if (app()->environment('local') || app()->environment('production')) {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+        }
 
         // Register MorphMap for clean polymorphism
         Relation::enforceMorphMap([

@@ -53,7 +53,9 @@ class ExpenseSeeder extends Seeder
         ];
 
         foreach ($expenses as $expense) {
-            Expense::create($expense);
+            $expenseModel = Expense::create($expense);
+            // Explicitly post to treasury (observer disabled to prevent duplicates)
+            app(\App\Services\TreasuryService::class)->postExpense($expenseModel);
         }
     }
 }

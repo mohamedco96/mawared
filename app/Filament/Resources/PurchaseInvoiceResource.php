@@ -239,7 +239,7 @@ class PurchaseInvoiceResource extends Resource
                                     ->required()
                                     ->default(1)
                                     ->minValue(1)
-                                    ->live(debounce: 500)
+                                    ->live(onBlur: true)
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $unitCost = $get('unit_cost') ?? 0;
                                         $set('total', $unitCost * $state);
@@ -264,7 +264,7 @@ class PurchaseInvoiceResource extends Resource
                                     ->required()
                                     ->step(0.0001)
                                     ->minValue(0)
-                                    ->live(debounce: 500)
+                                    ->live(onBlur: true)
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $quantity = $get('quantity') ?? 1;
                                         $set('total', $state * $quantity);
@@ -415,7 +415,7 @@ class PurchaseInvoiceResource extends Resource
                                 return $get('discount_type') === 'percentage' ? 100 : null;
                             })
                             ->suffix(fn (Get $get) => $get('discount_type') === 'percentage' ? '%' : '')
-                            ->reactive()
+                            ->live(onBlur: true)
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 static::recalculateTotals($set, $get);
                             })
@@ -489,7 +489,7 @@ class PurchaseInvoiceResource extends Resource
                             ->default(0)
                             ->step(0.0001)
                             ->minValue(0)
-                            ->live(debounce: 500)
+                            ->live(onBlur: true)
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 $items = $get('items') ?? [];
                                 $subtotal = collect($items)->sum('total');

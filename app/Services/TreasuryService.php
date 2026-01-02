@@ -438,15 +438,24 @@ class TreasuryService
         DB::transaction(function () use ($return, $treasuryId) {
             // ONLY create treasury transaction if cash refund
             if ($return->payment_method === 'cash') {
-                $this->recordTransaction(
-                    $treasuryId,
-                    'refund',
-                    $return->total, // POSITIVE - money returns to treasury
-                    "مرتجع فاتورة شراء #{$return->return_number}",
-                    $return->partner_id,
-                    'purchase_return',
-                    $return->id
-                );
+                // Idempotency check: prevent duplicate transactions
+                $existingTransaction = TreasuryTransaction::where('reference_type', 'purchase_return')
+                    ->where('reference_id', $return->id)
+                    ->first();
+
+                if ($existingTransaction) {
+                    \Log::warning("PurchaseReturn {$return->id} already has treasury transaction {$existingTransaction->id}. Skipping duplicate.");
+                } else {
+                    $this->recordTransaction(
+                        $treasuryId,
+                        'refund',
+                        $return->total, // POSITIVE - money returns to treasury
+                        "مرتجع فاتورة شراء #{$return->return_number}",
+                        $return->partner_id,
+                        'purchase_return',
+                        $return->id
+                    );
+                }
             }
 
             // For credit returns, no treasury transaction needed
@@ -517,6 +526,16 @@ class TreasuryService
     public function postExpense(Expense $expense): void
     {
         DB::transaction(function () use ($expense) {
+            // Idempotency check: prevent duplicate transactions
+            $existingTransaction = TreasuryTransaction::where('reference_type', 'expense')
+                ->where('reference_id', $expense->id)
+                ->first();
+
+            if ($existingTransaction) {
+                \Log::warning("Expense {$expense->id} already has treasury transaction {$existingTransaction->id}. Skipping duplicate.");
+                return;
+            }
+
             $this->recordTransaction(
                 $expense->treasury_id,
                 'expense',

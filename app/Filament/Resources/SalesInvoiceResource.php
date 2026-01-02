@@ -248,7 +248,7 @@ class SalesInvoiceResource extends Resource
                                     ->required()
                                     ->default(1)
                                     ->minValue(1)
-                                    ->live(debounce: 500)
+                                    ->live(onBlur: true)
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $unitPrice = $get('unit_price') ?? 0;
                                         $set('total', $unitPrice * $state);
@@ -302,7 +302,7 @@ class SalesInvoiceResource extends Resource
                                     ->required()
                                     ->step(0.0001)
                                     ->minValue(0)
-                                    ->reactive()
+                                    ->live(onBlur: true)
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $quantity = $get('quantity') ?? 1;
                                         $set('total', $state * $quantity);
@@ -383,7 +383,7 @@ class SalesInvoiceResource extends Resource
                                 return $get('discount_type') === 'percentage' ? 100 : null;
                             })
                             ->suffix(fn (Get $get) => $get('discount_type') === 'percentage' ? '%' : '')
-                            ->reactive()
+                            ->live(onBlur: true)
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 static::recalculateTotals($set, $get);
                             })
@@ -462,7 +462,7 @@ class SalesInvoiceResource extends Resource
                                 return floatval($state);
                             })
                             // C. REACTIVITY: Only needed for updating remaining_amount in Credit mode
-                            ->live(debounce: 500)
+                            ->live(onBlur: true)
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 $total = floatval($get('total'));
                                 $paid = floatval($state);
