@@ -21,7 +21,10 @@ class PurchaseInvoiceItem extends Model
         'total',
         'new_selling_price',
         'new_large_selling_price',
+        'wholesale_price',
+        'large_wholesale_price',
     ];
+
 
     protected function casts(): array
     {
@@ -32,8 +35,11 @@ class PurchaseInvoiceItem extends Model
             'total' => 'decimal:4',
             'new_selling_price' => 'decimal:4',
             'new_large_selling_price' => 'decimal:4',
+            'wholesale_price' => 'decimal:4',
+            'large_wholesale_price' => 'decimal:4',
         ];
     }
+
 
     // Relationships
     public function purchaseInvoice(): BelongsTo

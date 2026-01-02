@@ -20,6 +20,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Register Observers
+        \App\Models\Expense::observe(\App\Observers\ExpenseObserver::class);
+        \App\Models\PurchaseReturn::observe(\App\Observers\PurchaseReturnObserver::class);
+
         // Register MorphMap for clean polymorphism
         Relation::enforceMorphMap([
             'sales_invoice' => \App\Models\SalesInvoice::class,

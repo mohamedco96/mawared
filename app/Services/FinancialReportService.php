@@ -147,22 +147,33 @@ class FinancialReportService
     }
 
     /**
-     * Calculate total debtors (customers with positive balances)
+     * Calculate total debtors (ALL non-shareholder partners with positive balances - they owe us)
+     * This is an ASSET regardless of partner type.
+     * Examples:
+     * - Customer bought on credit (positive balance)
+     * - Supplier we returned goods to on credit (positive balance)
+     * NOTE: Excludes shareholders as their capital is tracked separately
      */
     protected function calculateTotalDebtors(): float
     {
-        return Partner::where('type', 'customer')
-            ->where('current_balance', '>', 0)
+        return Partner::where('current_balance', '>', 0)
+            ->where('type', '!=', 'shareholder')
             ->sum('current_balance');
     }
 
     /**
-     * Calculate total creditors (suppliers with negative balances, returned as absolute value)
+     * Calculate total creditors (ALL non-shareholder partners with negative balances - we owe them)
+     * This is a LIABILITY regardless of partner type.
+     * Returns absolute value since we store supplier debt as negative.
+     * Examples:
+     * - Supplier we bought from on credit (negative balance)
+     * - Customer who overpaid or returned goods on credit (negative balance)
+     * NOTE: Excludes shareholders as their capital/drawings are tracked separately
      */
     protected function calculateTotalCreditors(): float
     {
-        return abs(Partner::where('type', 'supplier')
-            ->where('current_balance', '<', 0)
+        return abs(Partner::where('current_balance', '<', 0)
+            ->where('type', '!=', 'shareholder')
             ->sum('current_balance'));
     }
 

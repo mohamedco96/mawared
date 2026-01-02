@@ -188,23 +188,39 @@ class StockService
     /**
      * Update product selling prices when new_selling_price is set
      */
-    public function updateProductPrice(Product $product, ?string $newSellingPrice, string $unitType, ?string $newLargeSellingPrice = null): void
-    {
-        if ($newSellingPrice === null && $newLargeSellingPrice === null) {
+    public function updateProductPrice(
+        Product $product, 
+        ?string $newSellingPrice, 
+        string $unitType, 
+        ?string $newLargeSellingPrice = null,
+        ?string $wholesalePrice = null,
+        ?string $largeWholesalePrice = null
+    ): void {
+        if ($newSellingPrice === null && $newLargeSellingPrice === null && $wholesalePrice === null && $largeWholesalePrice === null) {
             return;
         }
 
-        $execute = function () use ($product, $newSellingPrice, $newLargeSellingPrice) {
+        $execute = function () use ($product, $newSellingPrice, $newLargeSellingPrice, $wholesalePrice, $largeWholesalePrice) {
             $updateData = [];
 
-            // Update small unit price
+            // Update small unit retail price
             if ($newSellingPrice !== null) {
                 $updateData['retail_price'] = $newSellingPrice;
             }
 
-            // Update large unit price if provided
+            // Update large unit retail price if provided
             if ($newLargeSellingPrice !== null && $product->large_unit_id) {
                 $updateData['large_retail_price'] = $newLargeSellingPrice;
+            }
+
+            // Update small unit wholesale price
+            if ($wholesalePrice !== null) {
+                $updateData['wholesale_price'] = $wholesalePrice;
+            }
+
+            // Update large unit wholesale price if provided
+            if ($largeWholesalePrice !== null && $product->large_unit_id) {
+                $updateData['large_wholesale_price'] = $largeWholesalePrice;
             }
 
             if (! empty($updateData)) {
@@ -219,6 +235,7 @@ class StockService
             $execute();
         }
     }
+
 
     /**
      * Post a sales invoice - creates stock movements
@@ -357,10 +374,18 @@ class StockService
                     'expected_stock' => $stockBefore + $baseQuantity,
                 ]);
 
-                // Update product price if new_selling_price is set
-                if ($item->new_selling_price !== null) {
-                    $this->updateProductPrice($product, $item->new_selling_price, $item->unit_type);
+                // Update product prices if any new prices are set
+                if ($item->new_selling_price !== null || $item->new_large_selling_price !== null || $item->wholesale_price !== null || $item->large_wholesale_price !== null) {
+                    $this->updateProductPrice(
+                        $product, 
+                        $item->new_selling_price, 
+                        $item->unit_type,
+                        $item->new_large_selling_price,
+                        $item->wholesale_price,
+                        $item->large_wholesale_price
+                    );
                 }
+
             }
 
             // Update average cost for all products in this invoice

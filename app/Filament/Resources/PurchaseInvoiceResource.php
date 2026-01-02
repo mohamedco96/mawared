@@ -324,6 +324,41 @@ class PurchaseInvoiceResource extends Resource
                                     })
                                     ->columnSpan(2)
                                     ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
+                                Forms\Components\TextInput::make('wholesale_price')
+                                    ->label('سعر الجملة الجديد (صغير)')
+                                    ->helperText('إذا تم تحديده، سيتم تحديث سعر الجملة للمنتج تلقائياً')
+                                    ->numeric()
+                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                    ->step(0.01)
+                                    ->nullable()
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                        $productId = $get('product_id');
+                                        if ($productId && $state !== null && $state !== '') {
+                                            $product = Product::find($productId);
+                                            if ($product && $product->large_unit_id && $product->factor > 0) {
+                                                $calculatedPrice = floatval($state) * intval($product->factor);
+                                                $set('large_wholesale_price', number_format($calculatedPrice, 2, '.', ''));
+                                            }
+                                        }
+                                    })
+                                    ->columnSpan(2)
+                                    ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
+                                Forms\Components\TextInput::make('large_wholesale_price')
+                                    ->label('سعر الجملة الجديد (كبير)')
+                                    ->helperText('يتم حسابه تلقائياً (سعر الوحدة الصغيرة × معامل التحويل)، يمكن تعديله يدوياً')
+                                    ->numeric()
+                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                    ->step(0.01)
+                                    ->nullable()
+                                    ->visible(function (Get $get) {
+                                        $productId = $get('product_id');
+                                        if (!$productId) return false;
+                                        $product = Product::find($productId);
+                                        return $product && $product->large_unit_id;
+                                    })
+                                    ->columnSpan(2)
+                                    ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
                             ])
                             ->columns(12)
                             ->defaultItems(1)
@@ -742,14 +777,16 @@ class PurchaseInvoiceResource extends Resource
                                 // Post treasury transactions
                                 $treasuryService->postPurchaseInvoice($record);
 
-                                // Update product prices if new_selling_price is set
+                                // Update product prices if any new prices are set
                                 foreach ($record->items as $item) {
-                                    if ($item->new_selling_price !== null || $item->new_large_selling_price !== null) {
+                                    if ($item->new_selling_price !== null || $item->new_large_selling_price !== null || $item->wholesale_price !== null || $item->large_wholesale_price !== null) {
                                         $stockService->updateProductPrice(
                                             $item->product,
                                             $item->new_selling_price,
                                             $item->unit_type,
-                                            $item->new_large_selling_price
+                                            $item->new_large_selling_price,
+                                            $item->wholesale_price,
+                                            $item->large_wholesale_price
                                         );
                                     }
                                 }
