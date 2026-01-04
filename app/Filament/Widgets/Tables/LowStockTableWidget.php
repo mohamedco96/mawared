@@ -6,6 +6,7 @@ use App\Filament\Resources\ProductResource;
 use App\Models\Product;
 use Closure;
 use Filament\Tables;
+use Filament\Tables\Actions\Action;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -75,5 +76,29 @@ class LowStockTableWidget extends BaseWidget
     protected function getTableRecordUrlUsing(): ?Closure
     {
         return fn (Product $record): string => ProductResource::getUrl('edit', ['record' => $record]);
+    }
+
+    protected function getTableHeaderActions(): array
+    {
+        return [
+            Action::make('view_all')
+                ->label('عرض الكل')
+                ->icon('heroicon-o-list-bullet')
+                ->color('primary')
+                ->url(fn () => ProductResource::getUrl('index', [
+                    'tableFilters' => [
+                        'stock_level' => [
+                            'level' => 'low_stock',
+                        ],
+                    ],
+                ])),
+
+            Action::make('print')
+                ->label('طباعة')
+                ->icon('heroicon-o-printer')
+                ->color('success')
+                ->url(fn () => route('reports.low-stock.print'))
+                ->openUrlInNewTab(),
+        ];
     }
 }

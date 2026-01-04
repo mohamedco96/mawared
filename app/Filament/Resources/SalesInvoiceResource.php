@@ -489,6 +489,140 @@ class SalesInvoiceResource extends Resource
                             ->disabled()
                             ->dehydrated()
                             ->visible(fn (Get $get) => $get('payment_method') === 'credit'),
+                        Forms\Components\Placeholder::make('calculated_profit')
+                            ->label('إجمالي الربح')
+                            ->content(function (Get $get) {
+                                if (! auth()->user()->can('view_profit')) {
+                                    return '—';
+                                }
+
+                                $totalProfit = 0;
+                                $items = $get('items') ?? [];
+
+                                foreach ($items as $item) {
+                                    if (! isset($item['product_id'], $item['quantity'])) {
+                                        continue;
+                                    }
+
+                                    $product = \App\Models\Product::find($item['product_id']);
+                                    if (! $product) {
+                                        continue;
+                                    }
+
+                                    $quantity = intval($item['quantity']);
+                                    $unitType = $item['unit_type'] ?? 'small';
+                                    $itemTotal = floatval($item['total'] ?? 0);
+
+                                    // Convert to base unit
+                                    $baseQuantity = $unitType === 'large' && $product->factor
+                                        ? $quantity * $product->factor
+                                        : $quantity;
+
+                                    // Use avg_cost (before posting)
+                                    $costPerUnit = floatval($product->avg_cost ?? 0);
+                                    $totalCost = $costPerUnit * $baseQuantity;
+
+                                    $totalProfit += ($itemTotal - $totalCost);
+                                }
+
+                                return number_format($totalProfit, 2).' ج.م';
+                            })
+                            ->extraAttributes(function (Get $get) {
+                                if (! auth()->user()->can('view_profit')) {
+                                    return [];
+                                }
+
+                                // Calculate profit for color coding
+                                $totalProfit = 0;
+                                $items = $get('items') ?? [];
+
+                                foreach ($items as $item) {
+                                    if (! isset($item['product_id'], $item['quantity'])) {
+                                        continue;
+                                    }
+
+                                    $product = \App\Models\Product::find($item['product_id']);
+                                    if (! $product) {
+                                        continue;
+                                    }
+
+                                    $quantity = intval($item['quantity']);
+                                    $unitType = $item['unit_type'] ?? 'small';
+                                    $itemTotal = floatval($item['total'] ?? 0);
+
+                                    $baseQuantity = $unitType === 'large' && $product->factor
+                                        ? $quantity * $product->factor
+                                        : $quantity;
+
+                                    $costPerUnit = floatval($product->avg_cost ?? 0);
+                                    $totalCost = $costPerUnit * $baseQuantity;
+
+                                    $totalProfit += ($itemTotal - $totalCost);
+                                }
+
+                                $total = floatval($get('total') ?? 0);
+                                $marginPct = $total > 0 ? ($totalProfit / $total) * 100 : 0;
+
+                                // Color coding thresholds
+                                $color = match (true) {
+                                    $marginPct >= 25 => 'rgb(34, 197, 94)', // green - excellent
+                                    $marginPct >= 15 => 'rgb(234, 179, 8)', // yellow - good
+                                    default => 'rgb(239, 68, 68)', // red - low
+                                };
+
+                                return [
+                                    'style' => "color: {$color}; font-weight: bold; font-size: 1.125rem;",
+                                ];
+                            })
+                            ->visible(fn () => auth()->user()->can('view_profit'))
+                            ->columnSpan(1),
+
+                        Forms\Components\Placeholder::make('profit_indicator')
+                            ->label('مستوى الربحية')
+                            ->content(function (Get $get) {
+                                if (! auth()->user()->can('view_profit')) {
+                                    return '—';
+                                }
+
+                                $totalProfit = 0;
+                                $items = $get('items') ?? [];
+
+                                foreach ($items as $item) {
+                                    if (! isset($item['product_id'], $item['quantity'])) {
+                                        continue;
+                                    }
+
+                                    $product = \App\Models\Product::find($item['product_id']);
+                                    if (! $product) {
+                                        continue;
+                                    }
+
+                                    $quantity = intval($item['quantity']);
+                                    $unitType = $item['unit_type'] ?? 'small';
+                                    $itemTotal = floatval($item['total'] ?? 0);
+
+                                    $baseQuantity = $unitType === 'large' && $product->factor
+                                        ? $quantity * $product->factor
+                                        : $quantity;
+
+                                    $costPerUnit = floatval($product->avg_cost ?? 0);
+                                    $totalCost = $costPerUnit * $baseQuantity;
+
+                                    $totalProfit += ($itemTotal - $totalCost);
+                                }
+
+                                $total = floatval($get('total') ?? 0);
+                                $marginPct = $total > 0 ? ($totalProfit / $total) * 100 : 0;
+
+                                return match (true) {
+                                    $marginPct >= 25 => '🟢 ممتاز ('.number_format($marginPct, 1).'%)',
+                                    $marginPct >= 15 => '🟡 جيد ('.number_format($marginPct, 1).'%)',
+                                    default => '🔴 منخفض ('.number_format($marginPct, 1).'%)',
+                                };
+                            })
+                            ->visible(fn () => auth()->user()->can('view_profit'))
+                            ->columnSpan(1),
+
                         Forms\Components\Hidden::make('subtotal')
                             ->default(0)
                             ->dehydrated(),

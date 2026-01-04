@@ -418,6 +418,27 @@ class ProductResource extends Resource
                     ->label('وحدة كبيرة')
                     ->toggle()
                     ->query(fn ($query) => $query->whereNotNull('large_unit_id')),
+                Tables\Filters\TernaryFilter::make('slow_moving')
+                    ->label('الأصناف بطيئة الحركة')
+                    ->placeholder('الكل')
+                    ->trueLabel('بطيء الحركة (لا مبيعات منذ 90 يوم)')
+                    ->falseLabel('نشط (له مبيعات حديثة)')
+                    ->queries(
+                        true: fn ($query) => $query->whereDoesntHave('salesInvoiceItems', function ($q) {
+                            $q->whereHas('salesInvoice', function ($sq) {
+                                $sq->where('status', 'posted')
+                                    ->whereDate('created_at', '>=', now()->subDays(90))
+                                    ->whereNull('deleted_at');
+                            });
+                        }),
+                        false: fn ($query) => $query->whereHas('salesInvoiceItems', function ($q) {
+                            $q->whereHas('salesInvoice', function ($sq) {
+                                $sq->where('status', 'posted')
+                                    ->whereDate('created_at', '>=', now()->subDays(90))
+                                    ->whereNull('deleted_at');
+                            });
+                        }),
+                    ),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

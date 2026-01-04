@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use App\Services\ReportService;
 use App\Settings\CompanySettings;
 use App\Settings\PrintSettings;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
@@ -99,5 +101,49 @@ class ReportController extends Controller
 
         // Return simple view
         return view('reports.stock-card', $data);
+    }
+
+    /**
+     * Print Low Stock Report
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function lowStockPrint()
+    {
+        // Get products where current stock <= min_stock
+        $products = Product::query()
+            ->whereRaw('(
+                SELECT COALESCE(SUM(quantity), 0)
+                FROM stock_movements
+                WHERE stock_movements.product_id = products.id
+                AND stock_movements.deleted_at IS NULL
+            ) <= min_stock')
+            ->orderByRaw('(
+                SELECT COALESCE(SUM(quantity), 0)
+                FROM stock_movements
+                WHERE stock_movements.product_id = products.id
+                AND stock_movements.deleted_at IS NULL
+            ) ASC')
+            ->with(['smallUnit', 'largeUnit'])
+            ->get()
+            ->map(function ($product) {
+                $product->current_stock = DB::table('stock_movements')
+                    ->where('product_id', $product->id)
+                    ->whereNull('deleted_at')
+                    ->sum('quantity') ?? 0;
+
+                return $product;
+            });
+
+        // Get settings
+        $companySettings = app(CompanySettings::class);
+        $printSettings = app(PrintSettings::class);
+
+        return view('reports.low-stock-print', [
+            'products' => $products,
+            'companySettings' => $companySettings,
+            'format' => 'a4',
+            'autoPrint' => $printSettings->auto_print_enabled,
+        ]);
     }
 }

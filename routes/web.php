@@ -21,6 +21,9 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/reports/stock-card/print', [ReportController::class, 'printStockCard'])
         ->name('reports.stock-card.print');
+
+    Route::get('/reports/low-stock/print', [ReportController::class, 'lowStockPrint'])
+        ->name('reports.low-stock.print');
 });
 
 // Public Quotation Routes (No Authentication Required)
