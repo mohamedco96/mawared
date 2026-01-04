@@ -38,6 +38,28 @@ class ViewQuotation extends ViewRecord
                     'x-on:click' => "\$event.preventDefault(); navigator.clipboard.writeText('{$this->record->getPublicUrl()}').then(() => { new FilamentNotification().success().title('تم نسخ الرابط').send(); });",
                 ]),
 
+            // A4 Print Action
+            Actions\Action::make('print_a4')
+                ->label('طباعة (A4)')
+                ->icon('heroicon-o-document-text')
+                ->url(fn () => route('quotations.public.pdf', [
+                    'token' => $this->record->public_token,
+                    'format' => 'a4'
+                ]))
+                ->openUrlInNewTab()
+                ->color('primary'),
+
+            // Thermal Print Action
+            Actions\Action::make('print_thermal')
+                ->label('طباعة (حراري)')
+                ->icon('heroicon-o-receipt-percent')
+                ->url(fn () => route('quotations.public.pdf', [
+                    'token' => $this->record->public_token,
+                    'format' => 'thermal'
+                ]))
+                ->openUrlInNewTab()
+                ->color('success'),
+
             // Send via WhatsApp Action
             Actions\Action::make('send_whatsapp')
                 ->label('إرسال عبر واتساب')
@@ -63,10 +85,11 @@ class ViewQuotation extends ViewRecord
                     $baseFields = [
                         Forms\Components\Select::make('warehouse_id')
                             ->label('المستودع')
-                            ->relationship('warehouse', 'name')
+                            ->options(Warehouse::pluck('name', 'id'))
                             ->required()
                             ->native(false)
-                            ->preload(),
+                            ->preload()
+                            ->searchable(),
                         Forms\Components\Select::make('payment_method')
                             ->label('طريقة الدفع')
                             ->options(['cash' => 'نقدي', 'credit' => 'آجل'])
@@ -159,14 +182,15 @@ class ViewQuotation extends ViewRecord
 
                         // Create sales invoice
                         $invoice = SalesInvoice::create([
+                            'invoice_number' => 'SI-'.now()->format('Ymd').'-'.\Illuminate\Support\Str::random(6),
                             'warehouse_id' => $data['warehouse_id'],
                             'partner_id' => $partnerId,
                             'payment_method' => $data['payment_method'],
                             'status' => 'draft',
-                            'discount_type' => $this->record->discount_type,
+                            'discount_type' => $this->record->discount_type ?? 'fixed',
                             'discount_value' => $this->record->discount_value ?? 0,
                             'subtotal' => $this->record->subtotal,
-                            'discount' => $this->record->discount,
+                            'discount' => $this->record->discount ?? 0,
                             'total' => $this->record->total,
                             'paid_amount' => 0,
                             'remaining_amount' => $this->record->total,

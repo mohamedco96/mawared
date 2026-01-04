@@ -75,15 +75,34 @@ class PartnerStatement extends Page implements HasForms
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('print')
-                ->label('طباعة PDF')
-                ->icon('heroicon-o-printer')
+            // A4 Print Action
+            Action::make('print_a4')
+                ->label('طباعة (A4)')
+                ->icon('heroicon-o-document-text')
+                ->color('primary')
+                ->url(fn () => $this->reportData
+                    ? route('reports.partner-statement.print', [
+                        'partner_id' => $this->data['partner_id'],
+                        'from_date' => $this->data['from_date'],
+                        'to_date' => $this->data['to_date'],
+                        'format' => 'a4',
+                    ])
+                    : null
+                )
+                ->openUrlInNewTab()
+                ->visible(fn () => $this->reportData !== null),
+
+            // Thermal Print Action
+            Action::make('print_thermal')
+                ->label('طباعة (حراري)')
+                ->icon('heroicon-o-receipt-percent')
                 ->color('success')
                 ->url(fn () => $this->reportData
                     ? route('reports.partner-statement.print', [
                         'partner_id' => $this->data['partner_id'],
                         'from_date' => $this->data['from_date'],
                         'to_date' => $this->data['to_date'],
+                        'format' => 'thermal',
                     ])
                     : null
                 )

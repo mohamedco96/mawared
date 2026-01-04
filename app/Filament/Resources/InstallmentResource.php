@@ -256,12 +256,19 @@ class InstallmentResource extends Resource
                     ->preload()
                     ->native(false),
 
-                Tables\Filters\SelectFilter::make('partner')
+                Tables\Filters\SelectFilter::make('partner_id')
                     ->label('العميل')
-                    ->relationship('salesInvoice.partner', 'name')
+                    ->options(fn() => \App\Models\Partner::pluck('name', 'id'))
                     ->searchable()
                     ->preload()
-                    ->native(false),
+                    ->native(false)
+                    ->query(function ($query, $state) {
+                        if ($state['value'] ?? null) {
+                            $query->whereHas('salesInvoice', function ($q) use ($state) {
+                                $q->where('partner_id', $state['value']);
+                            });
+                        }
+                    }),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make()

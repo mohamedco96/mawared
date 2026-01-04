@@ -1,0 +1,580 @@
+/* ==========================================
+   MAWARED ERP - PRINT STYLESHEET
+   Browser-Native Print (A4 + Thermal 80mm)
+   ========================================== */
+
+/* 1. CSS CUSTOM PROPERTIES */
+:root {
+    /* Colors (matching Filament theme) */
+    --color-primary: #3b82f6;
+    --color-primary-dark: #1e40af;
+    --color-success: #10b981;
+    --color-warning: #f59e0b;
+    --color-danger: #f43f5e;
+    --color-gray-50: #f8fafc;
+    --color-gray-100: #f1f5f9;
+    --color-gray-200: #e2e8f0;
+    --color-gray-500: #64748b;
+    --color-gray-700: #334155;
+    --color-gray-900: #1e293b;
+
+    /* Typography */
+    --font-arabic: 'Cairo', 'Tajawal', sans-serif;
+    --font-size-base: 11pt;
+    --font-size-small: 9pt;
+    --font-size-large: 14pt;
+    --line-height-base: 1.6;
+
+    /* Spacing */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 12px;
+    --spacing-lg: 16px;
+    --spacing-xl: 24px;
+}
+
+/* 2. BASE STYLES (All Formats) */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-arabic);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-base);
+    color: var(--color-gray-900);
+    direction: rtl;
+    text-align: right;
+}
+
+/* 3. A4 FORMAT STYLES */
+.format-a4 {
+    width: 210mm;
+    min-height: 297mm;
+    padding: var(--spacing-lg);
+}
+
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 15mm;
+    }
+}
+
+/* A4 Header Styles */
+.format-a4 .invoice-header {
+    margin-bottom: var(--spacing-xl);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 2px solid var(--color-gray-200);
+}
+
+.format-a4 .header-grid {
+    display: grid;
+    grid-template-columns: 60% 40%;
+    gap: var(--spacing-lg);
+}
+
+.format-a4 .company-logo {
+    max-height: 60px;
+    margin-bottom: var(--spacing-sm);
+}
+
+.format-a4 .company-name {
+    font-size: 16pt;
+    font-weight: bold;
+    color: var(--color-gray-900);
+    margin-bottom: var(--spacing-sm);
+}
+
+.format-a4 .company-details {
+    font-size: var(--font-size-small);
+    color: var(--color-gray-700);
+    line-height: 1.8;
+}
+
+.format-a4 .invoice-info-box {
+    background-color: var(--color-gray-50);
+    padding: var(--spacing-md);
+    border: 1px solid var(--color-gray-200);
+    border-radius: 4px;
+}
+
+.format-a4 .invoice-title {
+    font-size: 12pt;
+    font-weight: bold;
+    margin-bottom: var(--spacing-sm);
+    color: var(--color-gray-900);
+}
+
+.format-a4 .invoice-meta {
+    font-size: var(--font-size-small);
+    line-height: 1.8;
+}
+
+.format-a4 .invoice-meta div {
+    margin-bottom: 4px;
+}
+
+/* A4 Content Sections */
+.format-a4 .client-section {
+    background-color: var(--color-gray-50);
+    padding: var(--spacing-md);
+    margin: var(--spacing-md) 0;
+    border-right: 3px solid var(--color-primary);
+}
+
+.format-a4 .section-title {
+    font-weight: bold;
+    font-size: 11pt;
+    margin-bottom: var(--spacing-sm);
+    color: var(--color-gray-900);
+}
+
+.format-a4 .client-details {
+    font-size: var(--font-size-small);
+    line-height: 1.8;
+}
+
+.format-a4 .client-details div {
+    margin-bottom: 4px;
+}
+
+/* A4 Table Styles */
+.format-a4 .invoice-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: var(--spacing-lg) 0;
+    font-size: var(--font-size-small);
+}
+
+.format-a4 .invoice-table thead {
+    background-color: var(--color-gray-900);
+    color: white;
+}
+
+.format-a4 .invoice-table th {
+    padding: var(--spacing-sm);
+    font-weight: bold;
+    text-align: center;
+    border: 1px solid var(--color-gray-700);
+}
+
+.format-a4 .invoice-table td {
+    padding: 6px var(--spacing-sm);
+    border: 1px solid var(--color-gray-200);
+    text-align: center;
+}
+
+.format-a4 .invoice-table tbody tr:nth-child(even) {
+    background-color: var(--color-gray-50);
+}
+
+.format-a4 .col-product {
+    text-align: right !important;
+}
+
+/* A4 Payment Section */
+.format-a4 .payment-section {
+    background-color: #fef3c7;
+    border: 1px solid #fbbf24;
+    padding: var(--spacing-md);
+    margin: var(--spacing-md) 0;
+}
+
+.format-a4 .payment-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: var(--spacing-sm);
+}
+
+.format-a4 .payment-table th {
+    background-color: #fbbf24;
+    color: #78350f;
+    padding: var(--spacing-sm);
+    border: 1px solid #f59e0b;
+}
+
+.format-a4 .payment-table td {
+    padding: var(--spacing-sm);
+    border: 1px solid #fbbf24;
+    text-align: center;
+}
+
+/* A4 Totals Section */
+.format-a4 .totals-wrapper {
+    width: 50%;
+    margin-left: auto;
+    margin-top: var(--spacing-xl);
+}
+
+.format-a4 .totals-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--color-gray-200);
+}
+
+.format-a4 .totals-table td {
+    padding: var(--spacing-sm);
+    border-bottom: 1px solid var(--color-gray-200);
+}
+
+.format-a4 .totals-label {
+    font-weight: bold;
+    background-color: var(--color-gray-50);
+    width: 50%;
+}
+
+.format-a4 .totals-value {
+    width: 50%;
+    text-align: left;
+}
+
+.format-a4 .grand-total td {
+    background-color: var(--color-gray-900);
+    color: white;
+    font-size: 12pt;
+    font-weight: bold;
+    padding: var(--spacing-md);
+}
+
+/* 4. THERMAL FORMAT STYLES */
+.format-thermal {
+    width: 80mm;
+    padding: 2mm;
+    font-size: 10pt;
+}
+
+@media print {
+    .format-thermal {
+        @page {
+            size: 80mm auto;
+            margin: 2mm;
+        }
+    }
+}
+
+/* Thermal Header - Compact */
+.format-thermal .invoice-header {
+    text-align: center;
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px dashed var(--color-gray-500);
+}
+
+.format-thermal .header-grid {
+    display: block;
+}
+
+.format-thermal .company-logo {
+    max-height: 40px;
+    margin: 0 auto var(--spacing-xs);
+    display: block;
+}
+
+.format-thermal .company-name {
+    font-size: 12pt;
+    font-weight: bold;
+    margin-bottom: var(--spacing-xs);
+}
+
+.format-thermal .company-details {
+    font-size: 8pt;
+    line-height: 1.4;
+}
+
+.format-thermal .invoice-info-box {
+    background: none;
+    border: none;
+    padding: var(--spacing-xs) 0;
+    margin: var(--spacing-xs) 0;
+}
+
+.format-thermal .invoice-title {
+    font-size: 11pt;
+    margin-bottom: var(--spacing-xs);
+}
+
+.format-thermal .invoice-meta {
+    font-size: 8pt;
+    line-height: 1.6;
+}
+
+/* Thermal - Hide complex sections */
+.format-thermal .hide-on-thermal {
+    display: none !important;
+}
+
+/* Thermal Content Sections */
+.format-thermal .client-section {
+    background: none;
+    border: none;
+    padding: var(--spacing-xs) 0;
+    margin: var(--spacing-xs) 0;
+    border-bottom: 1px dashed var(--color-gray-500);
+}
+
+.format-thermal .section-title {
+    font-size: 9pt;
+    margin-bottom: 4px;
+}
+
+.format-thermal .client-details {
+    font-size: 8pt;
+    line-height: 1.5;
+}
+
+/* Thermal Table - Simplified */
+.format-thermal .invoice-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8pt;
+    margin: var(--spacing-sm) 0;
+}
+
+.format-thermal .invoice-table thead {
+    background-color: var(--color-gray-900);
+    color: white;
+}
+
+.format-thermal .invoice-table th {
+    padding: 3px 2px;
+    font-size: 8pt;
+    border: none;
+}
+
+.format-thermal .invoice-table td {
+    padding: 3px 2px;
+    border-bottom: 1px dotted var(--color-gray-200);
+    font-size: 8pt;
+}
+
+/* Thermal - Compact column layout */
+.format-thermal .col-serial {
+    width: 8%;
+}
+
+.format-thermal .col-product {
+    width: 40%;
+    text-align: right !important;
+}
+
+.format-thermal .col-unit {
+    width: 12%;
+}
+
+.format-thermal .col-qty {
+    width: 12%;
+}
+
+.format-thermal .col-price {
+    width: 14%;
+}
+
+.format-thermal .col-total {
+    width: 14%;
+}
+
+/* Thermal Totals - Simplified */
+.format-thermal .totals-wrapper {
+    width: 100%;
+    margin-top: var(--spacing-md);
+}
+
+.format-thermal .totals-table {
+    width: 100%;
+    font-size: 9pt;
+    border: none;
+}
+
+.format-thermal .totals-table td {
+    padding: 4px;
+    border-bottom: 1px dotted var(--color-gray-200);
+}
+
+.format-thermal .totals-label {
+    background: none;
+}
+
+.format-thermal .grand-total td {
+    font-weight: bold;
+    font-size: 10pt;
+    border-top: 2px solid var(--color-gray-900);
+    border-bottom: 2px solid var(--color-gray-900);
+    padding: var(--spacing-sm) 4px;
+}
+
+/* 5. COMMON PRINT UTILITIES */
+@media print {
+    /* Hide elements during print */
+    .no-print {
+        display: none !important;
+    }
+
+    /* Page break controls */
+    .page-break-before {
+        page-break-before: always;
+    }
+
+    .page-break-after {
+        page-break-after: always;
+    }
+
+    .avoid-page-break {
+        page-break-inside: avoid;
+    }
+
+    /* Prevent orphan rows in tables */
+    table tr {
+        page-break-inside: avoid;
+    }
+
+    /* Prevent section breaks */
+    .client-section,
+    .payment-section,
+    .totals-wrapper,
+    .notes-section {
+        page-break-inside: avoid;
+    }
+}
+
+/* 6. STATUS BADGES */
+.status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 9pt;
+    color: white;
+}
+
+.status-paid {
+    background-color: var(--color-success);
+}
+
+.status-partial {
+    background-color: var(--color-warning);
+}
+
+.status-unpaid {
+    background-color: var(--color-danger);
+}
+
+.format-thermal .status-badge {
+    font-size: 7pt;
+    padding: 2px 6px;
+}
+
+/* 7. NOTES SECTION */
+.notes-section {
+    background-color: var(--color-gray-50);
+    padding: var(--spacing-md);
+    margin-top: var(--spacing-lg);
+    border-right: 3px solid var(--color-gray-500);
+}
+
+.notes-title {
+    font-weight: bold;
+    margin-bottom: var(--spacing-xs);
+}
+
+.notes-text {
+    color: var(--color-gray-700);
+    white-space: pre-wrap;
+}
+
+.format-thermal .notes-section {
+    background: none;
+    border: none;
+    padding: var(--spacing-xs) 0;
+    margin-top: var(--spacing-sm);
+    border-top: 1px dashed var(--color-gray-500);
+}
+
+.format-thermal .notes-title {
+    font-size: 9pt;
+}
+
+.format-thermal .notes-text {
+    font-size: 8pt;
+}
+
+/* 8. FOOTER ELEMENTS */
+.thank-you {
+    text-align: center;
+    font-size: 14pt;
+    font-weight: bold;
+    margin: var(--spacing-lg) 0 var(--spacing-sm) 0;
+}
+
+.print-date {
+    text-align: center;
+    font-size: 8pt;
+    color: var(--color-gray-500);
+    margin-top: var(--spacing-sm);
+}
+
+.format-thermal .thank-you {
+    font-size: 10pt;
+    margin: var(--spacing-sm) 0;
+}
+
+.format-thermal .print-date {
+    font-size: 7pt;
+}
+
+/* 9. MANUAL PRINT BUTTON (Screen Only) */
+.btn-print {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 24px;
+    background-color: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-family: var(--font-arabic);
+    font-size: 14pt;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s;
+    z-index: 1000;
+}
+
+.btn-print:hover {
+    background-color: var(--color-primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+.btn-print:active {
+    transform: translateY(0);
+}
+
+/* 10. RTL SUPPORT */
+[dir="rtl"] {
+    direction: rtl;
+    text-align: right;
+}
+
+[dir="rtl"] table {
+    direction: rtl;
+}
+
+/* 11. RESPONSIVE ADJUSTMENTS (Screen Preview) */
+@media screen and (max-width: 768px) {
+    .format-a4 {
+        width: 100%;
+        padding: var(--spacing-md);
+    }
+
+    .format-a4 .header-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .format-a4 .totals-wrapper {
+        width: 100%;
+    }
+}

@@ -75,10 +75,26 @@ class ViewSalesInvoice extends ViewRecord
                     }
                 }),
 
-            Actions\Action::make('print')
-                ->label('طباعة PDF')
-                ->icon('heroicon-o-printer')
-                ->url(fn () => route('invoices.sales.print', $this->record))
+            // A4 Print Action
+            Actions\Action::make('print_a4')
+                ->label('طباعة (A4)')
+                ->icon('heroicon-o-document-text')
+                ->url(fn () => route('invoices.sales.print', [
+                    'invoice' => $this->record,
+                    'format' => 'a4'
+                ]))
+                ->openUrlInNewTab()
+                ->visible(fn () => $this->record->isPosted())
+                ->color('primary'),
+
+            // Thermal Print Action
+            Actions\Action::make('print_thermal')
+                ->label('طباعة (حراري)')
+                ->icon('heroicon-o-receipt-percent')
+                ->url(fn () => route('invoices.sales.print', [
+                    'invoice' => $this->record,
+                    'format' => 'thermal'
+                ]))
                 ->openUrlInNewTab()
                 ->visible(fn () => $this->record->isPosted())
                 ->color('success'),
