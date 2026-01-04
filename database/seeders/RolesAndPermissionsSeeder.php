@@ -363,6 +363,11 @@ class RolesAndPermissionsSeeder extends Seeder
             'view_general::setting',
             'update_general::setting',
 
+            // Backup Operations
+            'download-backup',
+            'delete-backup',
+            'restore-backup',
+
             // ==================================================
             // FILAMENT PAGES - Explicit Access Permissions
             // ==================================================

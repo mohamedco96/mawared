@@ -16,6 +16,8 @@ class Backups extends BaseBackups
 
     protected static ?string $navigationIcon = 'heroicon-o-circle-stack';
 
+    protected static string $view = 'filament.pages.backups';
+
     public static function canAccess(): bool
     {
         return auth()->user()?->can('page_Backups') ?? false;
