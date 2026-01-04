@@ -15,6 +15,11 @@ class Warehouse extends Model
         'name',
         'code',
         'address',
+        'is_active',
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
     ];
 
     // Relationships

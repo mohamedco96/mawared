@@ -15,11 +15,13 @@ class Partner extends Model
     use HasFactory, HasUlids, SoftDeletes, LogsActivity;
 
     protected $fillable = [
+        'legacy_id',
         'name',
         'phone',
         'type',
         'gov_id',
         'region',
+        'address',
         'is_banned',
         'current_balance',
         'opening_balance',
@@ -212,6 +214,11 @@ class Partner extends Model
     public function scopeShareholders($query)
     {
         return $query->where('type', 'shareholder');
+    }
+
+    public function scopeUnknown($query)
+    {
+        return $query->where('type', 'unknown');
     }
 
     // Global Search Implementation

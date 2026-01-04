@@ -25,6 +25,7 @@ class ProductCategory extends Model
         'image',
         'is_active',
         'display_order',
+        'default_profit_margin',
     ];
 
     protected function casts(): array
