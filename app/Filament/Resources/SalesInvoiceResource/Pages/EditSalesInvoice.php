@@ -7,6 +7,7 @@ use App\Models\SalesReturn;
 use App\Models\SalesReturnItem;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class EditSalesInvoice extends EditRecord
@@ -117,11 +118,19 @@ class EditSalesInvoice extends EditRecord
                     // 3. Update status back to posted (using saveQuietly to bypass model events)
                     $record->status = 'posted';
                     $record->saveQuietly();
+
+                    // 4. Generate installments if plan is enabled
+                    if ($record->has_installment_plan) {
+                        app(\App\Services\InstallmentService::class)
+                            ->generateInstallmentSchedule($record);
+                    }
                 });
 
                 // Show success notification (outside transaction)
                 \Filament\Notifications\Notification::make()
-                    ->title('تم ترحيل الفاتورة وتحديث المخزون والخزينة')
+                    ->title($record->has_installment_plan
+                        ? "تم ترحيل الفاتورة وإنشاء {$record->installment_months} أقساط"
+                        : 'تم ترحيل الفاتورة وتحديث المخزون والخزينة')
                     ->success()
                     ->send();
             } catch (\Exception $e) {
