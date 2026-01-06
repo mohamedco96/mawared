@@ -867,7 +867,6 @@ class SalesInvoiceResource extends Resource
                     ->preload(),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
                 Tables\Actions\Action::make('print')
                     ->label('طباعة PDF')
                     ->icon('heroicon-o-printer')
@@ -997,7 +996,6 @@ class SalesInvoiceResource extends Resource
                         $replica->invoice_number = 'SI-'.now()->format('Ymd').'-'.\Illuminate\Support\Str::random(6);
                         $replica->status = 'draft';
                     }),
-                Tables\Actions\ViewAction::make(),
                 Tables\Actions\DeleteAction::make()
                     ->visible(fn (SalesInvoice $record) => $record->isDraft()),
             ])
@@ -1028,7 +1026,6 @@ class SalesInvoiceResource extends Resource
         return [
             'index' => Pages\ListSalesInvoices::route('/'),
             'create' => Pages\CreateSalesInvoice::route('/create'),
-            'view' => Pages\ViewSalesInvoice::route('/{record}'),
             'edit' => Pages\EditSalesInvoice::route('/{record}/edit'),
         ];
     }

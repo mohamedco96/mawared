@@ -113,7 +113,7 @@ class InstallmentResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->weight(FontWeight::Bold)
-                    ->url(fn (Installment $record) => route('filament.admin.resources.sales-invoices.view', $record->sales_invoice_id))
+                    ->url(fn (Installment $record) => route('filament.admin.resources.sales-invoices.edit', $record->sales_invoice_id))
                     ->color('primary'),
 
                 Tables\Columns\TextColumn::make('salesInvoice.partner.name')
@@ -278,7 +278,7 @@ class InstallmentResource extends Resource
                     ->label('عرض الفاتورة')
                     ->icon('heroicon-o-document-text')
                     ->color('info')
-                    ->url(fn (Installment $record) => route('filament.admin.resources.sales-invoices.view', $record->sales_invoice_id)),
+                    ->url(fn (Installment $record) => route('filament.admin.resources.sales-invoices.edit', $record->sales_invoice_id)),
 
                 Tables\Actions\Action::make('view_payment')
                     ->label('عرض الدفعة')

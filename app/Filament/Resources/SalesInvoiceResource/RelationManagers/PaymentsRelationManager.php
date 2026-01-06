@@ -139,10 +139,25 @@ class PaymentsRelationManager extends RelationManager
                             ->title('تم تسجيل الدفعة بنجاح')
                             ->body('تم إضافة الدفعة وتحديث رصيد العميل والخزينة')
                     )
-                    ->visible(fn (RelationManager $livewire) =>
-                        $livewire->getOwnerRecord()->isPosted() &&
-                        ($livewire->getOwnerRecord()->current_remaining ?? $livewire->getOwnerRecord()->remaining_amount) > 0
-                    ),
+                    ->visible(function (RelationManager $livewire) {
+                        $invoice = $livewire->getOwnerRecord();
+
+                        // Make sure invoice is posted
+                        if (!$invoice->isPosted()) {
+                            return false;
+                        }
+
+                        // Load payments if not already loaded
+                        if (!$invoice->relationLoaded('payments')) {
+                            $invoice->loadSum('payments', 'amount');
+                        }
+
+                        // Calculate current remaining
+                        $totalPaid = floatval($invoice->paid_amount) + floatval($invoice->payments_sum_amount ?? 0);
+                        $remaining = floatval($invoice->total) - $totalPaid;
+
+                        return $remaining > 0.01;
+                    }),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make()
