@@ -175,6 +175,24 @@ class SalesInvoiceResource extends Resource
                                 Forms\Components\Select::make('product_id')
                                     ->label('المنتج')
                                     ->relationship('product', 'name')
+                                    ->getOptionLabelFromRecordUsing(function ($record, Get $get) {
+                                        $warehouseId = $get('../../warehouse_id');
+                                        if (!$warehouseId) {
+                                            return $record->name;
+                                        }
+
+                                        $stockService = app(\App\Services\StockService::class);
+                                        $stock = $stockService->getCurrentStock($warehouseId, $record->id);
+
+                                        // Color indicators based on stock level
+                                        $emoji = match(true) {
+                                            $stock <= 0 => '🔴',
+                                            $stock <= ($record->min_stock ?? 0) => '🟡',
+                                            default => '🟢'
+                                        };
+
+                                        return "{$record->name} {$emoji} (متوفر: {$stock})";
+                                    })
                                     ->required()
                                     ->searchable(['name', 'barcode', 'sku'])
                                     ->preload()
@@ -241,6 +259,65 @@ class SalesInvoiceResource extends Resource
                                     })
                                     ->columnSpan(2)
                                     ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
+
+                                // Stock availability indicator
+                                Forms\Components\Placeholder::make('current_stock')
+                                    ->label('الرصيد الحالي')
+                                    ->content(function (Get $get) {
+                                        $productId = $get('product_id');
+                                        $warehouseId = $get('../../warehouse_id');
+
+                                        if (!$productId || !$warehouseId) {
+                                            return '—';
+                                        }
+
+                                        $product = Product::find($productId);
+                                        if (!$product) {
+                                            return '—';
+                                        }
+
+                                        $stockService = app(\App\Services\StockService::class);
+                                        $baseStock = $stockService->getCurrentStock($warehouseId, $productId);
+
+                                        // Show both units if large unit exists
+                                        $smallStock = $baseStock;
+                                        $largeStock = $product->large_unit_id ? floor($baseStock / $product->factor) : null;
+
+                                        $display = "{$smallStock} {$product->smallUnit->name}";
+                                        if ($largeStock !== null && $product->largeUnit) {
+                                            $display .= " ({$largeStock} {$product->largeUnit->name})";
+                                        }
+
+                                        return $display;
+                                    })
+                                    ->extraAttributes(function (Get $get) {
+                                        $productId = $get('product_id');
+                                        $warehouseId = $get('../../warehouse_id');
+
+                                        if (!$productId || !$warehouseId) {
+                                            return [];
+                                        }
+
+                                        $product = Product::find($productId);
+                                        if (!$product) {
+                                            return [];
+                                        }
+
+                                        $stockService = app(\App\Services\StockService::class);
+                                        $stock = $stockService->getCurrentStock($warehouseId, $productId);
+
+                                        // Color coding based on stock level
+                                        $color = match(true) {
+                                            $stock <= 0 => 'color: #ef4444; font-weight: bold;', // red
+                                            $stock <= ($product->min_stock ?? 0) => 'color: #f59e0b; font-weight: bold;', // amber
+                                            default => 'color: #10b981; font-weight: bold;' // green
+                                        };
+
+                                        return ['style' => $color];
+                                    })
+                                    ->visible(fn (Get $get) => $get('product_id') !== null)
+                                    ->columnSpan(2),
+
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية')
                                     ->integer()
@@ -248,6 +325,25 @@ class SalesInvoiceResource extends Resource
                                     ->required()
                                     ->default(1)
                                     ->minValue(1)
+                                    ->helperText(function (Get $get) {
+                                        $productId = $get('product_id');
+                                        $warehouseId = $get('../../warehouse_id');
+                                        $unitType = $get('unit_type') ?? 'small';
+
+                                        if (!$productId || !$warehouseId) {
+                                            return 'أدخل الكمية';
+                                        }
+
+                                        $stockService = app(\App\Services\StockService::class);
+                                        $validation = $stockService->getStockValidationMessage(
+                                            $warehouseId,
+                                            $productId,
+                                            0, // Just for display
+                                            $unitType
+                                        );
+
+                                        return "المخزون المتاح: {$validation['display_stock']}";
+                                    })
                                     ->live(onBlur: true)
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $unitPrice = $get('unit_price') ?? 0;
@@ -614,9 +710,22 @@ class SalesInvoiceResource extends Resource
                                 $total = floatval($get('total') ?? 0);
                                 $marginPct = $total > 0 ? ($totalProfit / $total) * 100 : 0;
 
+                                // Get thresholds from settings
+                                $excellentThreshold = floatval(\App\Models\GeneralSetting::getValue('profit_margin_excellent', 25));
+                                $goodThreshold = floatval(\App\Models\GeneralSetting::getValue('profit_margin_good', 15));
+                                $warnBelowCost = \App\Models\GeneralSetting::getValue('profit_margin_warning_below_cost', true);
+
+                                // Check if selling below cost
+                                if ($warnBelowCost && $totalProfit < 0) {
+                                    return new \Illuminate\Support\HtmlString(
+                                        '<span style="color: #ef4444; font-weight: bold;">⚠️ تحذير: البيع بأقل من التكلفة!</span> ' .
+                                        '<br><span style="color: #ef4444;">(خسارة: ' . number_format(abs($marginPct), 1) . '%)</span>'
+                                    );
+                                }
+
                                 return match (true) {
-                                    $marginPct >= 25 => '🟢 ممتاز ('.number_format($marginPct, 1).'%)',
-                                    $marginPct >= 15 => '🟡 جيد ('.number_format($marginPct, 1).'%)',
+                                    $marginPct >= $excellentThreshold => '🟢 ممتاز ('.number_format($marginPct, 1).'%)',
+                                    $marginPct >= $goodThreshold => '🟡 جيد ('.number_format($marginPct, 1).'%)',
                                     default => '🔴 منخفض ('.number_format($marginPct, 1).'%)',
                                 };
                             })
@@ -671,6 +780,49 @@ class SalesInvoiceResource extends Resource
                             ->label('ملاحظات التقسيط')
                             ->visible(fn (Get $get) => $get('has_installment_plan'))
                             ->rows(2),
+
+                        // Installment Schedule Preview
+                        Forms\Components\Placeholder::make('installment_preview')
+                            ->label('معاينة جدول الأقساط')
+                            ->content(function (Get $get) {
+                                $hasInstallment = $get('has_installment_plan');
+                                $months = intval($get('installment_months') ?? 3);
+                                $startDate = $get('installment_start_date');
+                                $remainingAmount = floatval($get('remaining_amount') ?? 0);
+
+                                if (!$hasInstallment || !$startDate || $remainingAmount <= 0) {
+                                    return '—';
+                                }
+
+                                $installmentAmount = $remainingAmount / $months;
+                                $html = '<div class="overflow-x-auto">';
+                                $html .= '<table class="w-full text-sm border-collapse">';
+                                $html .= '<thead><tr class="bg-gray-100 dark:bg-gray-800">';
+                                $html .= '<th class="p-2 text-center border border-gray-300 dark:border-gray-600">رقم القسط</th>';
+                                $html .= '<th class="p-2 text-center border border-gray-300 dark:border-gray-600">تاريخ الاستحقاق</th>';
+                                $html .= '<th class="p-2 text-center border border-gray-300 dark:border-gray-600">المبلغ</th>';
+                                $html .= '</tr></thead><tbody>';
+
+                                $currentDate = \Carbon\Carbon::parse($startDate);
+                                for ($i = 1; $i <= $months; $i++) {
+                                    $html .= '<tr class="border-t">';
+                                    $html .= "<td class='p-2 text-center border border-gray-300 dark:border-gray-600'>القسط {$i}</td>";
+                                    $html .= "<td class='p-2 text-center border border-gray-300 dark:border-gray-600'>{$currentDate->format('Y-m-d')}</td>";
+                                    $html .= "<td class='p-2 text-center border border-gray-300 dark:border-gray-600'>" . number_format($installmentAmount, 2) . " ج.م</td>";
+                                    $html .= '</tr>';
+                                    $currentDate->addMonth();
+                                }
+
+                                $html .= '</tbody><tfoot><tr class="bg-gray-100 dark:bg-gray-800 font-bold">';
+                                $html .= '<td colspan="2" class="p-2 text-center border border-gray-300 dark:border-gray-600">الإجمالي</td>';
+                                $html .= '<td class="p-2 text-center border border-gray-300 dark:border-gray-600">' . number_format($remainingAmount, 2) . ' ج.م</td>';
+                                $html .= '</tr></tfoot></table>';
+                                $html .= '</div>';
+
+                                return new \Illuminate\Support\HtmlString($html);
+                            })
+                            ->visible(fn (Get $get) => $get('has_installment_plan'))
+                            ->columnSpanFull(),
                     ])
                     ->visible(fn (Get $get) => $get('payment_method') === 'credit')
                     ->collapsible()
@@ -789,12 +941,58 @@ class SalesInvoiceResource extends Resource
                     ->label('الإجمالي')
                     ->numeric(decimalPlaces: 2)
                     ->sortable(),
+                Tables\Columns\TextColumn::make('profit_margin')
+                    ->label('هامش الربح')
+                    ->state(function ($record) {
+                        if (!auth()->user()->can('view_profit')) {
+                            return null;
+                        }
+
+                        $totalProfit = 0;
+                        foreach ($record->items as $item) {
+                            $product = $item->product;
+                            if (!$product) continue;
+
+                            $baseQty = $item->unit_type === 'large' && $product->factor
+                                ? $item->quantity * $product->factor
+                                : $item->quantity;
+
+                            $cost = floatval($product->avg_cost ?? 0) * $baseQty;
+                            $totalProfit += ($item->total - $cost);
+                        }
+
+                        $marginPct = $record->total > 0 ? ($totalProfit / $record->total) * 100 : 0;
+                        return $marginPct;
+                    })
+                    ->formatStateUsing(fn ($state) => $state !== null ? number_format($state, 1) . '%' : '—')
+                    ->badge()
+                    ->color(function ($state) {
+                        if ($state === null) return 'gray';
+
+                        $excellent = floatval(\App\Models\GeneralSetting::getValue('profit_margin_excellent', 25));
+                        $good = floatval(\App\Models\GeneralSetting::getValue('profit_margin_good', 15));
+
+                        return match(true) {
+                            $state < 0 => 'danger',
+                            $state >= $excellent => 'success',
+                            $state >= $good => 'warning',
+                            default => 'gray',
+                        };
+                    })
+                    ->visible(fn () => auth()->user()->can('view_profit'))
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('التاريخ')
                     ->dateTime()
                     ->sortable(),
             ])
+            ->persistFiltersInSession()
             ->filters([
+                // Quick Filter Pills
+                ...\App\Filament\Components\QuickFilterPills::make(),
+                \App\Filament\Components\QuickFilterPills::unpaidFilter(),
+                \App\Filament\Components\QuickFilterPills::draftFilter(),
+
                 Tables\Filters\SelectFilter::make('status')
                     ->label('الحالة')
                     ->options([
@@ -878,7 +1076,98 @@ class SalesInvoiceResource extends Resource
                     ->label('تأكيد')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->requiresConfirmation()
+                    ->modalHeading('معاينة تأكيد الفاتورة')
+                    ->modalDescription('مراجعة التغييرات التي ستحدث عند التأكيد')
+                    ->modalSubmitActionLabel('تأكيد الفاتورة')
+                    ->modalWidth('2xl')
+                    ->fillForm(function (SalesInvoice $record) {
+                        $stockService = app(StockService::class);
+                        $changes = [];
+
+                        foreach ($record->items as $item) {
+                            $currentStock = $stockService->getCurrentStock(
+                                $record->warehouse_id,
+                                $item->product_id
+                            );
+                            $baseQty = $stockService->convertToBaseUnit(
+                                $item->product,
+                                $item->quantity,
+                                $item->unit_type
+                            );
+
+                            $changes[] = [
+                                'product' => $item->product->name,
+                                'current_stock' => $currentStock,
+                                'new_stock' => $currentStock - $baseQty,
+                                'change' => -$baseQty,
+                            ];
+                        }
+
+                        return [
+                            'stock_changes' => $changes,
+                            'treasury_impact' => $record->paid_amount,
+                            'partner_balance_change' => $record->remaining_amount,
+                        ];
+                    })
+                    ->form([
+                        Forms\Components\Section::make('حركات المخزون')
+                            ->description('التغييرات التي ستحدث على المخزون')
+                            ->schema([
+                                Forms\Components\Repeater::make('stock_changes')
+                                    ->label('')
+                                    ->schema([
+                                        Forms\Components\Placeholder::make('product')
+                                            ->label('المنتج')
+                                            ->content(function (Get $get) {
+                                                $item = $get('../../');
+                                                return is_array($item) ? ($item['product'] ?? '—') : '—';
+                                            }),
+                                        Forms\Components\Placeholder::make('stock_change')
+                                            ->label('التغيير')
+                                            ->content(function (Get $get) {
+                                                $item = $get('../../');
+                                                if (!is_array($item)) {
+                                                    return '—';
+                                                }
+                                                $current = $item['current_stock'] ?? 0;
+                                                $new = $item['new_stock'] ?? 0;
+                                                $change = $item['change'] ?? 0;
+                                                return "{$current} ← {$new} ({$change} وحدة)";
+                                            })
+                                            ->extraAttributes(function (Get $get) {
+                                                $item = $get('../../');
+                                                if (!is_array($item)) {
+                                                    return [];
+                                                }
+                                                return [
+                                                    'style' => ($item['new_stock'] ?? 0) < 0
+                                                        ? 'color: #ef4444; font-weight: bold;'
+                                                        : ''
+                                                ];
+                                            }),
+                                    ])
+                                    ->columns(2)
+                                    ->disabled()
+                                    ->addable(false)
+                                    ->deletable(false)
+                                    ->reorderable(false),
+                            ])
+                            ->collapsible(),
+
+                        Forms\Components\Section::make('حركات الخزينة')
+                            ->description('التأثير المالي')
+                            ->schema([
+                                Forms\Components\Placeholder::make('treasury_impact')
+                                    ->label('الدخول إلى الخزينة')
+                                    ->content(fn ($state) => number_format($state ?? 0, 2) . ' ج.م')
+                                    ->extraAttributes(['style' => 'color: #10b981; font-size: 1.25rem; font-weight: bold;']),
+                                Forms\Components\Placeholder::make('partner_balance_change')
+                                    ->label('رصيد العميل (المبلغ المتبقي)')
+                                    ->content(fn ($state) => number_format($state ?? 0, 2) . ' ج.م')
+                                    ->visible(fn (Get $get) => ($get('partner_balance_change') ?? 0) > 0)
+                                    ->extraAttributes(['style' => 'color: #f59e0b; font-size: 1.25rem; font-weight: bold;']),
+                            ]),
+                    ])
                     ->action(function (SalesInvoice $record) {
                         try {
                             $stockService = app(StockService::class);
@@ -999,6 +1288,53 @@ class SalesInvoiceResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\BulkAction::make('bulk_post')
+                        ->label('تأكيد المحدد')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->modalHeading('تأكيد الفواتير المحددة')
+                        ->modalDescription('هل تريد تأكيد جميع الفواتير المحددة؟ سيتم تسجيل حركات المخزون والخزينة.')
+                        ->action(function (Collection $records) {
+                            $stockService = app(StockService::class);
+                            $treasuryService = app(TreasuryService::class);
+                            $successCount = 0;
+                            $errors = [];
+
+                            foreach ($records as $record) {
+                                if (!$record->isDraft()) {
+                                    continue;
+                                }
+
+                                try {
+                                    DB::transaction(function () use ($record, $stockService, $treasuryService) {
+                                        $stockService->postSalesInvoice($record);
+                                        $treasuryService->postSalesInvoice($record);
+                                        $record->update(['status' => 'posted']);
+                                    });
+                                    $successCount++;
+                                } catch (\Exception $e) {
+                                    $errors[] = "فاتورة {$record->invoice_number}: {$e->getMessage()}";
+                                }
+                            }
+
+                            if ($successCount > 0) {
+                                Notification::make()
+                                    ->success()
+                                    ->title("تم تأكيد {$successCount} فاتورة بنجاح")
+                                    ->send();
+                            }
+
+                            if (!empty($errors)) {
+                                Notification::make()
+                                    ->danger()
+                                    ->title('بعض الفواتير فشلت')
+                                    ->body(implode("\n", array_slice($errors, 0, 5)))
+                                    ->send();
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
                     Tables\Actions\DeleteBulkAction::make()
                         ->before(function ($records) {
                             foreach ($records as $record) {

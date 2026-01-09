@@ -372,8 +372,10 @@ class RolesAndPermissionsSeeder extends Seeder
             // FILAMENT PAGES - Explicit Access Permissions
             // ==================================================
             'page_Backups',
+            'page_CollectPayments',
             'page_DailyOperations',
             'page_GeneralSettings',
+            'page_ItemProfitabilityReport',
             'page_PartnerStatement',
             'page_ProfitLossReport',
             'page_StockCard',

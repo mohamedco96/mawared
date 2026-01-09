@@ -1,0 +1,187 @@
+/* Mobile Responsive Improvements for Filament */
+
+@media (max-width: 768px) {
+    /* Simplify repeater layouts on mobile */
+    .fi-fo-repeater-item {
+        padding: 0.5rem !important;
+    }
+
+    .fi-fo-repeater-item-content {
+        gap: 0.5rem !important;
+    }
+
+    /* Stack action buttons vertically on mobile */
+    .fi-ta-actions,
+    .fi-ta-header-actions {
+        flex-direction: column !important;
+        gap: 0.25rem !important;
+        width: 100%;
+    }
+
+    .fi-ta-actions > *,
+    .fi-ta-header-actions > * {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+
+    /* Reduce modal width on mobile */
+    .fi-modal-window {
+        width: 95vw !important;
+        max-width: 95vw !important;
+        margin: 1rem !important;
+    }
+
+    /* Make form sections more compact */
+    .fi-fo-section {
+        padding: 0.75rem !important;
+    }
+
+    .fi-fo-section-header {
+        padding-bottom: 0.5rem !important;
+    }
+
+    /* Adjust table column spacing */
+    .fi-ta-table {
+        font-size: 0.875rem !important;
+    }
+
+    .fi-ta-cell {
+        padding: 0.5rem 0.25rem !important;
+    }
+
+    /* Make badges smaller on mobile */
+    .fi-badge {
+        font-size: 0.75rem !important;
+        padding: 0.125rem 0.375rem !important;
+    }
+
+    /* Improve filter popover on mobile */
+    .fi-ta-filters {
+        max-width: 90vw !important;
+    }
+
+    /* Stack form grid columns on mobile */
+    .fi-fo-field-wrp-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Make placeholder text smaller on mobile */
+    .fi-fo-placeholder {
+        font-size: 0.875rem !important;
+    }
+
+    /* Adjust notification position */
+    .fi-notifications {
+        bottom: 1rem !important;
+        right: 1rem !important;
+        left: 1rem !important;
+        max-width: calc(100vw - 2rem) !important;
+    }
+
+    /* Make tabs scrollable on mobile */
+    .fi-tabs {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    .fi-tabs-items {
+        flex-wrap: nowrap !important;
+    }
+
+    /* Reduce padding in cards */
+    .fi-section-content-ctn {
+        padding: 0.75rem !important;
+    }
+
+    /* Make global search more mobile-friendly */
+    .fi-global-search-field {
+        width: 100% !important;
+    }
+
+    /* Improve select dropdown on mobile */
+    .fi-select-list {
+        max-height: 60vh !important;
+    }
+
+    /* Make repeater add button full width */
+    .fi-fo-repeater-actions {
+        width: 100% !important;
+    }
+
+    .fi-fo-repeater-actions button {
+        width: 100% !important;
+    }
+}
+
+/* Tablet-specific adjustments */
+@media (min-width: 769px) and (max-width: 1024px) {
+    /* Slightly reduce spacing on tablets */
+    .fi-fo-section {
+        padding: 1rem !important;
+    }
+
+    .fi-ta-cell {
+        padding: 0.75rem 0.5rem !important;
+    }
+
+    /* Use 2-column grid on tablets for better space usage */
+    .fi-fo-field-wrp-grid[data-cols="3"] {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+/* Print styles */
+@media print {
+    /* Hide navigation and actions when printing */
+    .fi-sidebar,
+    .fi-topbar,
+    .fi-ta-actions,
+    .fi-ta-header-actions,
+    .fi-pagination {
+        display: none !important;
+    }
+
+    /* Ensure tables print properly */
+    .fi-ta-table {
+        page-break-inside: avoid !important;
+    }
+
+    /* Remove background colors for printing */
+    * {
+        background-color: white !important;
+        color: black !important;
+    }
+
+    .fi-badge {
+        border: 1px solid #000 !important;
+    }
+}
+
+/* Dark mode adjustments for mobile */
+@media (max-width: 768px) and (prefers-color-scheme: dark) {
+    .fi-modal-window {
+        background-color: rgb(31 41 55) !important;
+    }
+
+    .fi-section-content-ctn {
+        background-color: rgb(17 24 39) !important;
+    }
+}
+
+/* Accessibility improvements */
+@media (max-width: 768px) {
+    /* Larger touch targets */
+    button,
+    a,
+    .fi-ta-cell,
+    .fi-fo-field-wrp {
+        min-height: 44px !important;
+        min-width: 44px !important;
+    }
+
+    /* Better focus indicators */
+    *:focus {
+        outline: 2px solid currentColor !important;
+        outline-offset: 2px !important;
+    }
+}

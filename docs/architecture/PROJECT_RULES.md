@@ -1,7 +1,7 @@
 # Mawared ERP - Project Rules & Architecture Guidelines
 
-> **Version:** 1.0  
-> **Last Updated:** December 2025  
+> **Version:** 1.1  
+> **Last Updated:** January 2026  
 > **Purpose:** This document defines the NON-NEGOTIABLE architectural principles, database standards, and coding guidelines for all Mawared ERP development.
 
 ---
@@ -90,14 +90,16 @@
 ### B. Data Precision & Types
 
 #### Monetary Values
-* **Type:** MUST be `decimal(18, 4)`.
+* **Type:** MUST be `DECIMAL(15, 4)`.
 * **Applies To:**
     * Prices (`retail_price`, `wholesale_price`)
     * Costs (`avg_cost`, `unit_cost`)
     * Totals (`subtotal`, `total`, `discount`)
     * Balances (`current_balance`, `amount`)
 * ❌ **FORBIDDEN:** Never use `float` or `double` for money.
-* **Reason:** Prevents rounding errors and ensures financial accuracy.
+* ❌ **FORBIDDEN:** Never use `DECIMAL(10, 2)` for financial data.
+* **Reason:** Prevents rounding errors and ensures financial accuracy. Supports values up to 999,999,999,999.9999.
+* **Note:** See Section 13.A for detailed migration reference and PHP casting rules.
 
 #### Quantities
 * **Type:** MUST be `integer`.
@@ -117,10 +119,13 @@
     * `Product`
     * `Partner`
     * `SalesInvoice`, `PurchaseInvoice`
+    * `SalesReturn`, `PurchaseReturn`
     * `StockMovement`
     * `TreasuryTransaction`
     * `StockAdjustment`
     * `WarehouseTransfer`
+    * `Quotation`
+    * `InvoicePayment`
 * **Migration:** `$table->softDeletes()`
 * **Model:** `use SoftDeletes;`
 * **Reason:** Preserves historical data and enables audit trails.
@@ -141,6 +146,23 @@
     ```
 * **Reason:** Ensures data consistency and prevents partial updates.
 
+#### Nested Transaction Handling
+* **Pattern:** When service methods call other service methods, check transaction level to avoid nested transactions.
+* **Implementation:**
+    ```php
+    $execute = function () use ($params) {
+        // Business logic here
+    };
+    
+    // Only wrap in transaction if not already in one
+    if (DB::transactionLevel() === 0) {
+        DB::transaction($execute);
+    } else {
+        $execute();
+    }
+    ```
+* **Reason:** Prevents unnecessary nested transactions while maintaining atomicity when called from within existing transactions.
+
 #### Polymorphism
 * **MorphMap:** MUST register a `MorphMap` in `AppServiceProvider::boot()`.
 * **Example:**
@@ -148,11 +170,18 @@
     Relation::enforceMorphMap([
         'sales_invoice' => SalesInvoice::class,
         'purchase_invoice' => PurchaseInvoice::class,
+        'sales_return' => SalesReturn::class,
+        'purchase_return' => PurchaseReturn::class,
         'warehouse_transfer' => WarehouseTransfer::class,
         'stock_adjustment' => StockAdjustment::class,
         'expense' => Expense::class,
         'revenue' => Revenue::class,
+        'fixed_asset' => FixedAsset::class,
         'treasury_transaction' => TreasuryTransaction::class,
+        'quotation' => Quotation::class,
+        'user' => User::class,
+        'product' => Product::class,
+        'product_category' => ProductCategory::class,
     ]);
     ```
 * ❌ **FORBIDDEN:** Do NOT store full class names (e.g., `App\Models\SalesInvoice`) in the database.
@@ -230,13 +259,145 @@
 * **Trigger:** When a `purchase_invoice` is posted.
 * **Method:** `StockService::updateProductAvgCost($productId)`
 * **Formula:** Weighted average based on purchase quantities and costs.
-* **Storage:** Updated in `products.avg_cost` (decimal 18,4).
+* **Storage:** Updated in `products.avg_cost` (DECIMAL 15,4).
 
 #### Selling Price Updates
 * **Feature:** Purchase invoice items can include `new_selling_price`.
 * **Behavior:** When purchase invoice is posted:
     * If `new_selling_price` is set, update product prices immediately.
     * Method: `StockService::updateProductPrice($productId, $priceData)`
+
+---
+
+### D. Quotations System
+
+#### Status Enum
+* **Quotations** use a different status system than invoices:
+    * `quotations.status`: `['draft', 'sent', 'accepted', 'converted', 'rejected', 'expired']`
+* **Note:** Quotations do NOT use `draft`/`posted` pattern like commercial documents.
+
+#### Quotation Behavior
+* **Draft/Sent Status:**
+    * ❌ **NO effect** on `stock_movements`
+    * ❌ **NO effect** on `treasury_transactions`
+    * ❌ **NO effect** on partner balances
+    * ✅ **Editable:** Can be modified or deleted
+* **Converted Status:**
+    * Quotation is converted to a `SalesInvoice`
+    * Original quotation is linked via `converted_invoice_id`
+    * Conversion creates a new draft invoice (must be posted separately)
+* **Public Access:**
+    * Quotations have `public_token` for external sharing
+    * Can be viewed via public route without authentication
+    * Used for customer approval workflow
+
+#### Conversion Process
+* **Action:** "Convert to Invoice" action in Filament Resource
+* **Behavior:**
+    * Creates new `SalesInvoice` in `draft` status
+    * Copies all items and pricing from quotation
+    * Links quotation to invoice via `converted_invoice_id`
+    * Updates quotation status to `'converted'`
+* **Validation:** Quotation must be in `'draft'` or `'sent'` status to convert
+
+---
+
+### E. Invoice Payments & Installments
+
+#### Invoice Payment System
+* **Purpose:** Record subsequent payments on posted invoices
+* **Model:** `InvoicePayment` (polymorphic to invoices/returns)
+* **Fields:**
+    * `amount` (DECIMAL 15,4) - Cash amount paid
+    * `discount` (DECIMAL 15,4) - Settlement discount given
+    * `payment_date` - When payment was received
+    * `treasury_transaction_id` - Links to actual cash movement
+
+#### Payment Recording
+* **Method:** `TreasuryService::recordInvoicePayment($invoice, $amount, $discount, $treasuryId, $notes)`
+* **Behavior:**
+    1. Creates `TreasuryTransaction` for cash movement
+    2. Creates `InvoicePayment` record
+    3. Updates invoice `paid_amount` and `remaining_amount`
+    4. Applies payment to installments (if applicable)
+    5. Updates partner balance via `recalculateBalance()`
+* **Validation:** Invoice MUST be in `posted` status
+
+#### Settlement Discounts
+* **Rule:** Settlement discounts reduce partner debt but don't affect treasury
+* **Formula:** `total_settled = amount + discount`
+* **Example:**
+    * Invoice total: 10,000 EGP
+    * Payment: 9,500 EGP cash + 500 EGP discount
+    * Treasury receives: 9,500 EGP
+    * Partner debt reduced by: 10,000 EGP (9,500 + 500)
+* **Storage:** Discount stored in `invoice_payments.discount` field
+
+#### Installments System
+* **Purpose:** Payment plans for sales invoices
+* **Model:** `Installment` (belongs to `SalesInvoice`)
+* **Fields:**
+    * `installment_number` - Sequential number (1, 2, 3...)
+    * `amount` (DECIMAL 15,4) - Total amount for this installment
+    * `due_date` - When payment is due
+    * `status` - `['pending', 'paid', 'overdue']`
+    * `paid_amount` (DECIMAL 15,4) - Amount paid toward this installment
+
+#### Installment Payment Allocation
+* **Method:** `InstallmentService::applyPaymentToInstallments($invoice, $payment)`
+* **Allocation Rule:** FIFO (First In, First Out) by `due_date`
+* **Behavior:**
+    1. Lock installments to prevent race conditions (`lockForUpdate()`)
+    2. Apply payment to oldest unpaid installment first
+    3. Mark installment as `paid` when `paid_amount == amount`
+    4. Continue to next installment if payment exceeds current installment
+* **Overpayment Handling:** Logged as activity if payment exceeds all remaining installments
+
+#### Installment Immutability
+* **FORBIDDEN:** Cannot modify after creation:
+    * `sales_invoice_id`
+    * `installment_number`
+    * `amount`
+    * `due_date`
+* **Deletion:** Cannot delete installments with `paid_amount > 0`
+
+---
+
+### F. Cash vs Credit Returns
+
+#### Return Payment Methods
+* **Cash Returns:**
+    * Customer receives cash refund
+    * ✅ **Affects Treasury:** Creates negative treasury transaction
+    * ❌ **NO effect on Partner Balance:** Debt remains unchanged
+    * **Use Case:** Customer returns items and wants immediate cash refund
+* **Credit Returns:**
+    * Customer receives credit (reduces their debt)
+    * ❌ **NO effect on Treasury:** No cash movement
+    * ✅ **Affects Partner Balance:** Reduces customer debt
+    * **Use Case:** Customer returns items, credit applied to their account
+
+#### Implementation Pattern
+* **Sales Returns:**
+    ```php
+    if ($return->payment_method === 'cash') {
+        // Create treasury transaction (money leaves treasury)
+        $treasuryService->recordTransaction(...);
+        // Partner balance NOT updated
+    } else {
+        // No treasury transaction
+        // Partner balance updated via recalculateBalance()
+    }
+    ```
+* **Purchase Returns:** Same logic, but opposite direction (supplier refunds us)
+
+#### Balance Calculation Impact
+* **Partner::calculateBalance()** only counts credit returns:
+    * `$returnsTotal = $this->salesReturns()
+        ->where('status', 'posted')
+        ->where('payment_method', 'credit')
+        ->sum('total');`
+* **Cash returns** are excluded from balance calculation (already handled by treasury)
 
 ---
 
@@ -341,25 +502,60 @@
 #### Core Methods
 * `recordTransaction($treasuryId, $type, $amount, $description, $partnerId, $referenceType, $referenceId)`
     * Creates a `treasury_transaction` record
-* `updatePartnerBalance($partnerId, $amount): void`
-    * Updates partner `current_balance`
-* `getTreasuryBalance($treasuryId): decimal`
+    * **Validates:** Prevents negative treasury balance (throws exception)
+    * **Uses:** `lockForUpdate()` to prevent race conditions
+* `updatePartnerBalance($partnerId): void`
+    * Recalculates and updates partner `current_balance` from invoices, returns, and payments
+    * **Method:** Calls `Partner::recalculateBalance()` which uses `Partner::calculateBalance()`
+    * **Note:** Does NOT take amount parameter - always recalculates from source data
+* `getTreasuryBalance($treasuryId): string`
     * Returns current treasury balance (sum of transactions)
-* `getPartnerBalance($partnerId): decimal`
-    * Returns current partner balance
-* `postSalesInvoice(SalesInvoice $invoice): void`
-    * Posts a sales invoice (creates transactions, updates partner balance)
-* `postPurchaseInvoice(PurchaseInvoice $invoice): void`
-    * Posts a purchase invoice (creates transactions, updates partner balance)
+    * **Uses:** `lockForUpdate()` to prevent race conditions during concurrent transactions
+* `getPartnerBalance($partnerId): string`
+    * Returns current partner balance (for display only)
+* `postSalesInvoice(SalesInvoice $invoice, ?string $treasuryId = null): void`
+    * Posts a sales invoice (creates transactions ONLY for `paid_amount`, updates partner balance)
+* `postPurchaseInvoice(PurchaseInvoice $invoice, ?string $treasuryId = null): void`
+    * Posts a purchase invoice (creates transactions ONLY for `paid_amount`, updates partner balance)
+* `recordInvoicePayment($invoice, $amount, $discount, $treasuryId, $notes): InvoicePayment`
+    * Records subsequent payment on posted invoice
+    * Creates treasury transaction, invoice payment record, updates installments, updates partner balance
 * `recordFinancialTransaction(...): TreasuryTransaction`
-    * Records a standalone financial transaction
+    * Records a standalone financial transaction (collection/payment)
 * `postExpense(Expense $expense): void`
-    * Posts an expense
+    * Posts an expense (creates treasury transaction)
 * `postRevenue(Revenue $revenue): void`
-    * Posts a revenue
+    * Posts a revenue (creates treasury transaction)
+
+#### Treasury Negative Balance Prevention
+* **Rule:** Treasury balance MUST never go negative
+* **Validation:** `TreasuryService::recordTransaction()` checks balance before creating transaction
+* **Implementation:**
+    ```php
+    $currentBalance = $this->getTreasuryBalance($treasuryId);
+    $newBalance = $currentBalance + (float) $amount;
+    
+    if ($newBalance < 0) {
+        throw new \Exception('لا يمكن إتمام العملية: الرصيد المتاح غير كافٍ في الخزينة');
+    }
+    ```
+* **Exception:** Some treasury types may allow negative (configured via settings)
+
+#### Partner Balance Calculation Method
+* **Source of Truth:** `Partner::calculateBalance()` method
+* **Formula:** Calculates from invoices, returns, and payments (NOT from treasury transactions directly)
+* **Components:**
+    * Opening balance (`opening_balance` field)
+    * Posted invoices (`remaining_amount` only - excludes fully paid invoices)
+    * Credit returns (cash returns excluded)
+    * Subsequent payments (via `invoice_payments` table)
+    * Settlement discounts (via `invoice_payments.discount`)
+* **Update Method:** `TreasuryService::updatePartnerBalance($partnerId)` calls `Partner::recalculateBalance()`
+* **Trigger:** Called after invoice posting, payment recording, return posting
 
 #### Transaction Wrapping
 * All methods that create/update multiple records MUST use `DB::transaction()`.
+* Uses nested transaction pattern (checks `DB::transactionLevel()` before wrapping).
 
 ---
 
@@ -399,6 +595,17 @@
 #### Unit Conversion
 * **Product Model:** MUST have `convertToBaseUnit($quantity, $unitType): int`
 * **Usage:** Converts UI quantity to Base Unit for storage.
+
+#### Opening Balance
+* **Partner Model:** Has `opening_balance` field (DECIMAL 15,4)
+* **Purpose:** Starting balance for partners (e.g., legacy data migration, initial debt/credit)
+* **Usage:** Included in `Partner::calculateBalance()` formula
+* **Example:**
+    ```php
+    $openingBalance = floatval($this->opening_balance ?? 0);
+    return $openingBalance + $salesTotal - $returnsTotal - $collections;
+    ```
+* **Migration:** Can be set during partner creation or via data migration
 
 ---
 
@@ -675,7 +882,7 @@ public function recordFinancialTransaction(...): TreasuryTransaction
 
         // 2. Update partner balance (opposite effect)
         if ($partnerId) {
-            $this->updatePartnerBalance($partnerId, $amount, $type);
+            $this->updatePartnerBalance($partnerId); // Recalculates from source data
         }
 
         return $transaction;
@@ -743,6 +950,110 @@ if (DB::transactionLevel() === 0) {
 #### Testing Rule
 * **Add test:** Verify that when one step fails (e.g., insufficient stock), NO changes persist
 * **Add test:** Verify database state is unchanged after exception
+
+---
+
+### J. Concurrency Control & Locking Rule
+
+**Discovery Date:** December 2025
+**Root Cause:** Concurrent transactions can cause race conditions and incorrect balances
+**Impact:** CRITICAL - Prevents incorrect stock levels and treasury balances
+
+#### The Rule (NON-NEGOTIABLE)
+
+* **Use `lockForUpdate()` for balance calculations and stock checks within transactions**
+* **Applies To:**
+    * Treasury balance calculations (`getTreasuryBalance()`)
+    * Stock availability checks during invoice posting
+    * Installment payment allocation
+    * Any operation that reads-then-writes based on current value
+
+#### Implementation Pattern
+```php
+// Treasury balance with lock
+public function getTreasuryBalance(string $treasuryId): string
+{
+    $balance = TreasuryTransaction::where('treasury_id', $treasuryId)
+        ->lockForUpdate()  // Prevents concurrent reads
+        ->sum('amount');
+    return $balance;
+}
+
+// Stock check with lock
+public function postSalesInvoice(SalesInvoice $invoice): void
+{
+    DB::transaction(function () use ($invoice) {
+        // Lock invoice to prevent concurrent posting
+        $invoice = SalesInvoice::lockForUpdate()->findOrFail($invoice->id);
+        
+        foreach ($invoice->items as $item) {
+            // Lock stock check
+            $currentStock = $this->getCurrentStock($warehouseId, $productId, true);
+            // true = use lockForUpdate()
+        }
+    });
+}
+```
+
+#### When to Use Locking
+* ✅ **REQUIRED:** When reading a value that will be used to calculate a new value
+* ✅ **REQUIRED:** When checking availability before deducting
+* ✅ **REQUIRED:** When updating balances based on current balance
+* ❌ **NOT NEEDED:** When only reading for display purposes
+* ❌ **NOT NEEDED:** When writing without reading current value first
+
+#### Locking Best Practices
+* **Scope:** Only lock within transactions (outside transactions, locks are released immediately)
+* **Duration:** Keep locks as short as possible
+* **Order:** Always lock in the same order to prevent deadlocks (e.g., always lock treasury before partner)
+* **Testing:** Test concurrent operations to verify locking prevents race conditions
+
+---
+
+### K. Idempotency & Duplicate Prevention Rule
+
+**Discovery Date:** December 2025
+**Root Cause:** Retry operations or double-clicks can create duplicate transactions
+**Impact:** MEDIUM - Prevents duplicate treasury transactions and incorrect balances
+
+#### The Rule (RECOMMENDED)
+
+* **Check for existing transactions before creating new ones for idempotent operations**
+* **Applies To:**
+    * Expense posting (check for existing treasury transaction)
+    * Purchase return posting (check for existing treasury transaction)
+    * Any operation that should only happen once per document
+
+#### Implementation Pattern
+```php
+public function postExpense(Expense $expense): void
+{
+    DB::transaction(function () use ($expense) {
+        // Idempotency check: prevent duplicate transactions
+        $existingTransaction = TreasuryTransaction::where('reference_type', 'expense')
+            ->where('reference_id', $expense->id)
+            ->first();
+
+        if ($existingTransaction) {
+            \Log::warning("Expense {$expense->id} already has treasury transaction {$existingTransaction->id}. Skipping duplicate.");
+            return;
+        }
+
+        // Create transaction only if it doesn't exist
+        $this->recordTransaction(...);
+    });
+}
+```
+
+#### When to Use Idempotency Checks
+* ✅ **RECOMMENDED:** For document posting operations (expenses, revenues, returns)
+* ✅ **RECOMMENDED:** For operations that can be retried (API calls, background jobs)
+* ❌ **NOT NEEDED:** For operations that are naturally idempotent (updates, deletes)
+* ❌ **NOT NEEDED:** For operations with unique constraints (database prevents duplicates)
+
+#### Logging
+* **Always log** when idempotency check prevents duplicate operation
+* **Use warning level** to indicate potential issue (double-click, retry, etc.)
 
 ---
 
@@ -999,6 +1310,15 @@ When implementing new financial features, verify:
 - [ ] ✅ Edge cases tested (boundary values, stress tests)
 - [ ] ✅ Arabic labels used consistently
 - [ ] ✅ Navigation grouped logically
+- [ ] ✅ Nested transaction pattern used (checks transaction level)
+- [ ] ✅ Locking used for concurrent operations (lockForUpdate)
+- [ ] ✅ Idempotency checks for document posting operations
+- [ ] ✅ Partner balance recalculated from source data (not incremented)
+- [ ] ✅ Opening balance included in partner balance calculation
+- [ ] ✅ Cash vs credit returns handled correctly
+- [ ] ✅ Treasury negative balance prevention implemented
+- [ ] ✅ Settlement discounts reduce debt but not treasury
+- [ ] ✅ Installment payment allocation uses FIFO by due date
 
 ---
 

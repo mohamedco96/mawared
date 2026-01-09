@@ -461,6 +461,83 @@ class ProductResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\BulkAction::make('bulk_price_update')
+                        ->label('تحديث الأسعار')
+                        ->icon('heroicon-o-currency-dollar')
+                        ->color('warning')
+                        ->modalHeading('تحديث أسعار المنتجات المحددة')
+                        ->modalWidth('md')
+                        ->form([
+                            Forms\Components\Select::make('update_type')
+                                ->label('نوع التحديث')
+                                ->options([
+                                    'percentage_increase' => 'زيادة بنسبة مئوية',
+                                    'percentage_decrease' => 'تخفيض بنسبة مئوية',
+                                    'fixed_increase' => 'زيادة مبلغ ثابت',
+                                    'fixed_decrease' => 'تخفيض مبلغ ثابت',
+                                    'set_price' => 'تحديد سعر ثابت',
+                                ])
+                                ->required()
+                                ->native(false)
+                                ->reactive(),
+
+                            Forms\Components\TextInput::make('value')
+                                ->label(function (Get $get) {
+                                    return match($get('update_type')) {
+                                        'percentage_increase', 'percentage_decrease' => 'النسبة المئوية (%)',
+                                        'fixed_increase', 'fixed_decrease' => 'المبلغ (ج.م)',
+                                        'set_price' => 'السعر الجديد (ج.م)',
+                                        default => 'القيمة',
+                                    };
+                                })
+                                ->numeric()
+                                ->required()
+                                ->minValue(0)
+                                ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                ->step(0.01),
+
+                            Forms\Components\Select::make('price_field')
+                                ->label('الحقل المراد تحديثه')
+                                ->options([
+                                    'retail_price' => 'سعر التجزئة (صغير)',
+                                    'wholesale_price' => 'سعر الجملة (صغير)',
+                                    'large_retail_price' => 'سعر التجزئة (كبير)',
+                                    'large_wholesale_price' => 'سعر الجملة (كبير)',
+                                ])
+                                ->required()
+                                ->native(false),
+                        ])
+                        ->action(function (Collection $records, array $data) {
+                            $updated = 0;
+
+                            foreach ($records as $product) {
+                                $currentPrice = floatval($product->{$data['price_field']} ?? 0);
+
+                                $newPrice = match($data['update_type']) {
+                                    'percentage_increase' => $currentPrice * (1 + $data['value'] / 100),
+                                    'percentage_decrease' => $currentPrice * (1 - $data['value'] / 100),
+                                    'fixed_increase' => $currentPrice + $data['value'],
+                                    'fixed_decrease' => $currentPrice - $data['value'],
+                                    'set_price' => $data['value'],
+                                };
+
+                                // Prevent negative prices
+                                $newPrice = max(0, $newPrice);
+
+                                $product->update([
+                                    $data['price_field'] => $newPrice
+                                ]);
+                                $updated++;
+                            }
+
+                            \Filament\Notifications\Notification::make()
+                                ->success()
+                                ->title('تم تحديث الأسعار بنجاح')
+                                ->body("تم تحديث {$updated} منتج")
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
                     Tables\Actions\DeleteBulkAction::make()
                         ->failureNotification(function ($exception) {
                             return \Filament\Notifications\Notification::make()
