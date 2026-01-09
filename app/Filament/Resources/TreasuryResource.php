@@ -89,7 +89,7 @@ class TreasuryResource extends Resource
                             ->sum('amount') ?? 0;
                     })
                     ->numeric(decimalPlaces: 2)
-                    ->suffix(' ج.م')
+                    
                     ->sortable()
                     ->badge()
                     ->color(function ($state) {

@@ -36,7 +36,7 @@ class PaymentsRelationManager extends RelationManager
                             ->minValue(0.01)
                             ->maxValue(fn () => $this->getOwnerRecord()->current_remaining ?? $this->getOwnerRecord()->remaining_amount)
                             ->default(fn () => $this->getOwnerRecord()->current_remaining ?? $this->getOwnerRecord()->remaining_amount)
-                            ->suffix('ج.م')
+                            
                             ->step(0.01),
 
                         Forms\Components\DatePicker::make('payment_date')
@@ -50,7 +50,7 @@ class PaymentsRelationManager extends RelationManager
                             ->numeric()
                             ->default(0)
                             ->minValue(0)
-                            ->suffix('ج.م')
+                            
                             ->step(0.01)
                             ->helperText('خصم مسموح به عند السداد'),
 
@@ -82,12 +82,12 @@ class PaymentsRelationManager extends RelationManager
 
                 Tables\Columns\TextColumn::make('amount')
                     ->label('المبلغ')
-                    ->money('EGP', divideBy: 1)
+                    ->formatStateUsing(fn ($state) => number_format($state, 2))
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('discount')
                     ->label('الخصم')
-                    ->money('EGP', divideBy: 1)
+                    ->formatStateUsing(fn ($state) => number_format($state, 2))
                     ->default(0),
 
                 Tables\Columns\TextColumn::make('treasuryTransaction.treasury.name')

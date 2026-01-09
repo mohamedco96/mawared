@@ -65,7 +65,7 @@ class TopSellingProductsWidget extends BaseWidget
 
             Tables\Columns\TextColumn::make('total_revenue')
                 ->label('إجمالي الإيرادات')
-                ->formatStateUsing(fn ($state) => number_format($state, 2) . ' ج.م')
+                ->formatStateUsing(fn ($state) => number_format($state, 2))
                 ->color('info')
                 ->alignEnd()
                 ->sortable(false),

@@ -132,14 +132,14 @@ class ItemProfitabilityReport extends Page implements HasForms, HasTable
 
             Tables\Columns\TextColumn::make('total_revenue')
                 ->label('إجمالي الإيرادات')
-                ->money('EGP', locale: 'ar_EG')
+                ->formatStateUsing(fn ($state) => number_format($state, 2))
                 ->sortable()
                 ->color('success')
                 ->alignEnd(),
 
             Tables\Columns\TextColumn::make('total_cost')
                 ->label('إجمالي التكلفة')
-                ->money('EGP', locale: 'ar_EG')
+                ->formatStateUsing(fn ($state) => number_format($state, 2))
                 ->sortable()
                 ->color('warning')
                 ->alignEnd()
@@ -147,7 +147,7 @@ class ItemProfitabilityReport extends Page implements HasForms, HasTable
 
             Tables\Columns\TextColumn::make('profit')
                 ->label('صافي الربح')
-                ->money('EGP', locale: 'ar_EG')
+                ->formatStateUsing(fn ($state) => number_format($state, 2))
                 ->sortable()
                 ->color(fn ($state) => $state >= 0 ? 'success' : 'danger')
                 ->alignEnd()

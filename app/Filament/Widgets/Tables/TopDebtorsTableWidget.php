@@ -51,7 +51,7 @@ class TopDebtorsTableWidget extends BaseWidget
             Tables\Columns\TextColumn::make('current_balance')
                 ->label('الرصيد المستحق')
                 ->sortable()
-                ->formatStateUsing(fn ($state) => number_format($state, 2) . ' ج.م')
+                ->formatStateUsing(fn ($state) => number_format($state, 2))
                 ->color('danger')
                 ->weight('bold')
                 ->alignEnd(),

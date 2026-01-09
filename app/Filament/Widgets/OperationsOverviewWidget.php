@@ -64,7 +64,7 @@ class OperationsOverviewWidget extends StatsOverviewWidget
                 ->sum('total') ?? 0;
 
             return [
-                Stat::make('قيمة المخزون', number_format($inventoryValue, 2) . ' ج.م')
+                Stat::make('قيمة المخزون', number_format($inventoryValue, 2))
                     ->description('إجمالي قيمة المخزون الحالي')
                     ->icon('heroicon-o-cube')
                     ->color('info'),
@@ -74,12 +74,12 @@ class OperationsOverviewWidget extends StatsOverviewWidget
                     ->icon('heroicon-o-exclamation-triangle')
                     ->color($lowStockCount > 0 ? 'danger' : 'success'),
 
-                Stat::make('مبيعات اليوم', number_format($todaySales, 2) . ' ج.م')
+                Stat::make('مبيعات اليوم', number_format($todaySales, 2))
                     ->description(now()->format('d/m/Y'))
                     ->icon('heroicon-o-shopping-cart')
                     ->color('success'),
 
-                Stat::make('مشتريات الشهر', number_format($monthPurchases, 2) . ' ج.م')
+                Stat::make('مشتريات الشهر', number_format($monthPurchases, 2))
                     ->description('من ' . now()->startOfMonth()->format('d/m') . ' إلى ' . now()->format('d/m'))
                     ->icon('heroicon-o-shopping-bag')
                     ->color('warning'),

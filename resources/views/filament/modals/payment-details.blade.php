@@ -4,7 +4,7 @@
             <div>
                 <p class="text-sm font-medium text-gray-500 dark:text-gray-400">المبلغ المدفوع</p>
                 <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    {{ number_format($payment->amount, 2) }} ج.م
+                    {{ number_format($payment->amount, 2) }}
                 </p>
             </div>
 
@@ -12,7 +12,7 @@
             <div>
                 <p class="text-sm font-medium text-gray-500 dark:text-gray-400">الخصم</p>
                 <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    {{ number_format($payment->discount, 2) }} ج.م
+                    {{ number_format($payment->discount, 2) }}
                 </p>
             </div>
             @endif

@@ -102,8 +102,8 @@
                     @foreach ($invoice->payments as $payment)
                         <tr>
                             <td>{{ $payment->payment_date->format('Y-m-d') }}</td>
-                            <td>{{ number_format($payment->amount, 2) }} {{ $companySettings->currency_symbol }}</td>
-                            <td>{{ number_format($payment->discount, 2) }} {{ $companySettings->currency_symbol }}</td>
+                            <td>{{ number_format($payment->amount, 2) }}</td>
+                            <td>{{ number_format($payment->discount, 2) }}</td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -116,23 +116,23 @@
         <table class="totals-table">
             <tr>
                 <td class="totals-label">المجموع الفرعي:</td>
-                <td class="totals-value">{{ number_format($invoice->subtotal, 2) }} {{ $companySettings->currency_symbol }}</td>
+                <td class="totals-value">{{ number_format($invoice->subtotal, 2) }}</td>
             </tr>
             <tr>
                 <td class="totals-label">الخصم:</td>
-                <td class="totals-value">{{ number_format($invoice->calculated_discount, 2) }} {{ $companySettings->currency_symbol }}</td>
+                <td class="totals-value">{{ number_format($invoice->calculated_discount, 2) }}</td>
             </tr>
             <tr class="grand-total">
                 <td class="totals-label">الإجمالي النهائي:</td>
-                <td class="totals-value">{{ number_format($invoice->total, 2) }} {{ $companySettings->currency_symbol }}</td>
+                <td class="totals-value">{{ number_format($invoice->total, 2) }}</td>
             </tr>
             <tr>
                 <td class="totals-label">المدفوع:</td>
-                <td class="totals-value">{{ number_format($invoice->total_paid, 2) }} {{ $companySettings->currency_symbol }}</td>
+                <td class="totals-value">{{ number_format($invoice->total_paid, 2) }}</td>
             </tr>
             <tr>
                 <td class="totals-label">المتبقي:</td>
-                <td class="totals-value">{{ number_format($invoice->current_remaining, 2) }} {{ $companySettings->currency_symbol }}</td>
+                <td class="totals-value">{{ number_format($invoice->current_remaining, 2) }}</td>
             </tr>
             <tr>
                 <td class="totals-label">الحالة:</td>

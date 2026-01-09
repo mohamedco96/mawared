@@ -51,7 +51,7 @@ class TopCreditorsTableWidget extends BaseWidget
             Tables\Columns\TextColumn::make('current_balance')
                 ->label('الرصيد المستحق')
                 ->sortable()
-                ->formatStateUsing(fn ($state) => number_format(abs($state), 2) . ' ج.م')
+                ->formatStateUsing(fn ($state) => number_format(abs($state), 2))
                 ->color('warning')
                 ->weight('bold')
                 ->alignEnd(),

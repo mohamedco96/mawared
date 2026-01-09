@@ -55,7 +55,7 @@ class QuotationResource extends Resource
     {
         return [
             'العميل' => $record->customer_name,
-            'الإجمالي' => number_format($record->total, 2) . ' ج.م',
+            'الإجمالي' => number_format($record->total, 2),
             'الحالة' => match($record->status) {
                 'draft' => 'مسودة',
                 'sent' => 'مرسل',
@@ -322,7 +322,7 @@ class QuotationResource extends Resource
                                         $quantity = $get('quantity') ?? 1;
                                         $set('total', $state * $quantity);
                                     })
-                                    ->suffix($companySettings->currency_symbol)
+                                    
                                     ->columnSpan(2),
 
                                 Forms\Components\TextInput::make('total')
@@ -331,7 +331,7 @@ class QuotationResource extends Resource
                                     ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->disabled()
                                     ->dehydrated()
-                                    ->suffix($companySettings->currency_symbol)
+                                    
                                     ->columnSpan(2),
 
                                 // Hidden snapshot fields
@@ -361,7 +361,7 @@ class QuotationResource extends Resource
                             ->disabled()
                             ->dehydrated()
                             ->extraInputAttributes(['dir' => 'ltr'])
-                            ->suffix($companySettings->currency_symbol),
+                            ,
 
                         Forms\Components\TextInput::make('discount')
                             ->label('الخصم')
@@ -370,7 +370,7 @@ class QuotationResource extends Resource
                             ->dehydrated()
                             ->default(0)
                             ->extraInputAttributes(['dir' => 'ltr'])
-                            ->suffix($companySettings->currency_symbol),
+                            ,
 
                         Forms\Components\TextInput::make('total')
                             ->label('الإجمالي النهائي')
@@ -378,7 +378,7 @@ class QuotationResource extends Resource
                             ->disabled()
                             ->dehydrated()
                             ->extraInputAttributes(['dir' => 'ltr'])
-                            ->suffix($companySettings->currency_symbol),
+                            ,
                     ])
                     ->columns(3)
                     ->collapsible()
@@ -443,7 +443,7 @@ class QuotationResource extends Resource
 
                 Tables\Columns\TextColumn::make('total')
                     ->label('الإجمالي')
-                    ->money($companySettings->currency, locale: 'ar')
+                    ->formatStateUsing(fn ($state) => number_format($state, 2))
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('valid_until')

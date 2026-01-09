@@ -38,7 +38,7 @@ class InstallmentsRelationManager extends RelationManager
                             ->label('المبلغ')
                             ->required()
                             ->numeric()
-                            ->prefix('ج.م')
+                            
                             ->disabled(),
 
                         Forms\Components\DatePicker::make('due_date')
@@ -50,7 +50,7 @@ class InstallmentsRelationManager extends RelationManager
                         Forms\Components\TextInput::make('paid_amount')
                             ->label('المبلغ المدفوع')
                             ->numeric()
-                            ->prefix('ج.م')
+                            
                             ->disabled()
                             ->default(0),
 
@@ -76,13 +76,13 @@ class InstallmentsRelationManager extends RelationManager
 
                 Tables\Columns\TextColumn::make('amount')
                     ->label('المبلغ')
-                    ->money('EGP')
+                    ->formatStateUsing(fn ($state) => number_format($state, 2))
                     ->sortable()
                     ->weight(FontWeight::Bold),
 
                 Tables\Columns\TextColumn::make('paid_amount')
                     ->label('المدفوع')
-                    ->money('EGP')
+                    ->formatStateUsing(fn ($state) => number_format($state, 2))
                     ->sortable()
                     ->color(fn ($state, Installment $record) =>
                         bccomp((string) $state, (string) $record->amount, 4) === 0 ? 'success' : 'warning'
@@ -90,7 +90,7 @@ class InstallmentsRelationManager extends RelationManager
 
                 Tables\Columns\TextColumn::make('remaining_amount')
                     ->label('المتبقي')
-                    ->money('EGP')
+                    ->formatStateUsing(fn ($state) => number_format($state, 2))
                     ->state(fn (Installment $record) => bcsub((string) $record->amount, (string) $record->paid_amount, 4))
                     ->color(fn ($state) => bccomp((string) $state, '0', 4) === 0 ? 'success' : 'danger')
                     ->weight(FontWeight::Bold),

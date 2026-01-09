@@ -47,22 +47,22 @@ class FinancialOverviewWidget extends StatsOverviewWidget
             $netProfit = $report['net_profit'] ?? 0;
 
             return [
-                Stat::make('إجمالي الرصيد النقدي', number_format($totalCash, 2) . ' ج.م')
+                Stat::make('إجمالي الرصيد النقدي', number_format($totalCash, 2))
                     ->description('رصيد جميع الخزائن')
                     ->icon('heroicon-o-banknotes')
                     ->color('success'),
 
-                Stat::make('فلوس لينا - المدينون', number_format($receivables, 2) . ' ج.م')
+                Stat::make('فلوس لينا - المدينون', number_format($receivables, 2))
                     ->description('العملاء اللي لينا فلوس عندهم')
                     ->icon('heroicon-o-arrow-trending-up')
                     ->color('info'),
 
-                Stat::make('فلوس علينا - الدائنون', number_format($payables, 2) . ' ج.م')
+                Stat::make('فلوس علينا - الدائنون', number_format($payables, 2))
                     ->description('الموردين اللي علينا فلوس ليهم')
                     ->icon('heroicon-o-arrow-trending-down')
                     ->color('danger'),
 
-                Stat::make('صافي الربح - الشهر الحالي', number_format($netProfit, 2) . ' ج.م')
+                Stat::make('صافي الربح - الشهر الحالي', number_format($netProfit, 2))
                     ->description('من ' . now()->startOfMonth()->format('d/m') . ' إلى ' . now()->format('d/m'))
                     ->icon('heroicon-o-chart-bar')
                     ->color('warning'),

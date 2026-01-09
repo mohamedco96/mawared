@@ -115,14 +115,14 @@
                             <div>
                                 <p class="text-sm text-gray-600">سعر الوحدة</p>
                                 <p class="text-xl font-bold text-blue-600">
-                                    {{ number_format($item->unit_price, 2) }} {{ $companySettings->currency_symbol }}
+                                    {{ number_format($item->unit_price, 2) }}
                                 </p>
                             </div>
 
                             <div class="text-left">
                                 <p class="text-sm text-gray-600">الإجمالي</p>
                                 <p class="text-2xl font-bold text-gray-800">
-                                    {{ number_format($item->total, 2) }} {{ $companySettings->currency_symbol }}
+                                    {{ number_format($item->total, 2) }}
                                 </p>
                             </div>
                         </div>
@@ -138,19 +138,19 @@
             <div class="max-w-md mr-auto">
                 <div class="flex justify-between items-center text-lg mb-3">
                     <span class="text-gray-700">المجموع الفرعي:</span>
-                    <span class="font-semibold">{{ number_format($quotation->subtotal, 2) }} {{ $companySettings->currency_symbol }}</span>
+                    <span class="font-semibold">{{ number_format($quotation->subtotal, 2) }}</span>
                 </div>
 
                 @if($quotation->discount > 0)
                     <div class="flex justify-between items-center text-lg mb-3 text-red-600">
                         <span>الخصم:</span>
-                        <span class="font-semibold">- {{ number_format($quotation->discount, 2) }} {{ $companySettings->currency_symbol }}</span>
+                        <span class="font-semibold">- {{ number_format($quotation->discount, 2) }}</span>
                     </div>
                 @endif
 
                 <div class="flex justify-between items-center text-2xl font-bold border-t-2 pt-3 text-blue-600">
                     <span>الإجمالي النهائي:</span>
-                    <span>{{ number_format($quotation->total, 2) }} {{ $companySettings->currency_symbol }}</span>
+                    <span>{{ number_format($quotation->total, 2) }}</span>
                 </div>
             </div>
         </div>

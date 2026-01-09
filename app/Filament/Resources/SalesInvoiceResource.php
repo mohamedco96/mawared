@@ -58,7 +58,7 @@ class SalesInvoiceResource extends Resource
     {
         return [
             'العميل' => $record->partner?->name,
-            'الإجمالي' => number_format($record->total, 2) . ' ج.م',
+            'الإجمالي' => number_format($record->total, 2),
             'الحالة' => $record->status === 'posted' ? 'مؤكدة' : 'مسودة',
         ];
     }
@@ -525,7 +525,7 @@ class SalesInvoiceResource extends Resource
                                     $totalProfit += ($itemTotal - $totalCost);
                                 }
 
-                                return number_format($totalProfit, 2).' ج.م';
+                                return number_format($totalProfit, 2).'';
                             })
                             ->extraAttributes(function (Get $get) {
                                 if (! auth()->user()->can('view_profit')) {
@@ -923,7 +923,6 @@ class SalesInvoiceResource extends Resource
                                     ->numeric()
                                     ->required()
                                     ->minValue(0.01)
-                                    ->suffix('ج.م')
                                     ->step(0.01)
                                     ->default(fn (SalesInvoice $record) => floatval($record->current_remaining))
                                     ->rules([
@@ -933,7 +932,7 @@ class SalesInvoiceResource extends Resource
                                         fn (SalesInvoice $record): \Closure => function (string $attribute, $value, \Closure $fail) use ($record) {
                                             $remainingAmount = floatval($record->current_remaining);
                                             if (floatval($value) > $remainingAmount) {
-                                                $fail('لا يمكن دفع مبلغ (' . number_format($value, 2) . ' ج.م) أكبر من المبلغ المتبقي (' . number_format($remainingAmount, 2) . ' ج.م).');
+                                                $fail('لا يمكن دفع مبلغ (' . number_format($value, 2) . ') أكبر من المبلغ المتبقي (' . number_format($remainingAmount, 2) . ').');
                                             }
                                         },
                                     ]),
@@ -949,7 +948,6 @@ class SalesInvoiceResource extends Resource
                                     ->numeric()
                                     ->default(0)
                                     ->minValue(0)
-                                    ->suffix('ج.م')
                                     ->step(0.01),
 
                                 Forms\Components\Select::make('treasury_id')

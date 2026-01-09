@@ -119,7 +119,7 @@ class TreasuryTransactionResource extends Resource
                                         $balance = $employee->advance_balance;
                                         $color = $balance > 0 ? 'text-red-600' : 'text-gray-600';
                                         return new \Illuminate\Support\HtmlString(
-                                            '<span class="' . $color . ' font-bold text-lg">' . number_format($balance, 2) . ' ج.م</span>'
+                                            '<span class="' . $color . ' font-bold text-lg">' . number_format($balance, 2) . '</span>'
                                         );
                                     }
                                 }

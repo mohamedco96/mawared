@@ -114,7 +114,7 @@ class DailyOperations extends Page implements HasTable
                     ->default('—'),
                 Tables\Columns\TextColumn::make('amount')
                     ->label('المبلغ')
-                    ->money('EGP')
+                    ->formatStateUsing(fn ($state) => number_format($state, 2))
                     ->sortable()
                     ->color('success'),
                 Tables\Columns\TextColumn::make('description')
@@ -160,7 +160,7 @@ class DailyOperations extends Page implements HasTable
                     ->default('—'),
                 Tables\Columns\TextColumn::make('amount')
                     ->label('المبلغ')
-                    ->money('EGP')
+                    ->formatStateUsing(fn ($state) => number_format($state, 2))
                     ->sortable()
                     ->color(fn ($state) => $state >= 0 ? 'success' : 'danger'),
                 Tables\Columns\TextColumn::make('description')

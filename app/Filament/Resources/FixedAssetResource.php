@@ -53,7 +53,7 @@ class FixedAssetResource extends Resource
                             ->required()
                             ->step(0.0001)
                             ->minValue(1)
-                            ->prefix('ج.م')
+                            
                             ->helperText('قيمة شراء الأصل الثابت')
                             ->rules([
                                 'required',
@@ -102,7 +102,7 @@ class FixedAssetResource extends Resource
                 Tables\Columns\TextColumn::make('purchase_amount')
                     ->label('قيمة الشراء')
                     ->numeric(decimalPlaces: 2)
-                    ->suffix(' ج.م')
+                    
                     ->sortable(),
                 Tables\Columns\TextColumn::make('treasury.name')
                     ->label('الخزينة')

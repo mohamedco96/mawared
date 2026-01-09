@@ -78,17 +78,17 @@
         <table class="totals-table">
             <tr>
                 <td class="totals-label">المجموع الفرعي:</td>
-                <td class="totals-value">{{ number_format($quotation->subtotal, 2) }} {{ $companySettings->currency_symbol }}</td>
+                <td class="totals-value">{{ number_format($quotation->subtotal, 2) }}</td>
             </tr>
             @if ($quotation->discount > 0)
                 <tr>
                     <td class="totals-label">الخصم:</td>
-                    <td class="totals-value">{{ number_format($quotation->discount, 2) }} {{ $companySettings->currency_symbol }}</td>
+                    <td class="totals-value">{{ number_format($quotation->discount, 2) }}</td>
                 </tr>
             @endif
             <tr class="grand-total">
                 <td class="totals-label">الإجمالي النهائي:</td>
-                <td class="totals-value">{{ number_format($quotation->total, 2) }} {{ $companySettings->currency_symbol }}</td>
+                <td class="totals-value">{{ number_format($quotation->total, 2) }}</td>
             </tr>
         </table>
     </div>

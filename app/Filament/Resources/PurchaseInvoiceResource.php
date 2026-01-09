@@ -824,7 +824,7 @@ class PurchaseInvoiceResource extends Resource
                                     ->numeric()
                                     ->required()
                                     ->minValue(0.01)
-                                    ->suffix('ج.م')
+                                    
                                     ->step(0.01)
                                     ->default(fn (PurchaseInvoice $record) => floatval($record->current_remaining))
                                     ->rules([
@@ -834,7 +834,7 @@ class PurchaseInvoiceResource extends Resource
                                         fn (PurchaseInvoice $record): \Closure => function (string $attribute, $value, \Closure $fail) use ($record) {
                                             $remainingAmount = floatval($record->current_remaining);
                                             if (floatval($value) > $remainingAmount) {
-                                                $fail('لا يمكن دفع مبلغ (' . number_format($value, 2) . ' ج.م) أكبر من المبلغ المتبقي (' . number_format($remainingAmount, 2) . ' ج.م).');
+                                                $fail('لا يمكن دفع مبلغ (' . number_format($value, 2) . ') أكبر من المبلغ المتبقي (' . number_format($remainingAmount, 2) . ').');
                                             }
                                         },
                                     ]),
@@ -850,7 +850,7 @@ class PurchaseInvoiceResource extends Resource
                                     ->numeric()
                                     ->default(0)
                                     ->minValue(0)
-                                    ->suffix('ج.م')
+                                    
                                     ->step(0.01),
 
                                 Forms\Components\Select::make('treasury_id')
