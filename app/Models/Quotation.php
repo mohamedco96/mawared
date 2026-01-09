@@ -120,8 +120,8 @@ class Quotation extends Model
         $phone = preg_replace('/[^0-9]/', '', $phone);
 
         // Ensure international format (add country code if needed)
-        if (!str_starts_with($phone, '966')) {
-            $phone = '966' . ltrim($phone, '0');
+        if (!str_starts_with($phone, '20')) {
+            $phone = '20' . ltrim($phone, '0');
         }
 
         $message = "السلام عليكم، أرغب في الاستفسار عن عرض السعر رقم: {$this->quotation_number}\n\n";
