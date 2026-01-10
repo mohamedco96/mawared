@@ -28,6 +28,7 @@ class CompanySettings extends Settings
     public int $default_payment_terms_days;
     public bool $allow_negative_stock;
     public bool $auto_approve_stock_adjustments;
+    public ?string $business_whatsapp_number = null;
 
     public static function group(): string
     {

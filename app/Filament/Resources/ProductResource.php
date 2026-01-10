@@ -112,6 +112,11 @@ class ProductResource extends Resource
                             ->default(0)
                             ->minValue(0)
                             ->required(),
+                        Forms\Components\Toggle::make('is_visible_in_catalog')
+                            ->label('مرئي في الكتالوج العام')
+                            ->helperText('عند التفعيل، سيظهر المنتج في صالة العرض الرقمية ويمكن للعملاء إضافته للطلب عبر واتساب')
+                            ->default(true)
+                            ->inline(false),
                     ])
                     ->columns(3),
 
@@ -129,6 +134,7 @@ class ProductResource extends Resource
                             ->openable()
                             ->downloadable()
                             ->previewable()
+                            ->preserveFilenames()
                             ->helperText('الصورة الرئيسية للمنتج (الحد الأقصى: 2 ميجابايت)')
                             ->columnSpanFull(),
                         Forms\Components\FileUpload::make('images')
@@ -145,6 +151,7 @@ class ProductResource extends Resource
                             ->openable()
                             ->downloadable()
                             ->previewable()
+                            ->preserveFilenames()
                             ->helperText('يمكن إضافة حتى 10 صور إضافية (الحد الأقصى لكل صورة: 2 ميجابايت)')
                             ->columnSpanFull(),
                     ])
@@ -359,6 +366,10 @@ class ProductResource extends Resource
 
                         return 'success';
                     }),
+                Tables\Columns\IconColumn::make('is_visible_in_catalog')
+                    ->label('مرئي بالكتالوج')
+                    ->boolean()
+                    ->sortable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('small_unit_id')

@@ -33,8 +33,7 @@ class Product extends Model
         'wholesale_price',
         'large_retail_price',
         'large_wholesale_price',
-        'is_active',
-        'is_public',
+        'is_visible_in_catalog',
     ];
 
     protected function casts(): array
@@ -48,8 +47,7 @@ class Product extends Model
             'wholesale_price' => 'decimal:4',
             'large_retail_price' => 'decimal:4',
             'large_wholesale_price' => 'decimal:4',
-            'is_active' => 'boolean',
-            'is_public' => 'boolean',
+            'is_visible_in_catalog' => 'boolean',
         ];
     }
 
@@ -80,14 +78,9 @@ class Product extends Model
     }
 
     // Scopes
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
-    }
-
     public function scopePublic($query)
     {
-        return $query->where('is_public', true);
+        return $query->where('is_visible_in_catalog', true);
     }
 
     public function scopeCatalog($query)
@@ -198,6 +191,23 @@ class Product extends Model
     public static function getGloballySearchableAttributes(): array
     {
         return ['name', 'barcode', 'sku', 'large_barcode'];
+    }
+
+    // Accessors for Showroom
+    public function getStockAttribute(): int
+    {
+        return (int) $this->stockMovements()->sum('quantity');
+    }
+
+    public function getDisplayImageAttribute(): ?string
+    {
+        if ($this->image) {
+            return filter_var($this->image, FILTER_VALIDATE_URL)
+                ? $this->image
+                : \Storage::url($this->image);
+        }
+
+        return null;
     }
 
     public function getActivitylogOptions(): LogOptions

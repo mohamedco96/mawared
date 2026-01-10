@@ -59,6 +59,7 @@ class GeneralSettings extends Page implements HasForms
             'default_payment_terms_days' => $settings->default_payment_terms_days,
             'allow_negative_stock' => $settings->allow_negative_stock,
             'auto_approve_stock_adjustments' => $settings->auto_approve_stock_adjustments,
+            'business_whatsapp_number' => $settings->business_whatsapp_number,
         ]);
     }
 
@@ -118,6 +119,25 @@ class GeneralSettings extends Page implements HasForms
                             ->required(),
                     ])
                     ->columns(2),
+
+                Forms\Components\Section::make('إعدادات الكتالوج الرقمي')
+                    ->description('إعدادات متجر واتساب والكتالوج العام')
+                    ->schema([
+                        Forms\Components\TextInput::make('business_whatsapp_number')
+                            ->label('رقم واتساب الأعمال')
+                            ->helperText('أدخل رقم الهاتف بالصيغة الدولية (مثال: 201234567890). سيستخدم لتلقي طلبات الكتالوج الرقمي')
+                            ->placeholder('201234567890')
+                            ->tel()
+                            ->maxLength(20)
+                            ->prefix('+')
+                            ->extraInputAttributes(['dir' => 'ltr'])
+                            ->columnSpanFull(),
+                        Forms\Components\Placeholder::make('showroom_qr_notice')
+                            ->label('رموز QR للكتالوج')
+                            ->content('يمكنك إنشاء رموز QR للكتالوج من صفحة المنتجات. ستحتاج إلى إدخال رقم واتساب أولاً.')
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(1),
 
                 Forms\Components\Section::make('إعدادات المستندات')
                     ->schema([
@@ -210,6 +230,7 @@ class GeneralSettings extends Page implements HasForms
         $settings->default_payment_terms_days = $data['default_payment_terms_days'];
         $settings->allow_negative_stock = $data['allow_negative_stock'];
         $settings->auto_approve_stock_adjustments = $data['auto_approve_stock_adjustments'];
+        $settings->business_whatsapp_number = $data['business_whatsapp_number'] ?? null;
 
         $settings->save();
 
