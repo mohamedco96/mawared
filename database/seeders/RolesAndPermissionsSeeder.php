@@ -88,6 +88,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'view_any_treasury', 'view_treasury',
             'view_any_expense', 'view_expense',
             'view_any_revenue', 'view_revenue',
+
+            // Financial Visibility
+            'view_cost_price', 'view_profit',
         ]);
         echo "   ✓ Created 'manager' role\n";
 
@@ -171,6 +174,9 @@ class RolesAndPermissionsSeeder extends Seeder
 
             // Stock (View)
             'view_any_stock::movement', 'view_stock::movement',
+
+            // Financial Visibility (Cost only)
+            'view_cost_price',
         ]);
         echo "   ✓ Created 'purchasing_agent' role\n";
 
@@ -391,6 +397,12 @@ class RolesAndPermissionsSeeder extends Seeder
             'widget_TopCreditorsTableWidget',
             'widget_TopDebtorsTableWidget',
             'widget_TopSellingProductsWidget',
+
+            // ==================================================
+            // FINANCIAL DATA VISIBILITY - Cost & Profit Permissions
+            // ==================================================
+            'view_cost_price',  // View purchase cost prices and supplier information
+            'view_profit',      // View profit margins and profitability data
         ];
     }
 }

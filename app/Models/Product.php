@@ -33,7 +33,8 @@ class Product extends Model
         'wholesale_price',
         'large_retail_price',
         'large_wholesale_price',
-        'is_visible_in_catalog',
+        'is_visible_in_retail_catalog',
+        'is_visible_in_wholesale_catalog',
     ];
 
     protected function casts(): array
@@ -47,7 +48,8 @@ class Product extends Model
             'wholesale_price' => 'decimal:4',
             'large_retail_price' => 'decimal:4',
             'large_wholesale_price' => 'decimal:4',
-            'is_visible_in_catalog' => 'boolean',
+            'is_visible_in_retail_catalog' => 'boolean',
+            'is_visible_in_wholesale_catalog' => 'boolean',
         ];
     }
 
@@ -78,14 +80,14 @@ class Product extends Model
     }
 
     // Scopes
-    public function scopePublic($query)
+    public function scopeRetailCatalog($query)
     {
-        return $query->where('is_visible_in_catalog', true);
+        return $query->where('is_visible_in_retail_catalog', true);
     }
 
-    public function scopeCatalog($query)
+    public function scopeWholesaleCatalog($query)
     {
-        return $query->active()->public();
+        return $query->where('is_visible_in_wholesale_catalog', true);
     }
 
     // Helper Methods
@@ -144,20 +146,7 @@ class Product extends Model
             }
         });
 
-        static::deleting(function (Product $product) {
-            // Check for related records to prevent deletion
-            $hasStockMovements = \App\Models\StockMovement::where('product_id', $product->id)->exists();
-            $hasSalesInvoiceItems = \App\Models\SalesInvoiceItem::where('product_id', $product->id)->exists();
-            $hasPurchaseInvoiceItems = \App\Models\PurchaseInvoiceItem::where('product_id', $product->id)->exists();
-
-            // Check for quotation items (will be created in Phase 1)
-            $hasQuotationItems = class_exists('\App\Models\QuotationItem')
-                && \App\Models\QuotationItem::where('product_id', $product->id)->exists();
-
-            if ($hasStockMovements || $hasSalesInvoiceItems || $hasPurchaseInvoiceItems || $hasQuotationItems) {
-                throw new \Exception('لا يمكن حذف المنتج لوجود فواتير أو حركات مخزون أو عروض أسعار مرتبطة به');
-            }
-        });
+        // Deletion validation is handled in the Filament Resource to show proper toast notifications
     }
 
     /**

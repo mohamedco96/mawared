@@ -21,9 +21,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // أضف هذا السطر لإجبار الروابط على أن تكون آمنة
-        // if (app()->environment('local') || app()->environment('production')) {
-        //     \Illuminate\Support\Facades\URL::forceScheme('https');
-        // }
+        if (app()->environment('local') || app()->environment('production')) {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+        }
 
         // Register MorphMap for clean polymorphism
         Relation::enforceMorphMap([

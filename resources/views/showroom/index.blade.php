@@ -4,11 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>الكتالوج - @if ($mode === 'retail')
-            التجزئة
-        @else
-            الجملة
-        @endif - {{ $companySettings->company_name }}</title>
+    <title>كتالوج منتجات - {{ $companySettings->company_name }}</title>
 
     <!-- TailwindCSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -77,14 +73,14 @@
                         </h1>
                     @endif
 
-                    <!-- Mode Badge -->
+                    {{-- <!-- Mode Badge -->
                     <span class="bg-white/20 px-3 py-1 rounded-full text-sm font-semibold backdrop-blur-sm">
                         @if ($mode === 'retail')
                             التجزئة
                         @else
                             الجملة
                         @endif
-                    </span>
+                    </span> --}}
                 </div>
 
                 <!-- Company Contact -->
@@ -153,19 +149,14 @@
                             </div>
                         </template>
 
-                        <!-- Stock Badge -->
-                        <div
-                            class="absolute top-3 left-3 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
-                            متوفر: <span x-text="product.stock"></span>
-                        </div>
 
-                        <!-- Category Badge (if exists) -->
+                        {{-- <!-- Category Badge (if exists) -->
                         <template x-if="product.category_name">
                             <div
                                 class="absolute top-3 right-3 bg-blue-500/90 text-white px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm">
                                 <span x-text="product.category_name"></span>
                             </div>
-                        </template>
+                        </template> --}}
                     </div>
 
                     <!-- Product Info -->
@@ -183,10 +174,9 @@
                         <!-- Pricing (Retail Mode) -->
                         <template x-if="'{{ $mode }}' === 'retail'">
                             <div class="mb-4">
-                                <p class="text-sm text-gray-600 mb-1">سعر التجزئة</p>
                                 <p class="text-2xl font-bold text-blue-600" x-text="formatPrice(product.retail_price)">
                                 </p>
-                                <p class="text-xs text-gray-500" x-text="'لكل ' + product.small_unit_name"></p>
+                                {{-- <p class="text-xs text-gray-500" x-text="'لكل ' + product.small_unit_name"></p> --}}
                             </div>
                         </template>
 
@@ -210,7 +200,8 @@
                                         <div class="flex-1">
                                             <p class="text-xs text-gray-600 mb-1">
                                                 <span x-text="product.large_unit_name"></span>
-                                                <span class="text-blue-500 font-semibold" x-text="' (' + product.factor + ')'"></span>
+                                                <span class="text-blue-500 font-semibold"
+                                                    x-text="' (' + product.factor + ')'"></span>
                                             </p>
                                             <p class="text-xl font-bold text-green-600"
                                                 x-text="formatPrice(product.large_wholesale_price)"></p>

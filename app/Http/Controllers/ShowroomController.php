@@ -22,15 +22,14 @@ class ShowroomController extends Controller
         // Warning if WhatsApp not configured
         $whatsappConfigured = ! empty($companySettings->business_whatsapp_number);
 
-        // Get all catalog products with stock > 0
+        // Get catalog products based on mode
+        $visibilityField = $mode === 'retail' ? 'is_visible_in_retail_catalog' : 'is_visible_in_wholesale_catalog';
+
         $products = Product::query()
             ->with(['smallUnit', 'largeUnit', 'category'])
-            ->where('is_visible_in_catalog', true)
+            ->where($visibilityField, true)
             ->withSum('stockMovements', 'quantity')
             ->get()
-            ->filter(function ($product) {
-                return ($product->stock_movements_sum_quantity ?? 0) > 0;
-            })
             ->sortBy('name')
             ->values();
 

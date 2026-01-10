@@ -196,15 +196,15 @@ class SalesInvoiceResource extends Resource
                                     ->required()
                                     ->searchable(['name', 'barcode', 'sku'])
                                     ->preload()
-                                    ->reactive()
+                                    ->live()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get, $record) {
                                         if ($state) {
                                             $product = Product::find($state);
                                             if ($product) {
                                                 $unitType = $get('unit_type') ?? 'small';
-                                                $price = $unitType === 'large' && $product->large_retail_price
-                                                    ? $product->large_retail_price
-                                                    : $product->retail_price;
+                                                $price = $unitType === 'large' && $product->large_wholesale_price
+                                                    ? $product->large_wholesale_price
+                                                    : $product->wholesale_price;
                                                 $set('unit_price', $price);
                                                 $set('quantity', 1);
                                                 $set('total', $price);
@@ -216,6 +216,63 @@ class SalesInvoiceResource extends Resource
                                         if ($quantity) {
                                             $set('quantity', $quantity);
                                         }
+                                    })
+                                    ->hint(function (Get $get) {
+                                        $productId = $get('product_id');
+
+                                        if (!$productId) {
+                                            return null;
+                                        }
+
+                                        $warehouseId = $get('../../warehouse_id');
+                                        if (!$warehouseId) {
+                                            return '⚠️ اختر المخزن أولاً';
+                                        }
+
+                                        $product = Product::find($productId);
+                                        if (!$product) {
+                                            return null;
+                                        }
+
+                                        $stockService = app(\App\Services\StockService::class);
+                                        $baseStock = $stockService->getCurrentStock($warehouseId, $productId);
+
+                                        // Show both units if large unit exists
+                                        $smallStock = $baseStock;
+                                        $largeStock = $product->large_unit_id ? floor($baseStock / $product->factor) : null;
+
+                                        $display = "📦 المخزون: {$smallStock} {$product->smallUnit->name}";
+                                        if ($largeStock !== null && $product->largeUnit) {
+                                            $display .= " ({$largeStock} {$product->largeUnit->name})";
+                                        }
+
+                                        return $display;
+                                    })
+                                    ->hintColor(function (Get $get) {
+                                        $productId = $get('product_id');
+                                        $warehouseId = $get('../../warehouse_id');
+
+                                        if (!$productId) {
+                                            return null;
+                                        }
+
+                                        if (!$warehouseId) {
+                                            return 'warning';
+                                        }
+
+                                        $product = Product::find($productId);
+                                        if (!$product) {
+                                            return null;
+                                        }
+
+                                        $stockService = app(\App\Services\StockService::class);
+                                        $stock = $stockService->getCurrentStock($warehouseId, $productId);
+
+                                        return match(true) {
+                                            $stock <= 0 => 'danger',
+                                            $stock <= ($product->min_stock ?? 0) => 'warning',
+                                            default => 'success'
+                                        };
                                     })
                                     ->columnSpan(4)
                                     ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
@@ -242,9 +299,9 @@ class SalesInvoiceResource extends Resource
                                         if ($productId && $state) {
                                             $product = Product::find($productId);
                                             if ($product) {
-                                                $price = $state === 'large' && $product->large_retail_price
-                                                    ? $product->large_retail_price
-                                                    : $product->retail_price;
+                                                $price = $state === 'large' && $product->large_wholesale_price
+                                                    ? $product->large_wholesale_price
+                                                    : $product->wholesale_price;
                                                 $set('unit_price', $price);
                                                 $quantity = $get('quantity') ?? 1;
                                                 $set('total', $price * $quantity);
@@ -259,64 +316,6 @@ class SalesInvoiceResource extends Resource
                                     })
                                     ->columnSpan(2)
                                     ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
-
-                                // Stock availability indicator
-                                Forms\Components\Placeholder::make('current_stock')
-                                    ->label('الرصيد الحالي')
-                                    ->content(function (Get $get) {
-                                        $productId = $get('product_id');
-                                        $warehouseId = $get('../../warehouse_id');
-
-                                        if (!$productId || !$warehouseId) {
-                                            return '—';
-                                        }
-
-                                        $product = Product::find($productId);
-                                        if (!$product) {
-                                            return '—';
-                                        }
-
-                                        $stockService = app(\App\Services\StockService::class);
-                                        $baseStock = $stockService->getCurrentStock($warehouseId, $productId);
-
-                                        // Show both units if large unit exists
-                                        $smallStock = $baseStock;
-                                        $largeStock = $product->large_unit_id ? floor($baseStock / $product->factor) : null;
-
-                                        $display = "{$smallStock} {$product->smallUnit->name}";
-                                        if ($largeStock !== null && $product->largeUnit) {
-                                            $display .= " ({$largeStock} {$product->largeUnit->name})";
-                                        }
-
-                                        return $display;
-                                    })
-                                    ->extraAttributes(function (Get $get) {
-                                        $productId = $get('product_id');
-                                        $warehouseId = $get('../../warehouse_id');
-
-                                        if (!$productId || !$warehouseId) {
-                                            return [];
-                                        }
-
-                                        $product = Product::find($productId);
-                                        if (!$product) {
-                                            return [];
-                                        }
-
-                                        $stockService = app(\App\Services\StockService::class);
-                                        $stock = $stockService->getCurrentStock($warehouseId, $productId);
-
-                                        // Color coding based on stock level
-                                        $color = match(true) {
-                                            $stock <= 0 => 'color: #ef4444; font-weight: bold;', // red
-                                            $stock <= ($product->min_stock ?? 0) => 'color: #f59e0b; font-weight: bold;', // amber
-                                            default => 'color: #10b981; font-weight: bold;' // green
-                                        };
-
-                                        return ['style' => $color];
-                                    })
-                                    ->visible(fn (Get $get) => $get('product_id') !== null)
-                                    ->columnSpan(2),
 
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية')
@@ -403,6 +402,85 @@ class SalesInvoiceResource extends Resource
                                         $quantity = $get('quantity') ?? 1;
                                         $set('total', $state * $quantity);
                                     })
+                                    ->helperText(function (Get $get) {
+                                        // Security: Check permission
+                                        if (!auth()->user()->can('view_cost_price')) {
+                                            return null;
+                                        }
+
+                                        $productId = $get('product_id');
+                                        if (!$productId) {
+                                            return null;
+                                        }
+
+                                        // Get last purchase for this product
+                                        $lastPurchase = \App\Models\PurchaseInvoiceItem::with(['purchaseInvoice.partner'])
+                                            ->where('product_id', $productId)
+                                            ->whereHas('purchaseInvoice', function ($query) {
+                                                $query->where('status', 'posted');
+                                            })
+                                            ->latest('created_at')
+                                            ->first();
+
+                                        if (!$lastPurchase) {
+                                            return 'لا توجد سجلات شراء';
+                                        }
+
+                                        $lastCost = number_format($lastPurchase->unit_cost, 2);
+                                        $supplierName = $lastPurchase->purchaseInvoice->partner->name ?? 'غير محدد';
+
+                                        return "💡 آخر تكلفة: {$lastCost} (المورد: {$supplierName})";
+                                    })
+                                    ->suffixAction(
+                                        Forms\Components\Actions\Action::make('view_history')
+                                            ->icon('heroicon-m-information-circle')
+                                            ->tooltip('عرض سجل السعر')
+                                            ->modalHeading('سجل أسعار المنتج')
+                                            ->modalWidth('3xl')
+                                            ->modalContent(function (Get $get) {
+                                                $productId = $get('product_id');
+                                                if (!$productId) {
+                                                    return view('filament.components.empty-state', [
+                                                        'message' => 'يرجى اختيار منتج أولاً'
+                                                    ]);
+                                                }
+
+                                                $product = \App\Models\Product::find($productId);
+                                                if (!$product) {
+                                                    return view('filament.components.empty-state', [
+                                                        'message' => 'المنتج غير موجود'
+                                                    ]);
+                                                }
+
+                                                // Get last 5 purchases
+                                                $purchases = \App\Models\PurchaseInvoiceItem::with(['purchaseInvoice.partner'])
+                                                    ->where('product_id', $productId)
+                                                    ->whereHas('purchaseInvoice', function ($query) {
+                                                        $query->where('status', 'posted');
+                                                    })
+                                                    ->latest('created_at')
+                                                    ->limit(5)
+                                                    ->get();
+
+                                                // Get last 5 sales
+                                                $sales = \App\Models\SalesInvoiceItem::with(['salesInvoice.partner'])
+                                                    ->where('product_id', $productId)
+                                                    ->whereHas('salesInvoice', function ($query) {
+                                                        $query->where('status', 'posted');
+                                                    })
+                                                    ->latest('created_at')
+                                                    ->limit(5)
+                                                    ->get();
+
+                                                return view('filament.components.product-history', [
+                                                    'product' => $product,
+                                                    'purchases' => $purchases,
+                                                    'sales' => $sales,
+                                                    'canViewCost' => auth()->user()->can('view_cost_price'),
+                                                ]);
+                                            })
+                                            ->visible(fn (Get $get) => $get('product_id') !== null)
+                                    )
                                     ->rules([
                                         'required',
                                         'numeric',

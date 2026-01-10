@@ -11,6 +11,7 @@ use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Collection;
 
 class ProductResource extends Resource
 {
@@ -112,9 +113,14 @@ class ProductResource extends Resource
                             ->default(0)
                             ->minValue(0)
                             ->required(),
-                        Forms\Components\Toggle::make('is_visible_in_catalog')
-                            ->label('مرئي في الكتالوج العام')
-                            ->helperText('عند التفعيل، سيظهر المنتج في صالة العرض الرقمية ويمكن للعملاء إضافته للطلب عبر واتساب')
+                        Forms\Components\Toggle::make('is_visible_in_retail_catalog')
+                            ->label('مرئي في كتالوج التجزئة')
+                            ->helperText('عند التفعيل، سيظهر المنتج في صالة العرض الرقمية للتجزئة')
+                            ->default(true)
+                            ->inline(false),
+                        Forms\Components\Toggle::make('is_visible_in_wholesale_catalog')
+                            ->label('مرئي في كتالوج الجملة')
+                            ->helperText('عند التفعيل، سيظهر المنتج في صالة العرض الرقمية للجملة')
                             ->default(true)
                             ->inline(false),
                     ])
@@ -366,8 +372,12 @@ class ProductResource extends Resource
 
                         return 'success';
                     }),
-                Tables\Columns\IconColumn::make('is_visible_in_catalog')
-                    ->label('مرئي بالكتالوج')
+                Tables\Columns\IconColumn::make('is_visible_in_retail_catalog')
+                    ->label('كتالوج تجزئة')
+                    ->boolean()
+                    ->sortable(),
+                Tables\Columns\IconColumn::make('is_visible_in_wholesale_catalog')
+                    ->label('كتالوج جملة')
                     ->boolean()
                     ->sortable(),
             ])
@@ -462,13 +472,29 @@ class ProductResource extends Resource
                         $replica->sku = null;
                     }),
                 Tables\Actions\DeleteAction::make()
-                    ->failureNotification(function ($exception) {
-                        return \Filament\Notifications\Notification::make()
-                            ->danger()
-                            ->title('فشل حذف المنتج')
-                            ->body($exception->getMessage())
-                            ->send();
-                    }),
+                    ->before(function (Product $record, Tables\Actions\DeleteAction $action) {
+                        // Check for related records to prevent deletion
+                        $hasStockMovements = \App\Models\StockMovement::where('product_id', $record->id)->exists();
+                        $hasSalesInvoiceItems = \App\Models\SalesInvoiceItem::where('product_id', $record->id)->exists();
+                        $hasPurchaseInvoiceItems = \App\Models\PurchaseInvoiceItem::where('product_id', $record->id)->exists();
+                        $hasQuotationItems = class_exists('\App\Models\QuotationItem')
+                            && \App\Models\QuotationItem::where('product_id', $record->id)->exists();
+
+                        if ($hasStockMovements || $hasSalesInvoiceItems || $hasPurchaseInvoiceItems || $hasQuotationItems) {
+                            \Filament\Notifications\Notification::make()
+                                ->danger()
+                                ->title('فشل حذف المنتج')
+                                ->body('لا يمكن حذف المنتج لوجود فواتير أو حركات مخزون أو عروض أسعار مرتبطة به')
+                                ->send();
+
+                            $action->cancel();
+                        }
+                    })
+                    ->successNotification(
+                        \Filament\Notifications\Notification::make()
+                            ->success()
+                            ->title('تم حذف المنتج بنجاح')
+                    ),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -493,7 +519,7 @@ class ProductResource extends Resource
                                 ->reactive(),
 
                             Forms\Components\TextInput::make('value')
-                                ->label(function (Get $get) {
+                                ->label(function ($get) {
                                     return match($get('update_type')) {
                                         'percentage_increase', 'percentage_decrease' => 'النسبة المئوية (%)',
                                         'fixed_increase', 'fixed_decrease' => 'المبلغ (ج.م)',
@@ -550,13 +576,49 @@ class ProductResource extends Resource
                         ->deselectRecordsAfterCompletion(),
 
                     Tables\Actions\DeleteBulkAction::make()
-                        ->failureNotification(function ($exception) {
-                            return \Filament\Notifications\Notification::make()
-                                ->danger()
-                                ->title('فشل حذف المنتجات')
-                                ->body($exception->getMessage())
-                                ->send();
-                        }),
+                        ->action(function (Collection $records) {
+                            $deleted = 0;
+                            $failed = 0;
+                            $failedProducts = [];
+
+                            foreach ($records as $record) {
+                                // Check for related records
+                                $hasStockMovements = \App\Models\StockMovement::where('product_id', $record->id)->exists();
+                                $hasSalesInvoiceItems = \App\Models\SalesInvoiceItem::where('product_id', $record->id)->exists();
+                                $hasPurchaseInvoiceItems = \App\Models\PurchaseInvoiceItem::where('product_id', $record->id)->exists();
+                                $hasQuotationItems = class_exists('\App\Models\QuotationItem')
+                                    && \App\Models\QuotationItem::where('product_id', $record->id)->exists();
+
+                                if ($hasStockMovements || $hasSalesInvoiceItems || $hasPurchaseInvoiceItems || $hasQuotationItems) {
+                                    $failed++;
+                                    $failedProducts[] = $record->name;
+                                } else {
+                                    $record->delete();
+                                    $deleted++;
+                                }
+                            }
+
+                            if ($deleted > 0 && $failed === 0) {
+                                \Filament\Notifications\Notification::make()
+                                    ->success()
+                                    ->title('تم حذف المنتجات بنجاح')
+                                    ->body("تم حذف {$deleted} منتج بنجاح")
+                                    ->send();
+                            } elseif ($deleted > 0 && $failed > 0) {
+                                \Filament\Notifications\Notification::make()
+                                    ->warning()
+                                    ->title('تم حذف بعض المنتجات')
+                                    ->body("تم حذف {$deleted} منتج، وفشل حذف {$failed} منتج لوجود بيانات مرتبطة")
+                                    ->send();
+                            } else {
+                                \Filament\Notifications\Notification::make()
+                                    ->danger()
+                                    ->title('فشل حذف المنتجات')
+                                    ->body('لا يمكن حذف المنتجات المحددة لوجود فواتير أو حركات مخزون أو عروض أسعار مرتبطة بها')
+                                    ->send();
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion(),
                 ]),
             ]);
     }
