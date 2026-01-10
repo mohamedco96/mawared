@@ -15,12 +15,13 @@ class ActivityLogResource extends Resource
 {
     protected static ?string $model = Activity::class;
 
+    protected static ?string $cluster = \App\Filament\Clusters\SystemSettings::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
     protected static ?string $navigationLabel = 'سجل النشاطات';
     protected static ?string $modelLabel = 'نشاط';
     protected static ?string $pluralModelLabel = 'سجل النشاطات';
-    protected static ?string $navigationGroup = 'إعدادات النظام';
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
     {
@@ -306,18 +307,40 @@ class ActivityLogResource extends Resource
                     ->schema([
                         Infolists\Components\Grid::make(2)
                             ->schema([
-                                Infolists\Components\KeyValueEntry::make('properties.attributes')
+                                Infolists\Components\KeyValueEntry::make('formatted_attributes')
                                     ->label('القيم الجديدة / الحالية')
                                     ->columnSpan(1)
+                                    ->state(function ($record) {
+                                        if (!$record->properties || !isset($record->properties['attributes'])) {
+                                            return [];
+                                        }
+
+                                        return collect($record->properties['attributes'])->mapWithKeys(function ($value, $key) {
+                                            $translatedKey = static::translateFieldName($key);
+                                            $translatedValue = static::translateFieldValue($key, $value);
+                                            return [$translatedKey => $translatedValue];
+                                        })->toArray();
+                                    })
                                     ->visible(fn ($record) =>
                                         $record->properties &&
                                         isset($record->properties['attributes']) &&
                                         !empty($record->properties['attributes'])
                                     ),
 
-                                Infolists\Components\KeyValueEntry::make('properties.old')
+                                Infolists\Components\KeyValueEntry::make('formatted_old')
                                     ->label('القيم القديمة')
                                     ->columnSpan(1)
+                                    ->state(function ($record) {
+                                        if (!$record->properties || !isset($record->properties['old'])) {
+                                            return [];
+                                        }
+
+                                        return collect($record->properties['old'])->mapWithKeys(function ($value, $key) {
+                                            $translatedKey = static::translateFieldName($key);
+                                            $translatedValue = static::translateFieldValue($key, $value);
+                                            return [$translatedKey => $translatedValue];
+                                        })->toArray();
+                                    })
                                     ->visible(fn ($record) =>
                                         $record->properties &&
                                         isset($record->properties['old']) &&
@@ -392,5 +415,313 @@ class ActivityLogResource extends Resource
                 return null;
             }
         }
+    }
+
+    /**
+     * Translate field names from English to Arabic
+     */
+    protected static function translateFieldName(string $fieldName): string
+    {
+        $translations = [
+            // Common fields
+            'id' => 'الرقم التعريفي',
+            'name' => 'الاسم',
+            'sku' => 'رمز المنتج',
+            'barcode' => 'الباركود',
+            'description' => 'الوصف',
+            'notes' => 'ملاحظات',
+            'created_at' => 'تاريخ الإنشاء',
+            'updated_at' => 'تاريخ التحديث',
+            'deleted_at' => 'تاريخ الحذف',
+            'created_by' => 'أنشئ بواسطة',
+            'updated_by' => 'حُدث بواسطة',
+
+            // Product fields
+            'category_id' => 'الفئة',
+            'retail_price' => 'سعر التجزئة',
+            'wholesale_price' => 'سعر الجملة',
+            'avg_cost' => 'متوسط التكلفة',
+            'min_stock' => 'الحد الأدنى للمخزون',
+            'factor' => 'المعامل',
+            'small_unit_id' => 'الوحدة الصغيرة',
+            'large_unit_id' => 'الوحدة الكبيرة',
+            'large_barcode' => 'الباركود (الوحدة الكبيرة)',
+            'large_retail_price' => 'سعر التجزئة (الوحدة الكبيرة)',
+            'large_wholesale_price' => 'سعر الجملة (الوحدة الكبيرة)',
+            'is_visible_in_retail_catalog' => 'ظاهر في كتالوج التجزئة',
+            'is_visible_in_wholesale_catalog' => 'ظاهر في كتالوج الجملة',
+            'image' => 'الصورة',
+            'images' => 'الصور',
+
+            // Partner fields
+            'type' => 'النوع',
+            'phone' => 'الهاتف',
+            'gov_id' => 'الهوية الوطنية',
+            'region' => 'المنطقة',
+            'current_balance' => 'الرصيد الحالي',
+            'is_banned' => 'محظور',
+
+            // Invoice fields
+            'invoice_number' => 'رقم الفاتورة',
+            'partner_id' => 'الشريك',
+            'warehouse_id' => 'المخزن',
+            'status' => 'الحالة',
+            'payment_method' => 'طريقة الدفع',
+            'subtotal' => 'المجموع الفرعي',
+            'discount' => 'الخصم',
+            'total' => 'الإجمالي',
+            'paid_amount' => 'المبلغ المدفوع',
+            'remaining_amount' => 'المبلغ المتبقي',
+            'tax' => 'الضريبة',
+            'tax_rate' => 'معدل الضريبة',
+
+            // Stock fields
+            'product_id' => 'المنتج',
+            'quantity' => 'الكمية',
+            'cost_at_time' => 'التكلفة',
+            'unit_type' => 'نوع الوحدة',
+            'unit_price' => 'سعر الوحدة',
+            'unit_cost' => 'تكلفة الوحدة',
+            'net_unit_price' => 'صافي سعر الوحدة',
+            'net_unit_cost' => 'صافي تكلفة الوحدة',
+
+            // Treasury fields
+            'treasury_id' => 'الخزينة',
+            'amount' => 'المبلغ',
+            'reference_type' => 'نوع المرجع',
+            'reference_id' => 'رقم المرجع',
+            'balance' => 'الرصيد',
+
+            // User fields
+            'email' => 'البريد الإلكتروني',
+            'password' => 'كلمة المرور',
+            'role' => 'الدور',
+            'is_active' => 'نشط',
+
+            // Return fields
+            'return_number' => 'رقم المرتجع',
+            'sales_invoice_id' => 'فاتورة البيع',
+            'purchase_invoice_id' => 'فاتورة الشراء',
+
+            // Quotation fields
+            'quotation_number' => 'رقم عرض السعر',
+            'customer_name' => 'اسم العميل',
+            'guest_name' => 'اسم الزائر',
+            'guest_phone' => 'هاتف الزائر',
+            'pricing_type' => 'نوع التسعير',
+            'valid_until' => 'صالح حتى',
+            'converted_to_invoice_id' => 'حُول إلى فاتورة',
+            'is_guest' => 'زائر',
+
+            // Installment fields
+            'installment_number' => 'رقم القسط',
+            'due_date' => 'تاريخ الاستحقاق',
+            'paid_at' => 'تاريخ الدفع',
+            'payment_date' => 'تاريخ الدفع',
+
+            // Fixed Asset fields
+            'asset_number' => 'رقم الأصل',
+            'purchase_date' => 'تاريخ الشراء',
+            'purchase_cost' => 'تكلفة الشراء',
+            'useful_life_years' => 'العمر الإنتاجي (سنوات)',
+            'salvage_value' => 'قيمة الخردة',
+            'depreciation_method' => 'طريقة الاستهلاك',
+            'current_value' => 'القيمة الحالية',
+
+            // Expense fields
+            'expense_number' => 'رقم المصروف',
+            'category' => 'الفئة',
+            'date' => 'التاريخ',
+
+            // Revenue fields
+            'revenue_number' => 'رقم الإيراد',
+            'source' => 'المصدر',
+
+            // Warehouse fields
+            'address' => 'العنوان',
+            'is_active' => 'نشط',
+
+            // Transfer fields
+            'transfer_number' => 'رقم النقل',
+            'from_warehouse_id' => 'من مخزن',
+            'to_warehouse_id' => 'إلى مخزن',
+
+            // Adjustment fields
+            'adjustment_number' => 'رقم التسوية',
+            'reason' => 'السبب',
+
+            // Unit fields
+            'abbreviation' => 'الاختصار',
+
+            // Employee fields
+            'employee_id' => 'الموظف',
+            'advance_balance' => 'رصيد السلف',
+        ];
+
+        return $translations[$fieldName] ?? $fieldName;
+    }
+
+    /**
+     * Translate field values from English to Arabic
+     */
+    protected static function translateFieldValue(string $fieldName, $value)
+    {
+        // Handle null values
+        if ($value === null) {
+            return '—';
+        }
+
+        // Handle arrays
+        if (is_array($value)) {
+            return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        }
+
+        // Handle boolean values
+        if (is_bool($value)) {
+            return $value ? 'نعم' : 'لا';
+        }
+
+        // Handle specific field value translations
+        $stringValue = (string) $value;
+
+        // Boolean string values (0/1)
+        if (in_array($fieldName, ['is_banned', 'is_active', 'is_guest', 'is_visible_in_retail_catalog', 'is_visible_in_wholesale_catalog'])) {
+            if ($stringValue === '1' || $stringValue === 'true') {
+                return 'نعم';
+            } elseif ($stringValue === '0' || $stringValue === 'false') {
+                return 'لا';
+            }
+        }
+
+        // Status translations
+        if (in_array($fieldName, ['status'])) {
+            $statusTranslations = [
+                'draft' => 'مسودة',
+                'posted' => 'مؤكدة',
+                'sent' => 'مرسل',
+                'accepted' => 'مقبول',
+                'converted' => 'محول',
+                'rejected' => 'مرفوض',
+                'expired' => 'منتهي',
+                'pending' => 'قيد الانتظار',
+                'completed' => 'مكتمل',
+                'cancelled' => 'ملغي',
+                'active' => 'نشط',
+                'inactive' => 'غير نشط',
+            ];
+            return $statusTranslations[$stringValue] ?? $value;
+        }
+
+        // Type translations
+        if (in_array($fieldName, ['type'])) {
+            $typeTranslations = [
+                'customer' => 'عميل',
+                'supplier' => 'مورد',
+                'shareholder' => 'شريك (مساهم)',
+                'collection' => 'تحصيل',
+                'payment' => 'دفع',
+                'income' => 'إيراد',
+                'expense' => 'مصروف',
+                'capital_deposit' => 'إيداع رأس المال',
+                'partner_drawing' => 'سحب شريك',
+                'employee_advance' => 'سلفة موظف',
+                'sale' => 'بيع',
+                'purchase' => 'شراء',
+                'sale_return' => 'مرتجع بيع',
+                'purchase_return' => 'مرتجع شراء',
+                'adjustment_in' => 'إضافة',
+                'adjustment_out' => 'خصم',
+                'transfer' => 'نقل',
+            ];
+            return $typeTranslations[$stringValue] ?? $value;
+        }
+
+        // Payment method translations
+        if (in_array($fieldName, ['payment_method'])) {
+            $paymentTranslations = [
+                'cash' => 'نقدي',
+                'credit' => 'آجل',
+                'bank' => 'بنك',
+                'check' => 'شيك',
+                'transfer' => 'تحويل',
+            ];
+            return $paymentTranslations[$stringValue] ?? $value;
+        }
+
+        // Unit type translations
+        if (in_array($fieldName, ['unit_type'])) {
+            $unitTranslations = [
+                'small' => 'صغيرة',
+                'large' => 'كبيرة',
+            ];
+            return $unitTranslations[$stringValue] ?? $value;
+        }
+
+        // Reference type translations
+        if (in_array($fieldName, ['reference_type'])) {
+            $referenceTranslations = [
+                'sales_invoice' => 'فاتورة بيع',
+                'purchase_invoice' => 'فاتورة شراء',
+                'sales_return' => 'مرتجع بيع',
+                'purchase_return' => 'مرتجع شراء',
+                'stock_adjustment' => 'تسوية',
+                'warehouse_transfer' => 'نقل',
+                'financial_transaction' => 'معاملة مالية',
+                'quotation' => 'عرض سعر',
+                'installment' => 'قسط',
+            ];
+            return $referenceTranslations[$stringValue] ?? $value;
+        }
+
+        // Pricing type translations
+        if (in_array($fieldName, ['pricing_type'])) {
+            $pricingTranslations = [
+                'retail' => 'سعر التجزئة',
+                'wholesale' => 'سعر الجملة',
+                'manual' => 'يدوي',
+                'custom' => 'مخصص',
+            ];
+            return $pricingTranslations[$stringValue] ?? $value;
+        }
+
+        // Depreciation method translations
+        if (in_array($fieldName, ['depreciation_method'])) {
+            $depreciationTranslations = [
+                'straight_line' => 'القسط الثابت',
+                'declining_balance' => 'الرصيد المتناقص',
+                'sum_of_years' => 'مجموع أرقام السنوات',
+            ];
+            return $depreciationTranslations[$stringValue] ?? $value;
+        }
+
+        // Reason translations (for adjustments)
+        if (in_array($fieldName, ['reason'])) {
+            $reasonTranslations = [
+                'damaged' => 'تالف',
+                'lost' => 'مفقود',
+                'expired' => 'منتهي الصلاحية',
+                'count_adjustment' => 'تعديل جرد',
+                'other' => 'أخرى',
+            ];
+            return $reasonTranslations[$stringValue] ?? $value;
+        }
+
+        // Category translations (for expenses/revenues)
+        if (in_array($fieldName, ['category'])) {
+            $categoryTranslations = [
+                'operational' => 'تشغيلية',
+                'administrative' => 'إدارية',
+                'sales' => 'مبيعات',
+                'marketing' => 'تسويقية',
+                'maintenance' => 'صيانة',
+                'utilities' => 'مرافق',
+                'salaries' => 'رواتب',
+                'rent' => 'إيجار',
+                'other' => 'أخرى',
+            ];
+            return $categoryTranslations[$stringValue] ?? $value;
+        }
+
+        return $value;
     }
 }

@@ -45,6 +45,8 @@ class StockMovementResource extends Resource
                     ->options([
                         'sale' => 'بيع',
                         'purchase' => 'شراء',
+                        'sale_return' => 'مرتجع بيع',
+                        'purchase_return' => 'مرتجع شراء',
                         'adjustment_in' => 'إضافة',
                         'adjustment_out' => 'خصم',
                         'transfer' => 'نقل',
@@ -90,6 +92,8 @@ class StockMovementResource extends Resource
                     ->formatStateUsing(fn (string $state): string => match($state) {
                         'sale' => 'بيع',
                         'purchase' => 'شراء',
+                        'sale_return' => 'مرتجع بيع',
+                        'purchase_return' => 'مرتجع شراء',
                         'adjustment_in' => 'إضافة',
                         'adjustment_out' => 'خصم',
                         'transfer' => 'نقل',
@@ -99,6 +103,7 @@ class StockMovementResource extends Resource
                     ->color(fn (string $state): string => match($state) {
                         'sale', 'adjustment_out' => 'danger',
                         'purchase', 'adjustment_in' => 'success',
+                        'sale_return', 'purchase_return' => 'warning',
                         'transfer' => 'info',
                         default => 'gray',
                     }),
@@ -116,6 +121,8 @@ class StockMovementResource extends Resource
                     ->formatStateUsing(fn (?string $state): string => match($state) {
                         'sales_invoice' => 'فاتورة بيع',
                         'purchase_invoice' => 'فاتورة شراء',
+                        'sales_return' => 'مرتجع بيع',
+                        'purchase_return' => 'مرتجع شراء',
                         'stock_adjustment' => 'تسوية',
                         'warehouse_transfer' => 'نقل',
                         default => $state ?? '—',
@@ -142,6 +149,8 @@ class StockMovementResource extends Resource
                     ->options([
                         'sale' => 'بيع',
                         'purchase' => 'شراء',
+                        'sale_return' => 'مرتجع بيع',
+                        'purchase_return' => 'مرتجع شراء',
                         'adjustment_in' => 'إضافة',
                         'adjustment_out' => 'خصم',
                         'transfer' => 'نقل',
@@ -152,6 +161,8 @@ class StockMovementResource extends Resource
                     ->options([
                         'sales_invoice' => 'فاتورة بيع',
                         'purchase_invoice' => 'فاتورة شراء',
+                        'sales_return' => 'مرتجع بيع',
+                        'purchase_return' => 'مرتجع شراء',
                         'stock_adjustment' => 'تسوية',
                         'warehouse_transfer' => 'نقل',
                     ])

@@ -84,7 +84,7 @@ class QuotationResource extends Resource
                     ->schema([
                         Forms\Components\Toggle::make('is_guest')
                             ->label('عميل غير مسجل')
-                            ->default(false)
+                            ->default(fn ($record) => $record ? !empty($record->guest_name) : false)
                             ->live()
                             ->afterStateUpdated(function (Set $set, $state) {
                                 if ($state) {

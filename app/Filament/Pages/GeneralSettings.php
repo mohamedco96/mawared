@@ -14,6 +14,8 @@ class GeneralSettings extends Page implements HasForms
 {
     use InteractsWithForms;
 
+    protected static ?string $cluster = \App\Filament\Clusters\SystemSettings::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-cog-6-tooth';
 
     protected static string $view = 'filament.pages.general-settings';
@@ -21,8 +23,6 @@ class GeneralSettings extends Page implements HasForms
     protected static ?string $navigationLabel = 'إعدادات الشركة';
 
     protected static ?string $title = 'إعدادات الشركة';
-
-    protected static ?string $navigationGroup = 'إعدادات النظام';
 
     protected static ?int $navigationSort = 3;
 

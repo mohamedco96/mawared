@@ -16,6 +16,8 @@ class WarehouseResource extends Resource
 {
     protected static ?string $model = Warehouse::class;
 
+    protected static ?string $cluster = \App\Filament\Clusters\InventorySettings::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-building-storefront';
 
     protected static ?string $navigationLabel = 'المخازن';
@@ -24,9 +26,7 @@ class WarehouseResource extends Resource
 
     protected static ?string $pluralModelLabel = 'المخازن';
 
-    protected static ?string $navigationGroup = 'المخزون';
-
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 3;
 
     public static function form(Form $form): Form
     {

@@ -199,44 +199,13 @@ class PartnerResource extends Resource
                 Tables\Actions\Action::make('statement')
                     ->label('كشف حساب')
                     ->icon('heroicon-o-document-text')
-                    ->modalHeading(fn (Partner $record) => "كشف حساب - {$record->name}")
-                    ->modalContent(function (Partner $record) {
-                        $transactions = $record->treasuryTransactions()
-                            ->with('treasury')
-                            ->orderBy('created_at', 'desc')
-                            ->limit(100)
-                            ->get();
-
-                        $html = '<div class="space-y-4">';
-                        $html .= '<div class="text-lg font-semibold">الرصيد الحالي: ' . number_format($record->current_balance, 2) . '</div>';
-                        $html .= '<table class="w-full text-sm">';
-                        $html .= '<thead><tr class="border-b"><th class="text-right p-2">التاريخ</th><th class="text-right p-2">النوع</th><th class="text-right p-2">المبلغ</th><th class="text-right p-2">الوصف</th></tr></thead>';
-                        $html .= '<tbody>';
-                        foreach ($transactions as $transaction) {
-                            $typeLabel = match($transaction->type) {
-                                'collection' => 'تحصيل',
-                                'payment' => 'دفع',
-                                'income' => 'إيراد',
-                                'expense' => 'مصروف',
-                                'capital_deposit' => 'إيداع رأس المال',
-                                'partner_drawing' => 'سحب',
-                                default => $transaction->type,
-                            };
-                            $html .= '<tr class="border-b">';
-                            $html .= '<td class="p-2">' . $transaction->created_at->format('Y-m-d H:i') . '</td>';
-                            $html .= '<td class="p-2">' . $typeLabel . '</td>';
-                            $html .= '<td class="p-2 ' . ($transaction->amount >= 0 ? 'text-green-600' : 'text-red-600') . '">' . number_format($transaction->amount, 2) . '</td>';
-                            $html .= '<td class="p-2">' . $transaction->description . '</td>';
-                            $html .= '</tr>';
-                        }
-                        $html .= '</tbody></table>';
-                        $html .= '</div>';
-
-                        return new \Illuminate\Support\HtmlString($html);
-                    })
-                    ->modalWidth('7xl')
-                    ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('إغلاق'),
+                    ->color('info')
+                    ->url(fn (Partner $record) => route('filament.admin.pages.reports-hub', [
+                        'report' => 'partner_statement',
+                        'partner_id' => $record->id,
+                    ]))
+                    ->openUrlInNewTab(false)
+                    ->visible(fn () => auth()->user()?->can('page_PartnerStatement')),
                 Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([

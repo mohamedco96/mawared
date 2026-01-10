@@ -463,6 +463,16 @@ class ProductResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('view_stock_card')
+                    ->label('كارت الصنف')
+                    ->icon('heroicon-o-clipboard-document-list')
+                    ->color('info')
+                    ->url(fn (Product $record) => route('filament.admin.pages.reports-hub', [
+                        'report' => 'stock_card',
+                        'product_id' => $record->id,
+                    ]))
+                    ->openUrlInNewTab(false)
+                    ->visible(fn () => auth()->user()?->can('page_StockCard')),
                 Tables\Actions\ReplicateAction::make()
                     ->excludeAttributes(['stock_movements_sum_quantity'])
                     ->beforeReplicaSaved(function ($replica) {

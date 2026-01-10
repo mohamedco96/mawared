@@ -15,6 +15,8 @@ class UnitResource extends Resource
 {
     protected static ?string $model = Unit::class;
 
+    protected static ?string $cluster = \App\Filament\Clusters\InventorySettings::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-cube';
 
     protected static ?string $navigationLabel = 'وحدات القياس';
@@ -23,9 +25,7 @@ class UnitResource extends Resource
 
     protected static ?string $pluralModelLabel = 'وحدات القياس';
 
-    protected static ?string $navigationGroup = 'المخزون';
-
-    protected static ?int $navigationSort = 6;
+    protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
     {

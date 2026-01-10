@@ -32,6 +32,11 @@ class ItemProfitabilityReport extends Page implements HasForms, HasTable
 
     protected static ?int $navigationSort = 8;
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false; // Hidden - accessible via ReportsHub
+    }
+
     public static function canAccess(): bool
     {
         return auth()->user()?->can('page_ItemProfitabilityReport') ?? false;

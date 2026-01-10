@@ -15,6 +15,8 @@ class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
+    protected static ?string $cluster = \App\Filament\Clusters\SystemSettings::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-user-circle';
 
     protected static ?string $navigationLabel = 'المستخدمين';
@@ -22,8 +24,6 @@ class UserResource extends Resource
     protected static ?string $modelLabel = 'مستخدم';
 
     protected static ?string $pluralModelLabel = 'المستخدمين';
-
-    protected static ?string $navigationGroup = 'إعدادات النظام';
 
     protected static ?int $navigationSort = 1;
 

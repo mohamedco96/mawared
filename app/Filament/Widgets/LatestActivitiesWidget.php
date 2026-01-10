@@ -6,6 +6,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Spatie\Activitylog\Models\Activity;
+use App\Filament\Resources\ActivityLogResource;
 
 class LatestActivitiesWidget extends BaseWidget
 {
@@ -98,7 +99,7 @@ class LatestActivitiesWidget extends BaseWidget
             ->headerActions([
                 Tables\Actions\Action::make('view_all')
                     ->label('عرض السجل الكامل')
-                    ->url(route('filament.admin.resources.activity-logs.index'))
+                    ->url(ActivityLogResource::getUrl('index'))
                     ->icon('heroicon-o-arrow-right')
                     ->color('primary'),
             ])

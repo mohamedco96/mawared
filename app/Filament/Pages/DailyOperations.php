@@ -15,7 +15,7 @@ class DailyOperations extends Page implements HasTable
 {
     use InteractsWithTable;
 
-    protected static ?string $navigationIcon = 'heroicon-o-home';
+    protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
 
     protected static string $view = 'filament.pages.daily-operations';
 
@@ -185,6 +185,8 @@ class DailyOperations extends Page implements HasTable
                     ->formatStateUsing(fn (string $state): string => match($state) {
                         'sale' => 'بيع',
                         'purchase' => 'شراء',
+                        'sale_return' => 'مرتجع بيع',
+                        'purchase_return' => 'مرتجع شراء',
                         'adjustment_in' => 'إضافة',
                         'adjustment_out' => 'خصم',
                         'transfer' => 'نقل',
@@ -194,6 +196,7 @@ class DailyOperations extends Page implements HasTable
                     ->color(fn (string $state): string => match($state) {
                         'sale', 'adjustment_out' => 'danger',
                         'purchase', 'adjustment_in' => 'success',
+                        'sale_return', 'purchase_return' => 'warning',
                         'transfer' => 'info',
                         default => 'gray',
                     }),
@@ -210,6 +213,8 @@ class DailyOperations extends Page implements HasTable
                     ->formatStateUsing(fn (?string $state): string => match($state) {
                         'sales_invoice' => 'فاتورة بيع',
                         'purchase_invoice' => 'فاتورة شراء',
+                        'sales_return' => 'مرتجع بيع',
+                        'purchase_return' => 'مرتجع شراء',
                         'stock_adjustment' => 'تسوية',
                         'warehouse_transfer' => 'نقل',
                         default => $state ?? '—',
@@ -254,6 +259,8 @@ class DailyOperations extends Page implements HasTable
                     ->options([
                         'sale' => 'بيع',
                         'purchase' => 'شراء',
+                        'sale_return' => 'مرتجع بيع',
+                        'purchase_return' => 'مرتجع شراء',
                         'adjustment_in' => 'إضافة',
                         'adjustment_out' => 'خصم',
                         'transfer' => 'نقل',

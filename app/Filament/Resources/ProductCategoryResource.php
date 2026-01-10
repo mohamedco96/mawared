@@ -18,9 +18,9 @@ class ProductCategoryResource extends Resource
 {
     protected static ?string $model = ProductCategory::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-folder';
+    protected static ?string $cluster = \App\Filament\Clusters\InventorySettings::class;
 
-    protected static ?string $navigationGroup = 'المخزون';
+    protected static ?string $navigationIcon = 'heroicon-o-folder';
 
     protected static ?string $navigationLabel = 'تصنيفات المنتجات';
 
@@ -28,7 +28,7 @@ class ProductCategoryResource extends Resource
 
     protected static ?string $pluralModelLabel = 'تصنيفات المنتجات';
 
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
     {

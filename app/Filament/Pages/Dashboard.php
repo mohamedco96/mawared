@@ -10,6 +10,8 @@ class Dashboard extends BaseDashboard
 
     protected static ?string $navigationIcon = 'heroicon-o-home';
 
+    protected static ?int $navigationSort = -100;
+
     public function getHeading(): string
     {
         return '';

@@ -17,6 +17,8 @@ class StockAdjustmentResource extends Resource
 {
     protected static ?string $model = StockAdjustment::class;
 
+    protected static ?string $cluster = \App\Filament\Clusters\InventorySettings::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-adjustments-horizontal';
 
     protected static ?string $navigationLabel = 'تسويات المخزون';
@@ -25,9 +27,7 @@ class StockAdjustmentResource extends Resource
 
     protected static ?string $pluralModelLabel = 'تسويات المخزون';
 
-    protected static ?string $navigationGroup = 'المخزون';
-
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 5;
 
     public static function form(Form $form): Form
     {

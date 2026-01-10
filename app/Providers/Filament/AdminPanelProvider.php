@@ -42,8 +42,8 @@ class AdminPanelProvider extends PanelProvider
                 'المبيعات',         // Sales
                 'المشتريات',        // Purchases
                 'المخزون',          // Inventory
-                'الإدارة المالية',  // Financials
-                'إعدادات النظام',   // System Settings
+                'الإدارة المالية',  // Finance
+                'أخرى',            // Other (Reports & Settings at the end)
             ])
             ->sidebarCollapsibleOnDesktop()
             ->collapsibleNavigationGroups(true)
@@ -137,6 +137,63 @@ class AdminPanelProvider extends PanelProvider
                         x-filament-panels\\:\\:page form > button {
                             margin-top: 2rem !important;
                         }
+
+                        /* Dashboard Widgets - Colored Borders & Enhanced Styling */
+                        .fi-wi-stats-overview-stat {
+                            border-left: 4px solid transparent;
+                            transition: all 0.2s ease;
+                        }
+                        .fi-wi-stats-overview-stat:hover {
+                            transform: translateY(-2px);
+                            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+                        }
+
+                        /* Success Stats (Green) */
+                        .fi-wi-stats-overview-stat:has(.fi-color-success) {
+                            border-left-color: rgb(34 197 94); /* emerald-500 */
+                            background: linear-gradient(to left, transparent, rgb(34 197 94 / 0.02));
+                        }
+
+                        /* Danger Stats (Red) */
+                        .fi-wi-stats-overview-stat:has(.fi-color-danger) {
+                            border-left-color: rgb(244 63 94); /* rose-500 */
+                            background: linear-gradient(to left, transparent, rgb(244 63 94 / 0.02));
+                        }
+
+                        /* Info Stats (Cyan) */
+                        .fi-wi-stats-overview-stat:has(.fi-color-info) {
+                            border-left-color: rgb(6 182 212); /* cyan-500 */
+                            background: linear-gradient(to left, transparent, rgb(6 182 212 / 0.02));
+                        }
+
+                        /* Warning Stats (Amber) */
+                        .fi-wi-stats-overview-stat:has(.fi-color-warning) {
+                            border-left-color: rgb(245 158 11); /* amber-500 */
+                            background: linear-gradient(to left, transparent, rgb(245 158 11 / 0.02));
+                        }
+
+                        /* Dark mode adjustments */
+                        .dark .fi-wi-stats-overview-stat:has(.fi-color-success) {
+                            background: linear-gradient(to left, transparent, rgb(34 197 94 / 0.05));
+                        }
+                        .dark .fi-wi-stats-overview-stat:has(.fi-color-danger) {
+                            background: linear-gradient(to left, transparent, rgb(244 63 94 / 0.05));
+                        }
+                        .dark .fi-wi-stats-overview-stat:has(.fi-color-info) {
+                            background: linear-gradient(to left, transparent, rgb(6 182 212 / 0.05));
+                        }
+                        .dark .fi-wi-stats-overview-stat:has(.fi-color-warning) {
+                            background: linear-gradient(to left, transparent, rgb(245 158 11 / 0.05));
+                        }
+
+                        /* Chart Widgets - Subtle Border */
+                        .fi-wi-chart {
+                            border-top: 3px solid rgb(59 130 246); /* primary-500 */
+                            border-radius: 0.5rem;
+                        }
+                        .dark .fi-wi-chart {
+                            border-top-color: rgb(96 165 250); /* primary-400 */
+                        }
                     </style>
                 ',
             )
@@ -148,10 +205,19 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::GLOBAL_SEARCH_AFTER,
                 fn (): string => view('filament.hooks.header-actions')->render(),
             )
+            ->discoverClusters(in: app_path('Filament/Clusters'), for: 'App\\Filament\\Clusters')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
-            ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
                 \App\Filament\Pages\Dashboard::class,
+                \App\Filament\Pages\CollectPayments::class,
+                \App\Filament\Pages\DailyOperations::class,
+                \App\Filament\Pages\GeneralSettings::class,
+                \App\Filament\Pages\ItemProfitabilityReport::class,
+                \App\Filament\Pages\PartnerStatement::class,
+                \App\Filament\Pages\ProfitLossReport::class,
+                \App\Filament\Pages\ReportsHub::class,
+                \App\Filament\Pages\StockCard::class,
+                // Backups is registered by the plugin, not here
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([

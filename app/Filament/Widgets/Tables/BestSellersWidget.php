@@ -37,6 +37,7 @@ class BestSellersWidget extends BaseWidget
                 'products.id',
                 'products.name as product_name',
                 DB::raw('COALESCE(SUM(sales_invoice_items.quantity), 0) as total_sold'),
+                DB::raw('COALESCE(SUM(sales_invoice_items.total), 0) as total_revenue'),
             ])
             ->leftJoin('sales_invoice_items', 'products.id', '=', 'sales_invoice_items.product_id')
             ->leftJoin('sales_invoices', function ($join) use ($fromDate) {
@@ -67,6 +68,14 @@ class BestSellersWidget extends BaseWidget
                 ->color('success')
                 ->badge()
                 ->alignCenter()
+                ->sortable(false),
+
+            Tables\Columns\TextColumn::make('total_revenue')
+                ->label('إجمالي الإيرادات')
+                ->formatStateUsing(fn ($state) => number_format($state, 2))
+                ->weight('bold')
+                ->color('info')
+                ->alignEnd()
                 ->sortable(false),
         ];
     }

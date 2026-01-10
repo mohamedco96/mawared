@@ -21,6 +21,8 @@ class WarehouseTransferResource extends Resource
 {
     protected static ?string $model = WarehouseTransfer::class;
 
+    protected static ?string $cluster = \App\Filament\Clusters\InventorySettings::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-truck';
 
     protected static ?string $navigationLabel = 'نقل المخزون';
@@ -29,9 +31,7 @@ class WarehouseTransferResource extends Resource
 
     protected static ?string $pluralModelLabel = 'نقل المخزون';
 
-    protected static ?string $navigationGroup = 'المخزون';
-
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 4;
 
     public static function form(Form $form): Form
     {
