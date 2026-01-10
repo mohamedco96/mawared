@@ -60,9 +60,21 @@ class TreasuryTransactionResource extends Resource
                             ->relationship(
                                 'partner',
                                 'name',
-                                fn ($query, Get $get) => $get('type') === 'capital_deposit' || $get('type') === 'partner_drawing'
-                                    ? $query->where('type', 'shareholder')
-                                    : $query->whereIn('type', ['customer', 'supplier'])
+                                function ($query, Get $get) {
+                                    $type = $get('type');
+
+                                    if ($type === 'capital_deposit' || $type === 'partner_drawing') {
+                                        return $query->where('type', 'shareholder');
+                                    }
+
+                                    // For collection and payment, exclude partners with zero balance
+                                    if ($type === 'collection' || $type === 'payment') {
+                                        return $query->whereIn('type', ['customer', 'supplier'])
+                                            ->where('current_balance', '!=', 0);
+                                    }
+
+                                    return $query->whereIn('type', ['customer', 'supplier']);
+                                }
                             )
                             ->searchable()
                             ->preload()
