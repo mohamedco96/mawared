@@ -199,7 +199,10 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 'panels::body.end',
-                fn (): string => '<script src="' . asset('js/filament/fix-arabic-numbers.js') . '"></script>',
+                fn (): string => '
+                    <script src="' . asset('js/filament/fix-arabic-numbers.js') . '"></script>
+                    <script type="module" src="' . \Vite::asset('resources/js/unsaved-changes-alert.js') . '"></script>
+                ',
             )
             ->renderHook(
                 PanelsRenderHook::GLOBAL_SEARCH_AFTER,

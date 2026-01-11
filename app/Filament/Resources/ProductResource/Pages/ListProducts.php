@@ -45,7 +45,7 @@ class ListProducts extends ListRecords
                 ->modalCancelActionLabel('إغلاق'),
 
             Actions\Action::make('showroom_retail')
-                ->label('كتالوج التجزئة')
+                ->label('كتالوج قطاعي')
                 ->icon('heroicon-o-shopping-bag')
                 ->color('info')
                 ->url(route('showroom.retail'), shouldOpenInNewTab: true),

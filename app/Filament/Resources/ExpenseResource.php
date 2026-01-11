@@ -52,7 +52,8 @@ class ExpenseResource extends Resource
                             ->relationship('treasury', 'name')
                             ->required()
                             ->searchable()
-                            ->preload(),
+                            ->preload()
+                            ->default(fn () => \App\Models\Treasury::where('type', 'cash')->first()?->id ?? \App\Models\Treasury::first()?->id),
                         Forms\Components\DatePicker::make('expense_date')
                             ->label('تاريخ المصروف')
                             ->required()

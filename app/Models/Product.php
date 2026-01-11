@@ -154,9 +154,20 @@ class Product extends Model
      */
     private static function generateUniqueCode(string $field): string
     {
+        // Define prefixes for each field type
+        $prefixes = [
+            'barcode' => 'BC',
+            'large_barcode' => 'LB',
+            'sku' => 'SKU',
+        ];
+
+        $prefix = $prefixes[$field] ?? 'PRD';
+
         do {
-            // Generate a random 10-character alphanumeric code
-            $code = strtoupper(substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 10));
+            // Generate timestamp-based code with random suffix
+            $timestamp = substr(time(), -6); // Last 6 digits of timestamp
+            $random = strtoupper(substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 4));
+            $code = $prefix . $timestamp . $random;
         } while (self::where($field, $code)->exists());
 
         return $code;

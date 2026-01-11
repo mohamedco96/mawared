@@ -8,6 +8,17 @@
         </x-filament::button>
     </form>
 
+    <script>
+        document.addEventListener('livewire:initialized', () => {
+            Livewire.on('prefill-stock-card', (event) => {
+                const productId = event[0]?.product_id || event.product_id;
+                if (productId) {
+                    @this.set('data.product_id', productId);
+                }
+            });
+        });
+    </script>
+
     @if ($this->reportData)
         @php
             $report = $this->reportData;

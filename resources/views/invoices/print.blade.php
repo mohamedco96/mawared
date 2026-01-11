@@ -151,13 +151,6 @@
 @endsection
 
 @section('footer')
-    @if ($invoice->notes)
-        <div class="notes-section">
-            <h4 class="notes-title">ملاحظات:</h4>
-            <p class="notes-text">{{ $invoice->notes }}</p>
-        </div>
-    @endif
-
     <div class="thank-you">شكراً لتعاملكم معنا</div>
     <div class="print-date">تم الطباعة بتاريخ: {{ now()->format('Y-m-d H:i') }}</div>
 

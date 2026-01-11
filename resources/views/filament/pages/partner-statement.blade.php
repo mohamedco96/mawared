@@ -8,6 +8,17 @@
         </x-filament::button>
     </form>
 
+    <script>
+        document.addEventListener('livewire:initialized', () => {
+            Livewire.on('prefill-partner-statement', (event) => {
+                const partnerId = event[0]?.partner_id || event.partner_id;
+                if (partnerId) {
+                    @this.set('data.partner_id', partnerId);
+                }
+            });
+        });
+    </script>
+
     @if ($this->reportData)
         @php
             $report = $this->reportData;

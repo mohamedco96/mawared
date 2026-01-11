@@ -91,6 +91,16 @@ class SalesInvoiceResource extends Resource
                             ->default('draft')
                             ->required()
                             ->native(false)
+                            ->rules([
+                                fn (Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                    if ($value === 'posted') {
+                                        $items = $get('items');
+                                        if (empty($items)) {
+                                            $fail('لا يمكن تأكيد الفاتورة بدون أصناف.');
+                                        }
+                                    }
+                                },
+                            ])
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Select::make('warehouse_id')
                             ->label('المخزن')
@@ -99,6 +109,7 @@ class SalesInvoiceResource extends Resource
                             ->searchable()
                             ->preload()
                             ->reactive()
+                            ->default(fn () => \App\Models\Warehouse::where('is_active', true)->first()?->id ?? \App\Models\Warehouse::first()?->id)
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Select::make('partner_id')
                             ->label('العميل')
@@ -550,7 +561,7 @@ class SalesInvoiceResource extends Resource
                             })
                             ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                            ->default(0)
+                            ->dehydrateStateUsing(fn ($state) => $state ?? 0)
                             ->step(0.0001)
                             ->minValue(0)
                             ->maxValue(function (Get $get) {
@@ -570,7 +581,7 @@ class SalesInvoiceResource extends Resource
                                     }
 
                                     $discountType = $get('discount_type') ?? 'fixed';
-                                    $items = $get('../../items') ?? [];
+                                    $items = $get('items') ?? [];
                                     $subtotal = collect($items)->sum('total');
 
                                     if ($discountType === 'percentage') {
@@ -670,7 +681,8 @@ class SalesInvoiceResource extends Resource
                                     return '—';
                                 }
 
-                                $totalProfit = 0;
+                                $totalRevenue = 0;
+                                $totalCost = 0;
                                 $items = $get('items') ?? [];
 
                                 foreach ($items as $item) {
@@ -694,10 +706,19 @@ class SalesInvoiceResource extends Resource
 
                                     // Use avg_cost (before posting)
                                     $costPerUnit = floatval($product->avg_cost ?? 0);
-                                    $totalCost = $costPerUnit * $baseQuantity;
-
-                                    $totalProfit += ($itemTotal - $totalCost);
+                                    $totalCost += $costPerUnit * $baseQuantity;
+                                    $totalRevenue += $itemTotal;
                                 }
+
+                                // Apply discount to revenue
+                                $discountType = $get('discount_type') ?? 'fixed';
+                                $discountValue = floatval($get('discount_value') ?? 0);
+                                $discount = $discountType === 'percentage'
+                                    ? $totalRevenue * ($discountValue / 100)
+                                    : $discountValue;
+
+                                $netRevenue = $totalRevenue - $discount;
+                                $totalProfit = $netRevenue - $totalCost;
 
                                 return number_format($totalProfit, 2).'';
                             })
@@ -706,8 +727,9 @@ class SalesInvoiceResource extends Resource
                                     return [];
                                 }
 
-                                // Calculate profit for color coding
-                                $totalProfit = 0;
+                                // Calculate profit for color coding (same as above with discount)
+                                $totalRevenue = 0;
+                                $totalCost = 0;
                                 $items = $get('items') ?? [];
 
                                 foreach ($items as $item) {
@@ -729,13 +751,20 @@ class SalesInvoiceResource extends Resource
                                         : $quantity;
 
                                     $costPerUnit = floatval($product->avg_cost ?? 0);
-                                    $totalCost = $costPerUnit * $baseQuantity;
-
-                                    $totalProfit += ($itemTotal - $totalCost);
+                                    $totalCost += $costPerUnit * $baseQuantity;
+                                    $totalRevenue += $itemTotal;
                                 }
 
-                                $total = floatval($get('total') ?? 0);
-                                $marginPct = $total > 0 ? ($totalProfit / $total) * 100 : 0;
+                                // Apply discount
+                                $discountType = $get('discount_type') ?? 'fixed';
+                                $discountValue = floatval($get('discount_value') ?? 0);
+                                $discount = $discountType === 'percentage'
+                                    ? $totalRevenue * ($discountValue / 100)
+                                    : $discountValue;
+
+                                $netRevenue = $totalRevenue - $discount;
+                                $totalProfit = $netRevenue - $totalCost;
+                                $marginPct = $netRevenue > 0 ? ($totalProfit / $netRevenue) * 100 : 0;
 
                                 // Color coding thresholds
                                 $color = match (true) {
@@ -758,7 +787,8 @@ class SalesInvoiceResource extends Resource
                                     return '—';
                                 }
 
-                                $totalProfit = 0;
+                                $totalRevenue = 0;
+                                $totalCost = 0;
                                 $items = $get('items') ?? [];
 
                                 foreach ($items as $item) {
@@ -780,13 +810,20 @@ class SalesInvoiceResource extends Resource
                                         : $quantity;
 
                                     $costPerUnit = floatval($product->avg_cost ?? 0);
-                                    $totalCost = $costPerUnit * $baseQuantity;
-
-                                    $totalProfit += ($itemTotal - $totalCost);
+                                    $totalCost += $costPerUnit * $baseQuantity;
+                                    $totalRevenue += $itemTotal;
                                 }
 
-                                $total = floatval($get('total') ?? 0);
-                                $marginPct = $total > 0 ? ($totalProfit / $total) * 100 : 0;
+                                // Apply discount
+                                $discountType = $get('discount_type') ?? 'fixed';
+                                $discountValue = floatval($get('discount_value') ?? 0);
+                                $discount = $discountType === 'percentage'
+                                    ? $totalRevenue * ($discountValue / 100)
+                                    : $discountValue;
+
+                                $netRevenue = $totalRevenue - $discount;
+                                $totalProfit = $netRevenue - $totalCost;
+                                $marginPct = $netRevenue > 0 ? ($totalProfit / $netRevenue) * 100 : 0;
 
                                 // Get thresholds from settings
                                 $excellentThreshold = floatval(\App\Models\GeneralSetting::getValue('profit_margin_excellent', 25));
@@ -971,7 +1008,8 @@ class SalesInvoiceResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('warehouse.name')
                     ->label('المخزن')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('returns_count')
                     ->label('المرتجعات')
                     ->counts('returns')
@@ -1014,7 +1052,8 @@ class SalesInvoiceResource extends Resource
                     ->label('طريقة الدفع')
                     ->formatStateUsing(fn (string $state): string => $state === 'cash' ? 'نقدي' : 'آجل')
                     ->badge()
-                    ->color(fn (string $state): string => $state === 'cash' ? 'success' : 'info'),
+                    ->color(fn (string $state): string => $state === 'cash' ? 'success' : 'info')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('total')
                     ->label('الإجمالي')
                     ->numeric(decimalPlaces: 2)
@@ -1062,7 +1101,8 @@ class SalesInvoiceResource extends Resource
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('التاريخ')
                     ->dateTime()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
             ])
             ->persistFiltersInSession()
             ->filters([
@@ -1194,37 +1234,33 @@ class SalesInvoiceResource extends Resource
                                 Forms\Components\Repeater::make('stock_changes')
                                     ->label('')
                                     ->schema([
-                                        Forms\Components\Placeholder::make('product')
+                                        Forms\Components\TextInput::make('product')
                                             ->label('المنتج')
-                                            ->content(function (Get $get) {
-                                                $item = $get('../../');
-                                                return is_array($item) ? ($item['product'] ?? '—') : '—';
-                                            }),
-                                        Forms\Components\Placeholder::make('stock_change')
+                                            ->disabled()
+                                            ->dehydrated(false),
+                                        Forms\Components\TextInput::make('current_stock')
+                                            ->label('المخزون الحالي')
+                                            ->disabled()
+                                            ->dehydrated(false)
+                                            ->numeric(),
+                                        Forms\Components\TextInput::make('change')
                                             ->label('التغيير')
-                                            ->content(function (Get $get) {
-                                                $item = $get('../../');
-                                                if (!is_array($item)) {
-                                                    return '—';
-                                                }
-                                                $current = $item['current_stock'] ?? 0;
-                                                $new = $item['new_stock'] ?? 0;
-                                                $change = $item['change'] ?? 0;
-                                                return "{$current} ← {$new} ({$change} وحدة)";
-                                            })
-                                            ->extraAttributes(function (Get $get) {
-                                                $item = $get('../../');
-                                                if (!is_array($item)) {
-                                                    return [];
-                                                }
-                                                return [
-                                                    'style' => ($item['new_stock'] ?? 0) < 0
-                                                        ? 'color: #ef4444; font-weight: bold;'
-                                                        : ''
-                                                ];
-                                            }),
+                                            ->disabled()
+                                            ->dehydrated(false)
+                                            ->numeric()
+                                            ->extraAttributes(fn (Get $get) => [
+                                                'style' => ($get('change') ?? 0) < 0 ? 'color: #ef4444; font-weight: bold;' : ''
+                                            ]),
+                                        Forms\Components\TextInput::make('new_stock')
+                                            ->label('المخزون الجديد')
+                                            ->disabled()
+                                            ->dehydrated(false)
+                                            ->numeric()
+                                            ->extraAttributes(fn (Get $get) => [
+                                                'style' => ($get('new_stock') ?? 0) < 0 ? 'color: #ef4444; font-weight: bold;' : ''
+                                            ]),
                                     ])
-                                    ->columns(2)
+                                    ->columns(4)
                                     ->disabled()
                                     ->addable(false)
                                     ->deletable(false)
@@ -1247,6 +1283,16 @@ class SalesInvoiceResource extends Resource
                             ]),
                     ])
                     ->action(function (SalesInvoice $record) {
+                        // Validate invoice has items
+                        if ($record->items()->count() === 0) {
+                            Notification::make()
+                                ->danger()
+                                ->title('لا يمكن تأكيد الفاتورة')
+                                ->body('الفاتورة لا تحتوي على أي أصناف')
+                                ->send();
+                            return;
+                        }
+
                         try {
                             $stockService = app(StockService::class);
                             $treasuryService = app(TreasuryService::class);
@@ -1356,10 +1402,24 @@ class SalesInvoiceResource extends Resource
                 Tables\Actions\EditAction::make()
                     ->visible(fn (SalesInvoice $record) => $record->isDraft()),
                 Tables\Actions\ReplicateAction::make()
-                    ->excludeAttributes(['invoice_number', 'status'])
+                    ->excludeAttributes(['invoice_number', 'status', 'payments_sum_amount', 'returns_count'])
                     ->beforeReplicaSaved(function ($replica) {
                         $replica->invoice_number = 'SI-'.now()->format('Ymd').'-'.\Illuminate\Support\Str::random(6);
                         $replica->status = 'draft';
+                        $replica->discount_value = $replica->discount_value ?? 0;
+                        $replica->discount = $replica->discount ?? 0;
+                    })
+                    ->after(function (SalesInvoice $record, SalesInvoice $replica) {
+                        // Copy invoice items manually since relationships aren't auto-replicated
+                        foreach ($record->items as $item) {
+                            $replica->items()->create([
+                                'product_id' => $item->product_id,
+                                'unit_type' => $item->unit_type,
+                                'quantity' => $item->quantity,
+                                'unit_price' => $item->unit_price,
+                                'total' => $item->total,
+                            ]);
+                        }
                     }),
                 Tables\Actions\DeleteAction::make()
                     ->visible(fn (SalesInvoice $record) => $record->isDraft()),
@@ -1381,6 +1441,12 @@ class SalesInvoiceResource extends Resource
 
                             foreach ($records as $record) {
                                 if (!$record->isDraft()) {
+                                    continue;
+                                }
+
+                                // Validate invoice has items
+                                if ($record->items()->count() === 0) {
+                                    $errors[] = "فاتورة {$record->invoice_number}: الفاتورة لا تحتوي على أي أصناف";
                                     continue;
                                 }
 

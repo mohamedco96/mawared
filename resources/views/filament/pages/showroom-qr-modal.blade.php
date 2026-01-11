@@ -10,7 +10,7 @@
             }"
             class="px-4 py-2 font-semibold transition-colors"
         >
-            كتالوج التجزئة
+            كتالوج قطاعي
         </button>
         <button
             type="button"
@@ -28,10 +28,10 @@
     <!-- Retail Tab -->
     <div x-show="activeTab === 'retail'" class="text-center space-y-4">
         <h3 class="text-lg font-bold text-gray-900 dark:text-white">
-            رمز QR لكتالوج التجزئة
+            رمز QR لكتالوج قطاعي
         </h3>
         <p class="text-sm text-gray-600 dark:text-gray-400">
-            يعرض أسعار التجزئة فقط للعملاء
+            يعرض أسعار قطاعي فقط للعملاء
         </p>
         <div class="flex justify-center p-4 bg-white rounded-lg">
             {!! $retailQr !!}
@@ -65,7 +65,7 @@
             رمز QR لكتالوج الجملة
         </h3>
         <p class="text-sm text-gray-600 dark:text-gray-400">
-            يعرض أسعار الجملة والتجزئة مع تفاصيل الوحدات الكبيرة
+            يعرض أسعار الجملة وقطاعي مع تفاصيل الوحدات الكبيرة
         </p>
         <div class="flex justify-center p-4 bg-white rounded-lg">
             {!! $wholesaleQr !!}

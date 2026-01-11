@@ -220,6 +220,16 @@ class WarehouseTransferResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->action(function (WarehouseTransfer $record) {
+                        // Validate transfer has items
+                        if ($record->items()->count() === 0) {
+                            Notification::make()
+                                ->danger()
+                                ->title('لا يمكن تأكيد النقل')
+                                ->body('النقل لا يحتوي على أي أصناف')
+                                ->send();
+                            return;
+                        }
+
                         try {
                             $stockService = app(StockService::class);
 

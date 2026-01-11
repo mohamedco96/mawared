@@ -57,6 +57,16 @@ class PurchaseReturnResource extends Resource
                             ->default('draft')
                             ->required()
                             ->native(false)
+                            ->rules([
+                                fn (Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                    if ($value === 'posted') {
+                                        $items = $get('items');
+                                        if (empty($items)) {
+                                            $fail('لا يمكن تأكيد المرتجع بدون أصناف.');
+                                        }
+                                    }
+                                },
+                            ])
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Select::make('warehouse_id')
                             ->label('المخزن')
@@ -152,7 +162,8 @@ class PurchaseReturnResource extends Resource
                                         ($record && $record->purchaseReturn && $record->purchaseReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord) ||
                                         $get('../../purchase_invoice_id') !== null
                                     )
-                                    ->dehydrated(),
+                                    ->dehydrated()
+                                    ->columnSpan(4),
                                 Forms\Components\Select::make('unit_type')
                                     ->label('الوحدة')
                                     ->options(function (Get $get) {
@@ -178,7 +189,8 @@ class PurchaseReturnResource extends Resource
                                             $set('quantity', $quantity);
                                         }
                                     })
-                                    ->disabled(fn ($record, $livewire) => $record && $record->purchaseReturn && $record->purchaseReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                                    ->disabled(fn ($record, $livewire) => $record && $record->purchaseReturn && $record->purchaseReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord)
+                                    ->columnSpan(2),
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية')
                                     ->integer()
@@ -189,8 +201,7 @@ class PurchaseReturnResource extends Resource
                                     ->live(debounce: 500)
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $unitCost = $get('unit_cost') ?? 0;
-                                        $discount = $get('discount') ?? 0;
-                                        $set('total', ($unitCost * $state) - $discount);
+                                        $set('total', $unitCost * $state);
                                     })
                                     ->rules([
                                         'required',
@@ -232,7 +243,8 @@ class PurchaseReturnResource extends Resource
                                         },
                                     ])
                                     ->validationAttribute('الكمية')
-                                    ->disabled(fn ($record, $livewire) => $record && $record->purchaseReturn && $record->purchaseReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                                    ->disabled(fn ($record, $livewire) => $record && $record->purchaseReturn && $record->purchaseReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord)
+                                    ->columnSpan(2),
                                 Forms\Components\TextInput::make('unit_cost')
                                     ->label('التكلفة')
                                     ->numeric()
@@ -243,8 +255,7 @@ class PurchaseReturnResource extends Resource
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $quantity = $get('quantity') ?? 1;
-                                        $discount = $get('discount') ?? 0;
-                                        $set('total', ($state * $quantity) - $discount);
+                                        $set('total', $state * $quantity);
                                     })
                                     ->rules([
                                         'required',
@@ -261,37 +272,20 @@ class PurchaseReturnResource extends Resource
                                         ($record && $record->purchaseReturn && $record->purchaseReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord) ||
                                         $get('../../purchase_invoice_id') !== null
                                     )
-                                    ->dehydrated(),
-                                Forms\Components\TextInput::make('discount')
-                                    ->label('الخصم')
-                                    ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                                    ->default(0)
-                                    ->step(0.01)
-                                    ->reactive()
-                                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                        $unitCost = $get('unit_cost') ?? 0;
-                                        $quantity = $get('quantity') ?? 1;
-                                        $set('total', ($unitCost * $quantity) - $state);
-                                    })
-                                    ->disabled(fn ($record, Get $get, $livewire) =>
-                                        ($record && $record->purchaseReturn && $record->purchaseReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord) ||
-                                        $get('../../purchase_invoice_id') !== null
-                                    )
                                     ->dehydrated()
-                                    ->helperText(fn (Get $get) =>
-                                        $get('../../purchase_invoice_id') !== null
-                                            ? 'الخصم محسوب مسبقاً في تكلفة الوحدة من الفاتورة الأصلية'
-                                            : null
-                                    ),
+                                    ->columnSpan(2),
+                                Forms\Components\Hidden::make('discount')
+                                    ->default(0)
+                                    ->dehydrated(),
                                 Forms\Components\TextInput::make('total')
                                     ->label('الإجمالي')
                                     ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->disabled()
-                                    ->dehydrated(),
+                                    ->dehydrated()
+                                    ->columnSpan(2),
                             ])
-                            ->columns(6)
+                            ->columns(12)
                             ->defaultItems(1)
                             ->collapsible()
                             ->itemLabel(fn (array $state): ?string => $state['product_id'] ? Product::find($state['product_id'])?->name : null)
@@ -467,6 +461,16 @@ class PurchaseReturnResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->action(function (PurchaseReturn $record) {
+                        // Validate return has items
+                        if ($record->items()->count() === 0) {
+                            Notification::make()
+                                ->danger()
+                                ->title('لا يمكن تأكيد المرتجع')
+                                ->body('المرتجع لا يحتوي على أي أصناف')
+                                ->send();
+                            return;
+                        }
+
                         try {
                             $stockService = app(StockService::class);
                             $treasuryService = app(TreasuryService::class);

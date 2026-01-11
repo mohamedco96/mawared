@@ -89,6 +89,18 @@ class ProductResource extends Resource
                             ->maxLength(255)
                             ->autofocus()
                             ->columnSpanFull(),
+                        Forms\Components\Select::make('category_id')
+                            ->label('التصنيف')
+                            ->relationship('category', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->createOptionForm([
+                                Forms\Components\TextInput::make('name')
+                                    ->label('اسم التصنيف')
+                                    ->required()
+                                    ->maxLength(255),
+                            ])
+                            ->nullable(),
                         Forms\Components\TextInput::make('barcode')
                             ->label('الباركود (الوحدة الصغيرة)')
                             ->helperText('سيتم توليده تلقائياً إذا ترك فارغاً')
@@ -114,7 +126,7 @@ class ProductResource extends Resource
                             ->minValue(0)
                             ->required(),
                         Forms\Components\Toggle::make('is_visible_in_retail_catalog')
-                            ->label('مرئي في كتالوج التجزئة')
+                            ->label('مرئي في كتالوج قطاعي')
                             ->helperText('عند التفعيل، سيظهر المنتج في صالة العرض الرقمية للتجزئة')
                             ->default(true)
                             ->inline(false),
@@ -240,10 +252,9 @@ class ProductResource extends Resource
                 Forms\Components\Section::make('الأسعار - الوحدة الصغيرة')
                     ->schema([
                         Forms\Components\TextInput::make('retail_price')
-                            ->label('سعر التجزئة')
+                            ->label('سعر قطاعي')
                             ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                            ->default(0)
                             ->required()
                             ->step(0.01)
                             ->minValue(0)
@@ -262,7 +273,6 @@ class ProductResource extends Resource
                             ->label('سعر الجملة')
                             ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                            ->default(0)
                             ->required()
                             ->step(0.01)
                             ->minValue(0)
@@ -283,7 +293,7 @@ class ProductResource extends Resource
                 Forms\Components\Section::make('الأسعار - الوحدة الكبيرة')
                     ->schema([
                         Forms\Components\TextInput::make('large_retail_price')
-                            ->label('سعر التجزئة')
+                            ->label('سعر قطاعي')
                             ->helperText('يتم حسابه تلقائياً (سعر الوحدة الصغيرة × معامل التحويل)، يمكن تعديله يدوياً')
                             ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
@@ -329,7 +339,7 @@ class ProductResource extends Resource
                     ->label('الصورة')
                     ->circular()
                     ->disk('public')
-                    ->defaultImageUrl(url('/images/placeholder-product.png'))
+                    ->defaultImageUrl(url('/images/placeholder-product.svg'))
                     ->size(40),
                 Tables\Columns\TextColumn::make('name')
                     ->label('الاسم')
@@ -338,26 +348,36 @@ class ProductResource extends Resource
                 Tables\Columns\TextColumn::make('barcode')
                     ->label('الباركود')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('sku')
                     ->label('رمز المنتج')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('smallUnit.name')
                     ->label('الوحدة الصغيرة')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('largeUnit.name')
                     ->label('الوحدة الكبيرة')
                     ->sortable()
-                    ->default('—'),
-                Tables\Columns\TextColumn::make('retail_price')
-                    ->label('سعر التجزئة')
+                    ->default('—')
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('wholesale_price')
+                    ->label('سعر الجملة')
                     ->numeric(decimalPlaces: 2)
                     ->sortable(),
+                Tables\Columns\TextColumn::make('retail_price')
+                    ->label('سعر قطاعي')
+                    ->numeric(decimalPlaces: 2)
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('avg_cost')
                     ->label('متوسط التكلفة')
                     ->numeric(decimalPlaces: 2)
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('stock_movements_sum_quantity')
                     ->label('إجمالي المخزون')
                     ->sortable()
@@ -375,11 +395,13 @@ class ProductResource extends Resource
                 Tables\Columns\IconColumn::make('is_visible_in_retail_catalog')
                     ->label('كتالوج تجزئة')
                     ->boolean()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\IconColumn::make('is_visible_in_wholesale_catalog')
                     ->label('كتالوج جملة')
                     ->boolean()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('small_unit_id')
@@ -546,9 +568,9 @@ class ProductResource extends Resource
                             Forms\Components\Select::make('price_field')
                                 ->label('الحقل المراد تحديثه')
                                 ->options([
-                                    'retail_price' => 'سعر التجزئة (صغير)',
+                                    'retail_price' => 'سعر قطاعي (صغير)',
                                     'wholesale_price' => 'سعر الجملة (صغير)',
-                                    'large_retail_price' => 'سعر التجزئة (كبير)',
+                                    'large_retail_price' => 'سعر قطاعي (كبير)',
                                     'large_wholesale_price' => 'سعر الجملة (كبير)',
                                 ])
                                 ->required()
@@ -698,7 +720,7 @@ class ProductResource extends Resource
                 Infolists\Components\Section::make('الأسعار - الوحدة الصغيرة')
                     ->schema([
                         Infolists\Components\TextEntry::make('retail_price')
-                            ->label('سعر التجزئة')
+                            ->label('سعر قطاعي')
                             ->numeric(decimalPlaces: 2),
                         Infolists\Components\TextEntry::make('wholesale_price')
                             ->label('سعر الجملة')
@@ -709,7 +731,7 @@ class ProductResource extends Resource
                 Infolists\Components\Section::make('الأسعار - الوحدة الكبيرة')
                     ->schema([
                         Infolists\Components\TextEntry::make('large_retail_price')
-                            ->label('سعر التجزئة')
+                            ->label('سعر قطاعي')
                             ->numeric(decimalPlaces: 2),
                         Infolists\Components\TextEntry::make('large_wholesale_price')
                             ->label('سعر الجملة')

@@ -9,7 +9,8 @@ export default defineConfig({
                 'resources/css/app.css',
                 'resources/css/print.css',
                 'resources/js/app.js',
-                'resources/js/print-handler.js'
+                'resources/js/print-handler.js',
+                'resources/js/unsaved-changes-alert.js'
             ],
             refresh: true,
         }),

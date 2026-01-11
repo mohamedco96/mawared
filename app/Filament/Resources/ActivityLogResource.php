@@ -438,7 +438,7 @@ class ActivityLogResource extends Resource
 
             // Product fields
             'category_id' => 'الفئة',
-            'retail_price' => 'سعر التجزئة',
+            'retail_price' => 'سعر قطاعي',
             'wholesale_price' => 'سعر الجملة',
             'avg_cost' => 'متوسط التكلفة',
             'min_stock' => 'الحد الأدنى للمخزون',
@@ -446,9 +446,9 @@ class ActivityLogResource extends Resource
             'small_unit_id' => 'الوحدة الصغيرة',
             'large_unit_id' => 'الوحدة الكبيرة',
             'large_barcode' => 'الباركود (الوحدة الكبيرة)',
-            'large_retail_price' => 'سعر التجزئة (الوحدة الكبيرة)',
+            'large_retail_price' => 'سعر قطاعي (الوحدة الكبيرة)',
             'large_wholesale_price' => 'سعر الجملة (الوحدة الكبيرة)',
-            'is_visible_in_retail_catalog' => 'ظاهر في كتالوج التجزئة',
+            'is_visible_in_retail_catalog' => 'ظاهر في كتالوج قطاعي',
             'is_visible_in_wholesale_catalog' => 'ظاهر في كتالوج الجملة',
             'image' => 'الصورة',
             'images' => 'الصور',
@@ -676,7 +676,7 @@ class ActivityLogResource extends Resource
         // Pricing type translations
         if (in_array($fieldName, ['pricing_type'])) {
             $pricingTranslations = [
-                'retail' => 'سعر التجزئة',
+                'retail' => 'سعر قطاعي',
                 'wholesale' => 'سعر الجملة',
                 'manual' => 'يدوي',
                 'custom' => 'مخصص',

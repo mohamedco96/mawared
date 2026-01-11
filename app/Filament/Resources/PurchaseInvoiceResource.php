@@ -72,6 +72,16 @@ class PurchaseInvoiceResource extends Resource
                             ->default('draft')
                             ->required()
                             ->native(false)
+                            ->rules([
+                                fn (Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                    if ($value === 'posted') {
+                                        $items = $get('items');
+                                        if (empty($items)) {
+                                            $fail('لا يمكن تأكيد الفاتورة بدون أصناف.');
+                                        }
+                                    }
+                                },
+                            ])
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Select::make('warehouse_id')
                             ->label('المخزن')
@@ -79,6 +89,7 @@ class PurchaseInvoiceResource extends Resource
                             ->required()
                             ->searchable()
                             ->preload()
+                            ->default(fn () => \App\Models\Warehouse::where('is_active', true)->first()?->id ?? \App\Models\Warehouse::first()?->id)
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Select::make('partner_id')
                             ->label('المورد')
@@ -197,10 +208,9 @@ class PurchaseInvoiceResource extends Resource
                                             ])
                                             ->createOptionModalHeading('إضافة وحدة قياس جديدة'),
                                         Forms\Components\TextInput::make('retail_price')
-                                            ->label('سعر التجزئة')
+                                            ->label('سعر قطاعي')
                                             ->numeric()
                                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                                            ->default(0)
                                             ->required()
                                             ->step(0.01),
                                         Forms\Components\TextInput::make('min_stock')
@@ -408,7 +418,7 @@ class PurchaseInvoiceResource extends Resource
                             })
                             ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                            ->default(0)
+                            ->dehydrateStateUsing(fn ($state) => $state ?? 0)
                             ->step(0.0001)
                             ->minValue(0)
                             ->maxValue(function (Get $get) {
@@ -634,7 +644,8 @@ class PurchaseInvoiceResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('warehouse.name')
                     ->label('المخزن')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('returns_count')
                     ->label('المرتجعات')
                     ->counts('returns')
@@ -677,7 +688,8 @@ class PurchaseInvoiceResource extends Resource
                     ->label('طريقة الدفع')
                     ->formatStateUsing(fn (string $state): string => $state === 'cash' ? 'نقدي' : 'آجل')
                     ->badge()
-                    ->color(fn (string $state): string => $state === 'cash' ? 'success' : 'info'),
+                    ->color(fn (string $state): string => $state === 'cash' ? 'success' : 'info')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('total')
                     ->label('الإجمالي')
                     ->numeric(decimalPlaces: 2)
@@ -685,6 +697,7 @@ class PurchaseInvoiceResource extends Resource
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('التاريخ')
                     ->dateTime()
+                    ->toggleable()
                     ->sortable(),
             ])
             ->filters([
@@ -766,6 +779,16 @@ class PurchaseInvoiceResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->action(function (PurchaseInvoice $record) {
+                        // Validate invoice has items
+                        if ($record->items()->count() === 0) {
+                            Notification::make()
+                                ->danger()
+                                ->title('لا يمكن تأكيد الفاتورة')
+                                ->body('الفاتورة لا تحتوي على أي أصناف')
+                                ->send();
+                            return;
+                        }
+
                         try {
                             $stockService = app(StockService::class);
                             $treasuryService = app(TreasuryService::class);
@@ -892,10 +915,28 @@ class PurchaseInvoiceResource extends Resource
                 Tables\Actions\EditAction::make()
                     ->visible(fn (PurchaseInvoice $record) => $record->isDraft()),
                 Tables\Actions\ReplicateAction::make()
-                    ->excludeAttributes(['invoice_number', 'status'])
+                    ->excludeAttributes(['invoice_number', 'status', 'payments_sum_amount', 'returns_count'])
                     ->beforeReplicaSaved(function ($replica) {
                         $replica->invoice_number = 'PI-'.now()->format('Ymd').'-'.\Illuminate\Support\Str::random(6);
                         $replica->status = 'draft';
+                        $replica->discount_value = $replica->discount_value ?? 0;
+                        $replica->discount = $replica->discount ?? 0;
+                    })
+                    ->after(function (PurchaseInvoice $record, PurchaseInvoice $replica) {
+                        // Copy invoice items manually since relationships aren't auto-replicated
+                        foreach ($record->items as $item) {
+                            $replica->items()->create([
+                                'product_id' => $item->product_id,
+                                'unit_type' => $item->unit_type,
+                                'quantity' => $item->quantity,
+                                'unit_cost' => $item->unit_cost,
+                                'total' => $item->total,
+                                'new_selling_price' => $item->new_selling_price,
+                                'new_large_selling_price' => $item->new_large_selling_price,
+                                'wholesale_price' => $item->wholesale_price,
+                                'large_wholesale_price' => $item->large_wholesale_price,
+                            ]);
+                        }
                     }),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\DeleteAction::make()

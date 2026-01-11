@@ -125,7 +125,7 @@ class ProductCategoryResource extends Resource
                 Tables\Columns\ImageColumn::make('image')
                     ->label('الصورة')
                     ->circular()
-                    ->defaultImageUrl(url('/images/placeholder.png')),
+                    ->defaultImageUrl(url('/images/placeholder.svg')),
 
                 Tables\Columns\TextColumn::make('products_count')
                     ->label('عدد المنتجات')

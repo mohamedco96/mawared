@@ -26,21 +26,8 @@ class FinancialReportService
         // Get settings
         $shareholderCapital = $this->calculateShareholderCapital();
 
-        // Dual calculation for verification during transition
-        $fixedAssetsValueOld = (float) GeneralSetting::getValue('fixed_assets_value', '0');
-        $fixedAssetsValueNew = $this->calculateFixedAssetsValue();
-
-        // Log discrepancies
-        if (abs($fixedAssetsValueOld - $fixedAssetsValueNew) > 0.01) {
-            \Log::warning('Fixed Assets Value Mismatch', [
-                'old_method' => $fixedAssetsValueOld,
-                'new_method' => $fixedAssetsValueNew,
-                'difference' => $fixedAssetsValueNew - $fixedAssetsValueOld,
-            ]);
-        }
-
-        // Use new calculation
-        $fixedAssetsValue = $fixedAssetsValueNew;
+        // Calculate fixed assets value
+        $fixedAssetsValue = $this->calculateFixedAssetsValue();
 
         // Inventory calculations
         $endingInventory = $this->calculateInventoryValue($toDate);

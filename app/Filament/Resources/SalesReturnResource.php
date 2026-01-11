@@ -57,6 +57,16 @@ class SalesReturnResource extends Resource
                             ->default('draft')
                             ->required()
                             ->native(false)
+                            ->rules([
+                                fn (Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                    if ($value === 'posted') {
+                                        $items = $get('items');
+                                        if (empty($items)) {
+                                            $fail('لا يمكن تأكيد المرتجع بدون أصناف.');
+                                        }
+                                    }
+                                },
+                            ])
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Select::make('warehouse_id')
                             ->label('المخزن')
@@ -150,7 +160,8 @@ class SalesReturnResource extends Resource
                                         ($record && $record->salesReturn && $record->salesReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord) ||
                                         $get('../../sales_invoice_id') !== null
                                     )
-                                    ->dehydrated(),
+                                    ->dehydrated()
+                                    ->columnSpan(4),
                                 Forms\Components\Select::make('unit_type')
                                     ->label('الوحدة')
                                     ->options(function (Get $get) {
@@ -179,12 +190,12 @@ class SalesReturnResource extends Resource
                                                     : $product->retail_price;
                                                 $set('unit_price', $price);
                                                 $quantity = $get('quantity') ?? 1;
-                                                $discount = $get('discount') ?? 0;
-                                                $set('total', ($price * $quantity) - $discount);
+                                                $set('total', $price * $quantity);
                                             }
                                         }
                                     })
-                                    ->disabled(fn ($record, $livewire) => $record && $record->salesReturn && $record->salesReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                                    ->disabled(fn ($record, $livewire) => $record && $record->salesReturn && $record->salesReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord)
+                                    ->columnSpan(2),
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية')
                                     ->integer()
@@ -195,8 +206,7 @@ class SalesReturnResource extends Resource
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $unitPrice = $get('unit_price') ?? 0;
-                                        $discount = $get('discount') ?? 0;
-                                        $set('total', ($unitPrice * $state) - $discount);
+                                        $set('total', $unitPrice * $state);
                                     })
                                     ->rules([
                                         'required',
@@ -209,7 +219,8 @@ class SalesReturnResource extends Resource
                                         },
                                     ])
                                     ->validationAttribute('الكمية')
-                                    ->disabled(fn ($record, $livewire) => $record && $record->salesReturn && $record->salesReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                                    ->disabled(fn ($record, $livewire) => $record && $record->salesReturn && $record->salesReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord)
+                                    ->columnSpan(2),
                                 Forms\Components\TextInput::make('unit_price')
                                     ->label('سعر الوحدة')
                                     ->numeric()
@@ -220,8 +231,7 @@ class SalesReturnResource extends Resource
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $quantity = $get('quantity') ?? 1;
-                                        $discount = $get('discount') ?? 0;
-                                        $set('total', ($state * $quantity) - $discount);
+                                        $set('total', $state * $quantity);
                                     })
                                     ->rules([
                                         'required',
@@ -238,58 +248,20 @@ class SalesReturnResource extends Resource
                                         ($record && $record->salesReturn && $record->salesReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord) ||
                                         $get('../../sales_invoice_id') !== null
                                     )
-                                    ->dehydrated(),
-                                Forms\Components\TextInput::make('discount')
-                                    ->label('الخصم')
-                                    ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                                    ->default(0)
-                                    ->step(0.01)
-                                    ->reactive()
-                                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                        $unitPrice = $get('unit_price') ?? 0;
-                                        $quantity = $get('quantity') ?? 1;
-                                        $set('total', ($unitPrice * $quantity) - $state);
-                                    })
-                                    ->disabled(fn ($record, Get $get, $livewire) =>
-                                        ($record && $record->salesReturn && $record->salesReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord) ||
-                                        $get('../../sales_invoice_id') !== null
-                                    )
                                     ->dehydrated()
-                                    ->helperText(fn (Get $get) =>
-                                        $get('../../sales_invoice_id') !== null
-                                            ? 'الخصم محسوب مسبقاً في سعر الوحدة من الفاتورة الأصلية'
-                                            : null
-                                    ),
+                                    ->columnSpan(2),
+                                Forms\Components\Hidden::make('discount')
+                                    ->default(0)
+                                    ->dehydrated(),
                                 Forms\Components\TextInput::make('total')
                                     ->label('الإجمالي')
                                     ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->disabled()
-                                    ->dehydrated(),
-                                Forms\Components\Placeholder::make('stock_info')
-                                    ->label('المخزون المتاح')
-                                    ->content(function (Get $get) {
-                                        $productId = $get('product_id');
-                                        $warehouseId = $get('../../warehouse_id');
-                                        if (! $productId || ! $warehouseId) {
-                                            return '—';
-                                        }
-                                        $stockService = app(StockService::class);
-                                        $stock = $stockService->getCurrentStock($warehouseId, $productId);
-                                        $unitType = $get('unit_type') ?? 'small';
-                                        if ($unitType === 'large' && $productId) {
-                                            $product = Product::find($productId);
-                                            if ($product && $product->factor > 1) {
-                                                $stock = intval($stock / $product->factor);
-                                            }
-                                        }
-
-                                        return $stock;
-                                    })
-                                    ->visible(fn (Get $get) => ! empty($get('product_id'))),
+                                    ->dehydrated()
+                                    ->columnSpan(2),
                             ])
-                            ->columns(7)
+                            ->columns(12)
                             ->defaultItems(1)
                             ->collapsible()
                             ->itemLabel(fn (array $state): ?string => $state['product_id'] ? Product::find($state['product_id'])?->name : null)
@@ -465,6 +437,16 @@ class SalesReturnResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->action(function (SalesReturn $record) {
+                        // Validate return has items
+                        if ($record->items()->count() === 0) {
+                            Notification::make()
+                                ->danger()
+                                ->title('لا يمكن تأكيد المرتجع')
+                                ->body('المرتجع لا يحتوي على أي أصناف')
+                                ->send();
+                            return;
+                        }
+
                         try {
                             $stockService = app(StockService::class);
                             $treasuryService = app(TreasuryService::class);

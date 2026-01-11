@@ -134,7 +134,7 @@ class QuotationResource extends Resource
                         Forms\Components\Select::make('pricing_type')
                             ->label('نوع التسعير')
                             ->options([
-                                'retail' => 'سعر التجزئة',
+                                'retail' => 'سعر قطاعي',
                                 'wholesale' => 'سعر الجملة',
                                 'manual' => 'يدوي',
                             ])

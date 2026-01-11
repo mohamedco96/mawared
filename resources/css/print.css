@@ -52,14 +52,36 @@ body {
 /* 3. A4 FORMAT STYLES */
 .format-a4 {
     width: 210mm;
-    min-height: 297mm;
     padding: var(--spacing-lg);
+    max-width: 100%;
+    overflow: visible;
+}
+
+@media print {
+    .format-a4 {
+        width: 100%;
+        padding: 0;
+        margin: 0;
+        min-height: auto;
+    }
 }
 
 @media print {
     @page {
         size: A4 portrait;
-        margin: 15mm;
+        margin: 15mm 20mm 15mm 15mm; /* top right bottom left - extra margin on right for RTL */
+    }
+
+    /* Ensure content stays within printable area */
+    body {
+        margin: 0;
+        padding: 0;
+    }
+
+    /* Prevent unnecessary page breaks */
+    html, body {
+        height: auto;
+        overflow: visible;
     }
 }
 
@@ -68,12 +90,21 @@ body {
     margin-bottom: var(--spacing-xl);
     padding-bottom: var(--spacing-md);
     border-bottom: 2px solid var(--color-gray-200);
+    width: 100%;
+    max-width: 100%;
 }
 
 .format-a4 .header-grid {
     display: grid;
     grid-template-columns: 60% 40%;
     gap: var(--spacing-lg);
+    width: 100%;
+}
+
+@media print {
+    .format-a4 .invoice-header {
+        margin-bottom: var(--spacing-md);
+    }
 }
 
 .format-a4 .company-logo {
@@ -147,6 +178,13 @@ body {
     border-collapse: collapse;
     margin: var(--spacing-lg) 0;
     font-size: var(--font-size-small);
+    table-layout: auto;
+}
+
+@media print {
+    .format-a4 .invoice-table {
+        margin: var(--spacing-md) 0;
+    }
 }
 
 .format-a4 .invoice-table thead {
@@ -207,6 +245,13 @@ body {
     width: 50%;
     margin-left: auto;
     margin-top: var(--spacing-xl);
+    margin-right: 0;
+}
+
+@media print {
+    .format-a4 .totals-wrapper {
+        margin-top: var(--spacing-md);
+    }
 }
 
 .format-a4 .totals-table {
@@ -250,8 +295,14 @@ body {
     .format-thermal {
         @page {
             size: 80mm auto;
-            margin: 2mm;
+            margin: 2mm 3mm 2mm 2mm; /* Extra margin on right for RTL */
         }
+    }
+
+    .format-thermal {
+        width: 100%;
+        padding: 0;
+        margin: 0;
     }
 }
 
@@ -437,6 +488,20 @@ body {
     .notes-section {
         page-break-inside: avoid;
     }
+
+    /* Ensure all content is visible and not cut off */
+    * {
+        overflow: visible !important;
+    }
+
+    /* Fix for RTL content being cut off */
+    .print-header,
+    .print-content,
+    .print-footer {
+        width: 100%;
+        max-width: 100%;
+        overflow: visible;
+    }
 }
 
 /* 6. STATUS BADGES */
@@ -505,14 +570,26 @@ body {
     text-align: center;
     font-size: 14pt;
     font-weight: bold;
-    margin: var(--spacing-lg) 0 var(--spacing-sm) 0;
+    margin: var(--spacing-md) 0 var(--spacing-xs) 0;
 }
 
 .print-date {
     text-align: center;
     font-size: 8pt;
     color: var(--color-gray-500);
-    margin-top: var(--spacing-sm);
+    margin-top: var(--spacing-xs);
+    margin-bottom: var(--spacing-xs);
+}
+
+@media print {
+    .thank-you {
+        margin: var(--spacing-sm) 0 var(--spacing-xs) 0;
+    }
+
+    .print-date {
+        margin-top: var(--spacing-xs);
+        margin-bottom: 0;
+    }
 }
 
 .format-thermal .thank-you {
@@ -541,6 +618,7 @@ body {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     transition: all 0.2s;
     z-index: 1000;
+    margin: 0;
 }
 
 .btn-print:hover {

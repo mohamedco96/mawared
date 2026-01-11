@@ -10,7 +10,7 @@
                 </div>
             @endif
             <div>
-                <span class="text-gray-600 dark:text-gray-400">سعر البيع (التجزئة):</span>
+                <span class="text-gray-600 dark:text-gray-400">سعر البيع (قطاعي):</span>
                 <span class="font-bold text-blue-600 dark:text-blue-400">{{ number_format($product->retail_price, 2) }} ج.م</span>
             </div>
         </div>
@@ -54,7 +54,7 @@
                         </thead>
                         <tbody>
                             @foreach($purchases as $purchase)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
                                     <td class="p-2 text-center border border-gray-300 dark:border-gray-600">
                                         {{ $purchase->created_at->format('Y-m-d') }}
                                     </td>
@@ -73,22 +73,6 @@
                                 </tr>
                             @endforeach
                         </tbody>
-                        <tfoot>
-                            <tr class="bg-gray-100 dark:bg-gray-800 font-bold">
-                                <td colspan="2" class="p-2 text-center border border-gray-300 dark:border-gray-600">
-                                    متوسط سعر الشراء
-                                </td>
-                                <td class="p-2 text-center border border-gray-300 dark:border-gray-600">
-                                    {{ $purchases->sum('quantity') }}
-                                </td>
-                                <td class="p-2 text-center border border-gray-300 dark:border-gray-600 text-green-600 dark:text-green-400">
-                                    {{ $purchases->count() > 0 ? number_format($purchases->avg('unit_cost'), 2) : '—' }}
-                                </td>
-                                <td class="p-2 text-center border border-gray-300 dark:border-gray-600">
-                                    {{ number_format($purchases->sum('total'), 2) }}
-                                </td>
-                            </tr>
-                        </tfoot>
                     </table>
                 </div>
             @elseif(!$canViewCost)
@@ -128,7 +112,7 @@
                         </thead>
                         <tbody>
                             @foreach($sales as $sale)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
                                     <td class="p-2 text-center border border-gray-300 dark:border-gray-600">
                                         {{ $sale->created_at->format('Y-m-d') }}
                                     </td>
@@ -147,22 +131,6 @@
                                 </tr>
                             @endforeach
                         </tbody>
-                        <tfoot>
-                            <tr class="bg-gray-100 dark:bg-gray-800 font-bold">
-                                <td colspan="2" class="p-2 text-center border border-gray-300 dark:border-gray-600">
-                                    متوسط سعر البيع
-                                </td>
-                                <td class="p-2 text-center border border-gray-300 dark:border-gray-600">
-                                    {{ $sales->sum('quantity') }}
-                                </td>
-                                <td class="p-2 text-center border border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400">
-                                    {{ $sales->count() > 0 ? number_format($sales->avg('unit_price'), 2) : '—' }}
-                                </td>
-                                <td class="p-2 text-center border border-gray-300 dark:border-gray-600">
-                                    {{ number_format($sales->sum('total'), 2) }}
-                                </td>
-                            </tr>
-                        </tfoot>
                     </table>
                 </div>
             @else
