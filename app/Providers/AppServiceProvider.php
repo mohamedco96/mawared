@@ -20,6 +20,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Number::useLocale('en');
+
         // أضف هذا السطر لإجبار الروابط على أن تكون آمنة
         // if (app()->environment('local') || app()->environment('production')) {
         //     \Illuminate\Support\Facades\URL::forceScheme('https');
