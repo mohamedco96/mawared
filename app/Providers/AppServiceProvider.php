@@ -21,6 +21,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Use English numerals (0-9) instead of Arabic numerals (٠-٩)
         Number::useLocale('en');
 
         // أضف هذا السطر لإجبار الروابط على أن تكون آمنة

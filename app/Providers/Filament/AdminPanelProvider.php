@@ -201,6 +201,7 @@ class AdminPanelProvider extends PanelProvider
                 'panels::body.end',
                 fn (): string => '
                     <script src="' . asset('js/filament/fix-arabic-numbers.js') . '"></script>
+                    <script src="' . asset('js/filament/force-english-display.js') . '"></script>
                     <script type="module" src="' . \Vite::asset('resources/js/unsaved-changes-alert.js') . '"></script>
                 ',
             )
