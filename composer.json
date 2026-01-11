@@ -7,11 +7,12 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "ar-php/ar-php": "^1.0",
         "bezhansalleh/filament-shield": "^3.9",
+        "dotswan/filament-laravel-pulse": "^1.1",
         "filament/filament": "^3.0",
         "khaled.alshamaa/ar-php": "^7.0",
         "laravel/framework": "^12.0",
+        "laravel/pulse": "^1.4",
         "laravel/tinker": "^2.10.1",
         "shuvroroy/filament-spatie-laravel-backup": "^2.2",
         "simplesoftwareio/simple-qrcode": "*",
@@ -27,7 +28,6 @@
         "laravel/sail": "^1.41",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
-        "phpmyadmin/phpmyadmin": "*",
         "phpunit/phpunit": "^11.5.3"
     },
     "autoload": {

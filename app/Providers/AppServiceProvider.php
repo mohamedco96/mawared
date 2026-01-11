@@ -3,8 +3,10 @@
 namespace App\Providers;
 
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Number;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Pulse\Facades\Pulse;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,6 +25,11 @@ class AppServiceProvider extends ServiceProvider
     {
         // Use English numerals (0-9) instead of Arabic numerals (٠-٩)
         Number::useLocale('en');
+
+        // Authorize Pulse dashboard access
+        Gate::define('viewPulse', function ($user) {
+            return true; // Allow all authenticated users for now
+        });
 
         // أضف هذا السطر لإجبار الروابط على أن تكون آمنة
         // if (app()->environment('local') || app()->environment('production')) {
