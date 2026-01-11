@@ -312,6 +312,9 @@ class ComprehensiveDatabaseSeeder extends Seeder
                 "https://picsum.photos/seed/kitchen-{$keyword}-{$imageId}-2/600/600",
             ];
 
+            // Determine visibility (80% visible in catalogs)
+            $isVisible = rand(0, 10) > 2;
+
             $this->products[] = Product::create([
                 'category_id' => $categories->random()->id,
                 'name' => $name . ' - ' . rand(100, 999),
@@ -330,8 +333,8 @@ class ComprehensiveDatabaseSeeder extends Seeder
                 'wholesale_price' => $wholesalePrice,
                 'large_retail_price' => $retailPrice * $factor * 0.95,
                 'large_wholesale_price' => $wholesalePrice * $factor * 0.92,
-                'is_active' => true,
-                'is_public' => rand(0, 10) > 2, // 80% public
+                'is_visible_in_retail_catalog' => $isVisible,
+                'is_visible_in_wholesale_catalog' => $isVisible,
             ]);
         }
 
