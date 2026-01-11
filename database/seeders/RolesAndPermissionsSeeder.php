@@ -180,6 +180,73 @@ class RolesAndPermissionsSeeder extends Seeder
         ]);
         echo "   ✓ Created 'purchasing_agent' role\n";
 
+        // Warehouse Manager - For Al-Rehab Team (Ashraf)
+        $warehouseManager = Role::firstOrCreate(['name' => 'warehouse_manager']);
+        $warehouseManager->syncPermissions([
+            // Products - Full Management
+            'view_any_product', 'view_product', 'create_product', 'update_product', 'delete_product',
+            'view_any_product::category', 'view_product::category', 'create_product::category',
+            'update_product::category', 'delete_product::category',
+            'view_any_unit', 'view_unit', 'create_unit', 'update_unit', 'delete_unit',
+
+            // Suppliers (Partners) - Full Management
+            'view_any_partner', 'view_partner', 'create_partner', 'update_partner', 'delete_partner',
+
+            // Purchase Operations - Full Control
+            'view_any_purchase::invoice', 'view_purchase::invoice', 'create_purchase::invoice',
+            'update_purchase::invoice', 'delete_purchase::invoice',
+            'view_any_purchase::return', 'view_purchase::return', 'create_purchase::return',
+            'update_purchase::return', 'delete_purchase::return',
+
+            // Warehouse & Stock - Full Control
+            'view_any_warehouse', 'view_warehouse', 'create_warehouse', 'update_warehouse', 'delete_warehouse',
+            'view_any_stock::movement', 'view_stock::movement', 'delete_stock::movement',
+            'view_any_stock::adjustment', 'view_stock::adjustment', 'create_stock::adjustment',
+            'update_stock::adjustment', 'delete_stock::adjustment',
+            'view_any_warehouse::transfer', 'view_warehouse::transfer', 'create_warehouse::transfer',
+            'update_warehouse::transfer', 'delete_warehouse::transfer',
+
+            // Financial Visibility (Cost Prices)
+            'view_cost_price',
+
+            // Pages Access
+            'page_StockCard', 'page_DailyOperations',
+
+            // Widgets
+            'widget_OperationsOverviewWidget', 'widget_LowStockTableWidget',
+        ]);
+        echo "   ✓ Created 'warehouse_manager' role\n";
+
+        // Marketing Specialist - For Al-Rehab Team (Rehab)
+        $marketingSpecialist = Role::firstOrCreate(['name' => 'marketing_specialist']);
+        $marketingSpecialist->syncPermissions([
+            // Sales - View Only (for analytics)
+            'view_any_sales::invoice', 'view_sales::invoice',
+            'view_any_quotation', 'view_quotation',
+
+            // Customers - View and Create (for campaigns)
+            'view_any_partner', 'view_partner', 'create_partner', 'update_partner',
+
+            // Products - View Only
+            'view_any_product', 'view_product',
+            'view_any_product::category', 'view_product::category',
+
+            // Reports & Analytics - Full Access
+            'page_ItemProfitabilityReport', 'page_ProfitLossReport', 'page_PartnerStatement',
+
+            // Financial Visibility (Profit Analysis)
+            'view_profit',
+
+            // Widgets - Dashboard Access
+            'widget_FinancialOverviewWidget', 'widget_OperationsOverviewWidget',
+            'widget_TopDebtorsTableWidget', 'widget_TopSellingProductsWidget',
+            'widget_CashFlowChartWidget',
+
+            // Activity Logs (to track customer interactions)
+            'view_any_activity::log', 'view_activity::log',
+        ]);
+        echo "   ✓ Created 'marketing_specialist' role\n";
+
         // Viewer (Read-Only)
         $viewer = Role::firstOrCreate(['name' => 'viewer']);
         $viewer->syncPermissions(

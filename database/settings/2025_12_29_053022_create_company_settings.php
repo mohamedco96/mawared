@@ -8,11 +8,11 @@ return new class extends SettingsMigration
     public function up(): void
     {
         // Create all company settings with values from GeneralSetting or defaults
-        $this->migrator->add('company.company_name', GeneralSetting::getValue('company_name', 'شركة موارد للأدوات المنزلية'));
-        $this->migrator->add('company.company_name_english', GeneralSetting::getValue('company_name_english', 'Mawared Household Supplies Co.'));
-        $this->migrator->add('company.company_address', GeneralSetting::getValue('company_address', 'القاهرة، مصر'));
-        $this->migrator->add('company.company_phone', GeneralSetting::getValue('company_phone', '0223456789'));
-        $this->migrator->add('company.company_email', GeneralSetting::getValue('company_email', 'info@mawared.com'));
+        $this->migrator->add('company.company_name', GeneralSetting::getValue('company_name', 'شركة الرحاب للأدوات المنزلية'));
+        $this->migrator->add('company.company_name_english', GeneralSetting::getValue('company_name_english', 'Al-Rehab Household Supplies Co.'));
+        $this->migrator->add('company.company_address', GeneralSetting::getValue('company_address', 'دمياط'));
+        $this->migrator->add('company.company_phone', GeneralSetting::getValue('company_phone', '+201006911275'));
+        $this->migrator->add('company.company_email', GeneralSetting::getValue('company_email', 'info@osool.com'));
         $this->migrator->add('company.company_tax_number', GeneralSetting::getValue('company_tax_number', null));
         $this->migrator->add('company.company_commercial_register', GeneralSetting::getValue('company_commercial_register', null));
         $this->migrator->add('company.logo', GeneralSetting::getValue('logo', ''));
@@ -30,5 +30,6 @@ return new class extends SettingsMigration
         $this->migrator->add('company.default_payment_terms_days', (int) GeneralSetting::getValue('default_payment_terms_days', '30'));
         $this->migrator->add('company.allow_negative_stock', GeneralSetting::getValue('allow_negative_stock', 'false') === 'true');
         $this->migrator->add('company.auto_approve_stock_adjustments', GeneralSetting::getValue('auto_approve_stock_adjustments', 'false') === 'true');
+        $this->migrator->add('company.business_whatsapp_number', GeneralSetting::getValue('business_whatsapp_number', '+201006911275'));
     }
 };

@@ -1,5 +1,5 @@
 /**
- * Print Handler for Mawared ERP
+ * Print Handler for Osool (أصول)
  * Handles auto-print functionality and manual print button
  */
 

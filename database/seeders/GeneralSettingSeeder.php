@@ -15,23 +15,23 @@ class GeneralSettingSeeder extends Seeder
         $settings = [
             [
                 'key' => 'company_name',
-                'value' => 'شركة موارد للأدوات المنزلية',
+                'value' => 'شركة الرحاب للأدوات المنزلية',
             ],
             [
                 'key' => 'company_name_english',
-                'value' => 'Mawared Household Supplies Co.',
+                'value' => 'Al-Rehab Household Supplies Co.',
             ],
             [
                 'key' => 'company_address',
-                'value' => 'دمياط، مصر',
+                'value' => 'دمياط',
             ],
             [
                 'key' => 'company_phone',
-                'value' => '0572345678',
+                'value' => '+201006911275',
             ],
             [
                 'key' => 'company_email',
-                'value' => 'info@mawared.com',
+                'value' => 'info@osool.com',
             ],
             [
                 'key' => 'company_tax_number',
@@ -92,6 +92,10 @@ class GeneralSettingSeeder extends Seeder
             [
                 'key' => 'auto_approve_stock_adjustments',
                 'value' => 'false',
+            ],
+            [
+                'key' => 'business_whatsapp_number',
+                'value' => '+201006911275',
             ],
         ];
 

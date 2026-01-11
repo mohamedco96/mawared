@@ -68,6 +68,11 @@ class QuotationResource extends Resource
         ];
     }
 
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with('partner');
+    }
+
     public static function getGloballySearchableAttributes(): array
     {
         return ['quotation_number'];
@@ -465,6 +470,7 @@ class QuotationResource extends Resource
                     ->label('أنشئ بواسطة')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->modifyQueryUsing(fn ($query) => $query->with(['partner', 'creator', 'items']))
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->label('الحالة')

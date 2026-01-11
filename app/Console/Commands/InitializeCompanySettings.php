@@ -30,11 +30,11 @@ class InitializeCompanySettings extends Command
         $this->info('Initializing company settings...');
 
         $settings = [
-            'company.company_name' => GeneralSetting::getValue('company_name', 'شركة موارد للأدوات المنزلية'),
-            'company.company_name_english' => GeneralSetting::getValue('company_name_english', 'Mawared Household Supplies Co.'),
-            'company.company_address' => GeneralSetting::getValue('company_address', 'القاهرة، مصر'),
-            'company.company_phone' => GeneralSetting::getValue('company_phone', '0223456789'),
-            'company.company_email' => GeneralSetting::getValue('company_email', 'info@mawared.com'),
+            'company.company_name' => GeneralSetting::getValue('company_name', 'شركة الرحاب للأدوات المنزلية'),
+            'company.company_name_english' => GeneralSetting::getValue('company_name_english', 'Al-Rehab Household Supplies Co.'),
+            'company.company_address' => GeneralSetting::getValue('company_address', 'دمياط'),
+            'company.company_phone' => GeneralSetting::getValue('company_phone', '+201006911275'),
+            'company.company_email' => GeneralSetting::getValue('company_email', 'info@osool.com'),
             'company.company_tax_number' => GeneralSetting::getValue('company_tax_number', '123456789'),
             'company.company_commercial_register' => GeneralSetting::getValue('company_commercial_register', '987654321'),
             'company.logo' => GeneralSetting::getValue('logo', ''),
@@ -52,6 +52,7 @@ class InitializeCompanySettings extends Command
             'company.default_payment_terms_days' => (int) GeneralSetting::getValue('default_payment_terms_days', '30'),
             'company.allow_negative_stock' => GeneralSetting::getValue('allow_negative_stock', 'false') === 'true',
             'company.auto_approve_stock_adjustments' => GeneralSetting::getValue('auto_approve_stock_adjustments', 'false') === 'true',
+            'company.business_whatsapp_number' => GeneralSetting::getValue('business_whatsapp_number', '+201006911275'),
         ];
 
         foreach ($settings as $key => $value) {

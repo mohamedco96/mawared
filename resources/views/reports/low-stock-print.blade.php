@@ -75,7 +75,7 @@
 
 @section('footer')
     <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px;">
-        <p style="margin: 0;">Mawared ERP - Low Stock Alert Report</p>
+        <p style="margin: 0;">Osool (أصول) - Low Stock Alert Report</p>
         <p style="margin: 5px 0 0 0;">Printed on {{ now()->format('Y-m-d H:i:s') }}</p>
     </div>
 @endsection

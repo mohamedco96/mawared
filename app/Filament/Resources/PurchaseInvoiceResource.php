@@ -162,10 +162,21 @@ class PurchaseInvoiceResource extends Resource
                             ->schema([
                                 Forms\Components\Select::make('product_id')
                                     ->label('المنتج')
-                                    ->relationship('product', 'name')
                                     ->required()
-                                    ->searchable(['name', 'barcode', 'sku'])
-                                    ->preload()
+                                    ->searchable()
+                                    ->getSearchResultsUsing(function (string $search) {
+                                        return Product::where(function ($q) use ($search) {
+                                            $q->where('name', 'like', "%{$search}%")
+                                              ->orWhere('sku', 'like', "%{$search}%")
+                                              ->orWhere('barcode', 'like', "%{$search}%");
+                                        })
+                                        ->limit(50)
+                                        ->pluck('name', 'id');
+                                    })
+                                    ->getOptionLabelUsing(function ($value) {
+                                        $product = Product::find($value);
+                                        return $product ? $product->name : '';
+                                    })
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get, $record) {
                                         if ($state) {

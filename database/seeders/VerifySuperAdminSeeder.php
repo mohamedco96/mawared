@@ -23,10 +23,10 @@ class VerifySuperAdminSeeder extends Seeder
         echo str_repeat("=", 70) . "\n\n";
 
         // Find super admin user
-        $superAdminUser = User::where('email', 'admin@mawared.com')->first();
+        $superAdminUser = User::where('email', 'mohamed@osoolerp.com')->first();
 
         if (!$superAdminUser) {
-            echo "❌ ERROR: User 'admin@mawared.com' not found!\n";
+            echo "❌ ERROR: User 'mohamed@osoolerp.com' not found!\n";
             echo "   Please run AdminUserSeeder first.\n\n";
             return;
         }
@@ -117,9 +117,9 @@ class VerifySuperAdminSeeder extends Seeder
 
         echo str_repeat("=", 70) . "\n";
         if ($finalCheck === $totalPermissions) {
-            echo "✅ SUCCESS: admin@mawared.com has ALL {$totalPermissions} permissions!\n";
+            echo "✅ SUCCESS: mohamed@osoolerp.com has ALL {$totalPermissions} permissions!\n";
         } else {
-            echo "⚠️  WARNING: admin@mawared.com has {$finalCheck}/{$totalPermissions} permissions\n";
+            echo "⚠️  WARNING: mohamed@osoolerp.com has {$finalCheck}/{$totalPermissions} permissions\n";
         }
         echo str_repeat("=", 70) . "\n\n";
 
@@ -176,7 +176,7 @@ class VerifySuperAdminSeeder extends Seeder
         echo str_repeat("=", 70) . "\n";
         echo "📝 SUMMARY\n";
         echo str_repeat("=", 70) . "\n";
-        echo "User admin@mawared.com is a SUPER ADMIN with:\n";
+        echo "User mohamed@osoolerp.com is a SUPER ADMIN with:\n";
         echo "• Total Permissions: {$finalCheck} / {$totalPermissions}\n";
         echo "• Role: super_admin " . ($hasRole ? "✅" : "❌") . "\n";
         echo "• Status: " . ($finalCheck === $totalPermissions ? "✅ FULLY AUTHORIZED" : "⚠️  INCOMPLETE") . "\n";

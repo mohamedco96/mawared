@@ -109,7 +109,7 @@ class ComprehensiveDatabaseSeeder extends Seeder
         echo "📦 [1/12] Setting up foundation...\n";
 
         // Get admin user (should already exist from AdminUserSeeder)
-        $this->admin = User::where('email', 'admin@mawared.com')->first();
+        $this->admin = User::where('email', 'mohamed@osoolerp.com')->first();
 
         if (!$this->admin) {
             // Fallback: get any existing user

@@ -17,6 +17,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -61,6 +62,11 @@ class SalesInvoiceResource extends Resource
             'الإجمالي' => number_format($record->total, 2),
             'الحالة' => $record->status === 'posted' ? 'مؤكدة' : 'مسودة',
         ];
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with('partner');
     }
 
     public static function getGloballySearchableAttributes(): array
@@ -185,28 +191,47 @@ class SalesInvoiceResource extends Resource
                             ->schema([
                                 Forms\Components\Select::make('product_id')
                                     ->label('المنتج')
-                                    ->relationship('product', 'name')
-                                    ->getOptionLabelFromRecordUsing(function ($record, Get $get) {
+                                    ->required()
+                                    ->searchable()
+                                    ->getSearchResultsUsing(function (string $search, Get $get) {
                                         $warehouseId = $get('../../warehouse_id');
-                                        if (!$warehouseId) {
-                                            return $record->name;
+
+                                        $query = Product::where(function ($q) use ($search) {
+                                            $q->where('name', 'like', "%{$search}%")
+                                              ->orWhere('sku', 'like', "%{$search}%")
+                                              ->orWhere('barcode', 'like', "%{$search}%");
+                                        });
+
+                                        if ($warehouseId) {
+                                            $query->withSum([
+                                                'stockMovements' => fn($q) => $q->where('warehouse_id', $warehouseId)
+                                            ], 'quantity');
                                         }
 
-                                        $stockService = app(\App\Services\StockService::class);
-                                        $stock = $stockService->getCurrentStock($warehouseId, $record->id);
+                                        return $query->limit(50)
+                                            ->get()
+                                            ->mapWithKeys(function ($product) use ($warehouseId) {
+                                                $stock = $warehouseId ? ($product->stock_movements_sum_quantity ?? 0) : 0;
 
-                                        // Color indicators based on stock level
-                                        $emoji = match(true) {
-                                            $stock <= 0 => '🔴',
-                                            $stock <= ($record->min_stock ?? 0) => '🟡',
-                                            default => '🟢'
-                                        };
+                                                // Color indicators based on stock level
+                                                $emoji = match(true) {
+                                                    !$warehouseId => '⚠️',
+                                                    $stock <= 0 => '🔴',
+                                                    $stock <= ($product->min_stock ?? 0) => '🟡',
+                                                    default => '🟢'
+                                                };
 
-                                        return "{$record->name} {$emoji} (متوفر: {$stock})";
+                                                $label = $warehouseId
+                                                    ? "{$product->name} {$emoji} (متوفر: " . number_format($stock, 2) . ")"
+                                                    : "{$product->name} {$emoji}";
+
+                                                return [$product->id => $label];
+                                            });
                                     })
-                                    ->required()
-                                    ->searchable(['name', 'barcode', 'sku'])
-                                    ->preload()
+                                    ->getOptionLabelUsing(function ($value) {
+                                        $product = Product::find($value);
+                                        return $product ? $product->name : '';
+                                    })
                                     ->live()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get, $record) {
                                         if ($state) {
@@ -996,7 +1021,7 @@ class SalesInvoiceResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['partner', 'warehouse', 'creator'])->withSum('payments', 'amount'))
+            ->modifyQueryUsing(fn ($query) => $query->with(['partner', 'warehouse', 'creator', 'items.product'])->withSum('payments', 'amount'))
             ->columns([
                 Tables\Columns\TextColumn::make('invoice_number')
                     ->label('رقم الفاتورة')

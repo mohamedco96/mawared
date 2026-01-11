@@ -29,7 +29,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
-            ->brandName('Mawared ERP')
+            ->brandName('Osool - أصول')
             ->colors([
                 'primary' => Color::Blue,
                 'success' => Color::Emerald,
