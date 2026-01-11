@@ -1,0 +1,38 @@
+{
+  "resources/css/app.css": {
+    "file": "assets/app-DzTvFoCb.css",
+    "src": "resources/css/app.css",
+    "isEntry": true,
+    "name": "app",
+    "names": [
+      "app.css"
+    ]
+  },
+  "resources/css/print.css": {
+    "file": "assets/print-CP_Fuobf.css",
+    "src": "resources/css/print.css",
+    "isEntry": true,
+    "name": "print",
+    "names": [
+      "print.css"
+    ]
+  },
+  "resources/js/app.js": {
+    "file": "assets/app-CAiCLEjY.js",
+    "name": "app",
+    "src": "resources/js/app.js",
+    "isEntry": true
+  },
+  "resources/js/print-handler.js": {
+    "file": "assets/print-handler-CoGpTmuL.js",
+    "name": "print-handler",
+    "src": "resources/js/print-handler.js",
+    "isEntry": true
+  },
+  "resources/js/unsaved-changes-alert.js": {
+    "file": "assets/unsaved-changes-alert-Cx_Z9W_C.js",
+    "name": "unsaved-changes-alert",
+    "src": "resources/js/unsaved-changes-alert.js",
+    "isEntry": true
+  }
+}
