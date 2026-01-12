@@ -133,6 +133,7 @@ class SalesReturnResource extends Resource
                         Forms\Components\Repeater::make('items')
                             ->relationship('items')
                             ->addActionLabel('إضافة صنف')
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord)
                             ->schema([
                                 Forms\Components\Select::make('product_id')
                                     ->label('المنتج')
@@ -194,7 +195,6 @@ class SalesReturnResource extends Resource
                                             }
                                         }
                                     })
-                                    ->disabled(fn ($record, $livewire) => $record && $record->salesReturn && $record->salesReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord)
                                     ->columnSpan(2),
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية')
@@ -219,7 +219,6 @@ class SalesReturnResource extends Resource
                                         },
                                     ])
                                     ->validationAttribute('الكمية')
-                                    ->disabled(fn ($record, $livewire) => $record && $record->salesReturn && $record->salesReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord)
                                     ->columnSpan(2),
                                 Forms\Components\TextInput::make('unit_price')
                                     ->label('سعر الوحدة')

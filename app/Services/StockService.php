@@ -248,7 +248,7 @@ class StockService
 
         $execute = function () use ($invoice) {
             // Lock the invoice to prevent concurrent posting
-            $invoice = SalesInvoice::lockForUpdate()->findOrFail($invoice->id);
+            $invoice = SalesInvoice::with('items.product')->lockForUpdate()->findOrFail($invoice->id);
 
             foreach ($invoice->items as $item) {
                 $product = $item->product;

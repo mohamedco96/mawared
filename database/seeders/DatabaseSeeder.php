@@ -39,22 +39,29 @@ class DatabaseSeeder extends Seeder
             ProductCategorySeeder::class,
 
             // ==================================================
-            // PHASE 3: COMPREHENSIVE DATA GENERATION
+            // PHASE 3: GOLDEN PATH DATA GENERATION
             // ==================================================
 
-            // Run the comprehensive seeder which creates:
-            // - Treasuries (4 treasuries)
-            // - Partners (30+ partners: customers, suppliers, shareholders)
-            // - Products (50+ products with various stock levels)
-            // - Opening Capital (from shareholders)
-            // - Purchase Invoices (40 invoices)
-            // - Sales Invoices (60 invoices)
-            // - Returns (20+ returns)
-            // - Expenses (30 expenses)
-            // - Revenues (10 revenues)
-            // - Treasury Transfers (10 transfers)
-            // - Subsequent Payments (25+ payments)
-            ComprehensiveDatabaseSeeder::class,
+            // Run the Golden Path seeder which creates a logically consistent
+            // business story with proper chronological order:
+            // - Initial Capital (500,000 EGP from shareholders)
+            // - Partners (10 customers, 5 suppliers, 3 shareholders)
+            // - Products (20 products with realistic pricing)
+            // - 30 Days of Business Operations:
+            //   * Days 1-10: Purchase Invoices (building inventory)
+            //   * Days 5-30: Sales Invoices (selling from available stock)
+            //   * Payment collections and supplier payments
+            //   * Operating expenses every 5 days
+            //   * Occasional returns and revenues
+            // - Financial Integrity Verification
+            // - Partner Balance Recalculation
+            //
+            // This ensures:
+            // ✓ No negative stock
+            // ✓ No financial discrepancies
+            // ✓ Balanced treasury accounts
+            // ✓ Chronologically correct dates
+            GoldenPathSeeder::class,
 
             // ==================================================
             // PHASE 4: ADDITIONAL SEEDERS (OPTIONAL)
@@ -64,6 +71,13 @@ class DatabaseSeeder extends Seeder
             // QuotationSeeder::class,
             FixedAssetSeeder::class,
             // HomeGoodsSeeder::class, // If you have specific product data
+
+            // ==================================================
+            // ALTERNATIVE: Use ComprehensiveDatabaseSeeder for random data
+            // ==================================================
+            // If you prefer the old random data approach, comment out
+            // GoldenPathSeeder above and uncomment this:
+            // ComprehensiveDatabaseSeeder::class,
         ]);
     }
 }

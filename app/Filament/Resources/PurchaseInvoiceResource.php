@@ -159,6 +159,7 @@ class PurchaseInvoiceResource extends Resource
                             ->label('الأصناف')
                             ->relationship('items')
                             ->addActionLabel('إضافة صنف')
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord)
                             ->schema([
                                 Forms\Components\Select::make('product_id')
                                     ->label('المنتج')
@@ -232,8 +233,7 @@ class PurchaseInvoiceResource extends Resource
                                             ->required(),
                                     ])
                                     ->createOptionModalHeading('إضافة منتج جديد')
-                                    ->columnSpan(4)
-                                    ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
+                                    ->columnSpan(4),
                                 Forms\Components\Select::make('unit_type')
                                     ->label('الوحدة')
                                     ->options(function (Get $get) {
@@ -251,8 +251,7 @@ class PurchaseInvoiceResource extends Resource
                                     ->default('small')
                                     ->required()
                                     ->reactive()
-                                    ->columnSpan(2)
-                                    ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
+                                    ->columnSpan(2),
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية')
                                     ->integer()
@@ -276,8 +275,7 @@ class PurchaseInvoiceResource extends Resource
                                         },
                                     ])
                                     ->validationAttribute('الكمية')
-                                    ->columnSpan(2)
-                                    ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
+                                    ->columnSpan(2),
                                 Forms\Components\TextInput::make('unit_cost')
                                     ->label('السعر')
                                     ->numeric()
@@ -301,8 +299,7 @@ class PurchaseInvoiceResource extends Resource
                                         },
                                     ])
                                     ->validationAttribute('سعر الوحدة')
-                                    ->columnSpan(2)
-                                    ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
+                                    ->columnSpan(2),
                                 Forms\Components\TextInput::make('total')
                                     ->label('الإجمالي')
                                     ->numeric()
@@ -328,8 +325,7 @@ class PurchaseInvoiceResource extends Resource
                                             }
                                         }
                                     })
-                                    ->columnSpan(2)
-                                    ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
+                                    ->columnSpan(2),
                                 Forms\Components\TextInput::make('new_large_selling_price')
                                     ->label('سعر البيع الجديد (كبير)')
                                     ->helperText('يتم حسابه تلقائياً (سعر الوحدة الصغيرة × معامل التحويل)، يمكن تعديله يدوياً')
@@ -343,8 +339,7 @@ class PurchaseInvoiceResource extends Resource
                                         $product = Product::find($productId);
                                         return $product && $product->large_unit_id;
                                     })
-                                    ->columnSpan(2)
-                                    ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
+                                    ->columnSpan(2),
                                 Forms\Components\TextInput::make('wholesale_price')
                                     ->label('سعر الجملة الجديد (صغير)')
                                     ->helperText('إذا تم تحديده، سيتم تحديث سعر الجملة للمنتج تلقائياً')
@@ -363,8 +358,7 @@ class PurchaseInvoiceResource extends Resource
                                             }
                                         }
                                     })
-                                    ->columnSpan(2)
-                                    ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
+                                    ->columnSpan(2),
                                 Forms\Components\TextInput::make('large_wholesale_price')
                                     ->label('سعر الجملة الجديد (كبير)')
                                     ->helperText('يتم حسابه تلقائياً (سعر الوحدة الصغيرة × معامل التحويل)، يمكن تعديله يدوياً')
@@ -378,8 +372,7 @@ class PurchaseInvoiceResource extends Resource
                                         $product = Product::find($productId);
                                         return $product && $product->large_unit_id;
                                     })
-                                    ->columnSpan(2)
-                                    ->disabled(fn ($record) => $record && $record->purchaseInvoice && $record->purchaseInvoice->isPosted()),
+                                    ->columnSpan(2),
                             ])
                             ->columns(12)
                             ->defaultItems(1)

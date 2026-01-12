@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Number;
@@ -23,6 +24,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Prevent lazy loading N+1 queries in development (throws exception if detected)
+        // This helps catch performance issues early during development
+        Model::preventLazyLoading(! app()->isProduction());
+
         // Use English numerals (0-9) instead of Arabic numerals (٠-٩)
         Number::useLocale('en');
 

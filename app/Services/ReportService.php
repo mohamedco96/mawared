@@ -114,7 +114,7 @@ class ReportService
                 return [
                     'date' => $invoice->created_at,
                     'type' => 'invoice',
-                    'reference_number' => $invoice->invoice_number,
+                    'reference' => $invoice->invoice_number,
                     'description' => 'فاتورة مبيعات',
                     'debit' => (float) $invoice->total,
                     'credit' => 0,
@@ -143,7 +143,7 @@ class ReportService
                 return [
                     'date' => $payment->payment_date,
                     'type' => 'payment',
-                    'reference_number' => $payment->payable?->invoice_number ?? '-',
+                    'reference' => $payment->payable?->invoice_number ?? '-',
                     'description' => 'سداد دفعة',
                     'debit' => 0,
                     'credit' => (float) ($payment->amount + $payment->discount),
@@ -172,7 +172,7 @@ class ReportService
                 return [
                     'date' => $return->created_at,
                     'type' => 'return',
-                    'reference_number' => $return->return_number,
+                    'reference' => $return->return_number,
                     'description' => 'مرتجع مبيعات',
                     'debit' => 0,
                     'credit' => (float) $return->total,
@@ -288,11 +288,11 @@ class ReportService
                 return [
                     'date' => $movement->created_at,
                     'type' => $typeLabel,
-                    'reference_number' => $this->getMovementReferenceNumber($movement),
+                    'reference' => $this->getMovementReferenceNumber($movement),
                     'warehouse' => $movement->warehouse?->name ?? '-',
                     'in' => $movement->quantity > 0 ? $movement->quantity : 0,
                     'out' => $movement->quantity < 0 ? abs($movement->quantity) : 0,
-                    'cost_at_time' => (float) $movement->cost_at_time,
+                    'cost' => (float) $movement->cost_at_time,
                 ];
             });
     }

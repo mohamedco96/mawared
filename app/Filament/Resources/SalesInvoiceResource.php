@@ -18,6 +18,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -188,6 +189,7 @@ class SalesInvoiceResource extends Resource
                             ->label('الأصناف')
                             ->relationship('items')
                             ->addActionLabel('إضافة صنف')
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord)
                             ->schema([
                                 Forms\Components\Select::make('product_id')
                                     ->label('المنتج')
@@ -310,8 +312,7 @@ class SalesInvoiceResource extends Resource
                                             default => 'success'
                                         };
                                     })
-                                    ->columnSpan(4)
-                                    ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
+                                    ->columnSpan(4),
                                 Forms\Components\Select::make('unit_type')
                                     ->label('الوحدة')
                                     ->options(function (Get $get) {
@@ -350,8 +351,7 @@ class SalesInvoiceResource extends Resource
                                             $set('quantity', $quantity);
                                         }
                                     })
-                                    ->columnSpan(2)
-                                    ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
+                                    ->columnSpan(2),
 
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية')
@@ -424,8 +424,7 @@ class SalesInvoiceResource extends Resource
                                         },
                                     ])
                                     ->validationAttribute('الكمية')
-                                    ->columnSpan(2)
-                                    ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
+                                    ->columnSpan(2),
                                 Forms\Components\TextInput::make('unit_price')
                                     ->label('السعر')
                                     ->numeric()
@@ -528,8 +527,7 @@ class SalesInvoiceResource extends Resource
                                         },
                                     ])
                                     ->validationAttribute('سعر الوحدة')
-                                    ->columnSpan(2)
-                                    ->disabled(fn ($record) => $record && $record->salesInvoice && $record->salesInvoice->isPosted()),
+                                    ->columnSpan(2),
                                 Forms\Components\TextInput::make('total')
                                     ->label('الإجمالي')
                                     ->numeric()
@@ -1463,6 +1461,9 @@ class SalesInvoiceResource extends Resource
                             $treasuryService = app(TreasuryService::class);
                             $successCount = 0;
                             $errors = [];
+
+                            // Eager load relationships to avoid lazy loading issues
+                            $records->load('items.product');
 
                             foreach ($records as $record) {
                                 if (!$record->isDraft()) {

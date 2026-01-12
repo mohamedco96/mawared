@@ -216,7 +216,7 @@ class TreasuryTransactionResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['treasury', 'partner', 'employee']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['treasury', 'partner', 'employee', 'reference']))
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('التاريخ')
