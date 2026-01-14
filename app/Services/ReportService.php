@@ -73,6 +73,9 @@ class ReportService
      */
     protected function calculateOpeningBalance(string $partnerId, string $startDate): float
     {
+        $partner = Partner::find($partnerId);
+        $openingBalance = (float)($partner->opening_balance ?? 0);
+
         // Debit: Posted sales invoices total (created_at < start_date)
         $salesDebit = SalesInvoice::where('partner_id', $partnerId)
             ->where('status', 'posted')
@@ -91,7 +94,7 @@ class ReportService
             ->where('created_at', '<', $startDate)
             ->sum('total');
 
-        return $salesDebit - $paymentsCredit - $returnsCredit;
+        return $openingBalance + $salesDebit - $paymentsCredit - $returnsCredit;
     }
 
     /**

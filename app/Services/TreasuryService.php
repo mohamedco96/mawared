@@ -215,7 +215,11 @@ class TreasuryService
             // The total settled amount is the cash paid + discount given
             $totalSettled = $amount + $discount;
             $newPaidAmount = floatval($invoice->paid_amount) + $totalSettled;
-            $newRemainingAmount = floatval($invoice->total) - $newPaidAmount;
+            
+            // Cap paid_amount at invoice total to prevent overpayment
+            $invoiceTotal = floatval($invoice->total);
+            $newPaidAmount = min($newPaidAmount, $invoiceTotal);
+            $newRemainingAmount = $invoiceTotal - $newPaidAmount;
 
             $invoice->update([
                 'paid_amount' => $newPaidAmount,

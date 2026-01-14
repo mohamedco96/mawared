@@ -153,10 +153,10 @@ class StockService
         $execute = function () use ($productId) {
             $product = Product::findOrFail($productId);
 
-            // Calculate weighted average cost from purchase movements
+            // Calculate weighted average cost from purchase and purchase_return movements
+            // Purchase returns have negative quantity, so they reduce both cost and quantity
             $purchaseMovements = StockMovement::where('product_id', $productId)
-                ->where('type', 'purchase')
-                ->where('quantity', '>', 0)
+                ->whereIn('type', ['purchase', 'purchase_return'])
                 ->get();
 
             if ($purchaseMovements->isEmpty()) {
@@ -167,6 +167,7 @@ class StockService
             $totalQuantity = 0;
 
             foreach ($purchaseMovements as $movement) {
+                // quantity can be negative for purchase_return
                 $totalCost += $movement->cost_at_time * $movement->quantity;
                 $totalQuantity += $movement->quantity;
             }
@@ -174,6 +175,9 @@ class StockService
             if ($totalQuantity > 0) {
                 $avgCost = $totalCost / $totalQuantity;
                 $product->update(['avg_cost' => $avgCost]);
+            } else {
+                // If all stock is returned, set avg_cost to 0
+                $product->update(['avg_cost' => 0]);
             }
         };
 
@@ -189,9 +193,9 @@ class StockService
      * Update product selling prices when new_selling_price is set
      */
     public function updateProductPrice(
-        Product $product, 
-        ?string $newSellingPrice, 
-        string $unitType, 
+        Product $product,
+        ?string $newSellingPrice,
+        string $unitType,
         ?string $newLargeSellingPrice = null,
         ?string $wholesalePrice = null,
         ?string $largeWholesalePrice = null
@@ -235,7 +239,6 @@ class StockService
             $execute();
         }
     }
-
 
     /**
      * Post a sales invoice - creates stock movements
@@ -377,8 +380,8 @@ class StockService
                 // Update product prices if any new prices are set
                 if ($item->new_selling_price !== null || $item->new_large_selling_price !== null || $item->wholesale_price !== null || $item->large_wholesale_price !== null) {
                     $this->updateProductPrice(
-                        $product, 
-                        $item->new_selling_price, 
+                        $product,
+                        $item->new_selling_price,
                         $item->unit_type,
                         $item->new_large_selling_price,
                         $item->wholesale_price,
@@ -506,26 +509,35 @@ class StockService
         }
 
         DB::transaction(function () use ($adjustment) {
+            // Eager load product to prevent lazy loading
+            $adjustment->load('product');
             $product = $adjustment->product;
 
-            // Determine movement type and quantity direction based on adjustment type
-            $quantity = abs($adjustment->quantity); // Always work with absolute value
+            // Determine movement type and quantity direction based on adjustment type and quantity sign
+            // Enum values: 'damage', 'opening', 'gift', 'other'
+            // Quantity can be positive (addition) or negative (subtraction)
 
-            // Types that SUBTRACT from stock (negative quantity)
-            $subtractionTypes = ['subtraction', 'damage', 'gift'];
+            // Types that typically SUBTRACT from stock: 'damage', 'gift'
+            // Types that typically ADD to stock: 'opening'
+            // 'other' can be either, determined by quantity sign
 
-            if (in_array($adjustment->type, $subtractionTypes)) {
+            $subtractionTypes = ['damage', 'gift'];
+            $isSubtraction = in_array($adjustment->type, $subtractionTypes)
+                || ($adjustment->type === 'other' && $adjustment->quantity < 0)
+                || ($adjustment->quantity < 0); // Negative quantity always means subtraction
+
+            if ($isSubtraction) {
                 $movementType = 'adjustment_out';
-                $quantity = -$quantity; // Make it negative for subtraction
+                $quantity = -abs($adjustment->quantity); // Ensure negative for subtraction
 
                 // Validate stock availability for subtraction
                 if (! $this->validateStockAvailability($adjustment->warehouse_id, $product->id, abs($quantity))) {
                     throw new \Exception("المخزون غير كافٍ للمنتج: {$product->name}");
                 }
             } else {
-                // Types that ADD to stock (positive quantity): 'addition', 'opening', 'other'
+                // Types that ADD to stock (positive quantity): 'opening', 'other' (with positive quantity)
                 $movementType = 'adjustment_in';
-                $quantity = $quantity; // Keep it positive
+                $quantity = abs($adjustment->quantity); // Ensure positive for additions
             }
 
             $this->recordMovement(
@@ -547,6 +559,9 @@ class StockService
     public function postWarehouseTransfer(WarehouseTransfer $transfer): void
     {
         DB::transaction(function () use ($transfer) {
+            // Eager load items with products to prevent lazy loading
+            $transfer->load('items.product');
+
             foreach ($transfer->items as $item) {
                 $product = $item->product;
 

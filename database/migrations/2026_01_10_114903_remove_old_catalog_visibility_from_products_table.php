@@ -11,6 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Drop indexes that might exist with old or new column names
+        \DB::statement('DROP INDEX IF EXISTS products_category_id_is_visible_in_catalog_index');
+        \DB::statement('DROP INDEX IF EXISTS products_is_public_index');
+        \DB::statement('DROP INDEX IF EXISTS products_is_visible_in_catalog_index');
+
         Schema::table('products', function (Blueprint $table) {
             $table->dropColumn('is_visible_in_catalog');
         });
@@ -23,6 +28,10 @@ return new class extends Migration
     {
         Schema::table('products', function (Blueprint $table) {
             $table->boolean('is_visible_in_catalog')->default(false)->after('large_wholesale_price');
+        });
+
+        Schema::table('products', function (Blueprint $table) {
+            $table->index(['category_id', 'is_visible_in_catalog']);
         });
     }
 };

@@ -107,6 +107,8 @@ class TreasuryServiceTest extends TestCase
             'status' => 'draft',
             'payment_method' => 'credit',
             'total' => '1500.00',
+            'paid_amount' => '0.0000',
+            'remaining_amount' => '1500.0000',
         ]);
 
         // Add items
@@ -249,6 +251,8 @@ class TreasuryServiceTest extends TestCase
             'status' => 'draft',
             'payment_method' => 'credit',
             'total' => '1200.00',
+            'paid_amount' => '0.0000',
+            'remaining_amount' => '1200.0000',
         ]);
 
         // Add items
@@ -370,6 +374,8 @@ class TreasuryServiceTest extends TestCase
             'status' => 'draft',
             'payment_method' => 'credit',
             'total' => '1000.00',
+            'paid_amount' => '0.0000',
+            'remaining_amount' => '1000.0000',
         ]);
 
         // Add items to sales invoice
@@ -494,6 +500,8 @@ class TreasuryServiceTest extends TestCase
             'status' => 'draft',
             'payment_method' => 'credit',
             'total' => '2000.00',
+            'paid_amount' => '0.0000',
+            'remaining_amount' => '2000.0000',
         ]);
 
         // Add items to purchase invoice
@@ -580,6 +588,8 @@ class TreasuryServiceTest extends TestCase
             'status' => 'draft',
             'payment_method' => 'credit',
             'total' => '1000.00',
+            'paid_amount' => '0.0000',
+            'remaining_amount' => '1000.0000',
         ]);
 
         // Add items to sales invoice
@@ -648,6 +658,8 @@ class TreasuryServiceTest extends TestCase
             'status' => 'draft',
             'payment_method' => 'credit',
             'total' => '1500.00',
+            'paid_amount' => '0.0000',
+            'remaining_amount' => '1500.0000',
         ]);
 
         // Add items to purchase invoice
@@ -718,6 +730,8 @@ class TreasuryServiceTest extends TestCase
             'status' => 'draft',
             'payment_method' => 'credit',
             'total' => '1000.00',
+            'paid_amount' => '0.0000',
+            'remaining_amount' => '1000.0000',
         ]);
 
         // Add items to sales invoice
@@ -784,6 +798,8 @@ class TreasuryServiceTest extends TestCase
             'status' => 'draft',
             'payment_method' => 'credit',
             'total' => '2000.00',
+            'paid_amount' => '0.0000',
+            'remaining_amount' => '2000.0000',
         ]);
 
         // Add items to purchase invoice
@@ -1119,6 +1135,8 @@ class TreasuryServiceTest extends TestCase
             'status' => 'draft',
             'payment_method' => 'credit',
             'total' => '1000.00',
+            'paid_amount' => '0.0000',
+            'remaining_amount' => '1000.0000',
         ]);
 
         // Add items to invoice1
@@ -1136,6 +1154,8 @@ class TreasuryServiceTest extends TestCase
             'status' => 'draft',
             'payment_method' => 'credit',
             'total' => '500.00',
+            'paid_amount' => '0.0000',
+            'remaining_amount' => '500.0000',
         ]);
 
         // Add items to invoice2

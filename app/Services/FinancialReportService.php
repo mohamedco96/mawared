@@ -179,7 +179,8 @@ class FinancialReportService
     protected function calculateTotalSales($fromDate, $toDate): float
     {
         return SalesInvoice::where('status', 'posted')
-            ->whereBetween('created_at', [$fromDate, $toDate])
+            ->whereDate('created_at', '>=', $fromDate)
+            ->whereDate('created_at', '<=', $toDate)
             ->sum('total');
     }
 
@@ -189,7 +190,8 @@ class FinancialReportService
     protected function calculateTotalPurchases($fromDate, $toDate): float
     {
         return PurchaseInvoice::where('status', 'posted')
-            ->whereBetween('created_at', [$fromDate, $toDate])
+            ->whereDate('created_at', '>=', $fromDate)
+            ->whereDate('created_at', '<=', $toDate)
             ->sum('total');
     }
 
@@ -199,7 +201,8 @@ class FinancialReportService
     protected function calculateSalesReturns($fromDate, $toDate): float
     {
         return SalesReturn::where('status', 'posted')
-            ->whereBetween('created_at', [$fromDate, $toDate])
+            ->whereDate('created_at', '>=', $fromDate)
+            ->whereDate('created_at', '<=', $toDate)
             ->sum('total');
     }
 
@@ -209,7 +212,8 @@ class FinancialReportService
     protected function calculatePurchaseReturns($fromDate, $toDate): float
     {
         return PurchaseReturn::where('status', 'posted')
-            ->whereBetween('created_at', [$fromDate, $toDate])
+            ->whereDate('created_at', '>=', $fromDate)
+            ->whereDate('created_at', '<=', $toDate)
             ->sum('total');
     }
 
@@ -218,7 +222,8 @@ class FinancialReportService
      */
     protected function calculateExpenses($fromDate, $toDate): float
     {
-        return Expense::whereBetween('expense_date', [$fromDate, $toDate])
+        return Expense::whereDate('expense_date', '>=', $fromDate)
+            ->whereDate('expense_date', '<=', $toDate)
             ->sum('amount');
     }
 
@@ -227,7 +232,8 @@ class FinancialReportService
      */
     protected function calculateRevenues($fromDate, $toDate): float
     {
-        return Revenue::whereBetween('revenue_date', [$fromDate, $toDate])
+        return Revenue::whereDate('revenue_date', '>=', $fromDate)
+            ->whereDate('revenue_date', '<=', $toDate)
             ->sum('amount');
     }
 
@@ -238,13 +244,15 @@ class FinancialReportService
     {
         // Calculate fixed header discounts
         $fixedDiscounts = SalesInvoice::where('status', 'posted')
-            ->whereBetween('created_at', [$fromDate, $toDate])
+            ->whereDate('created_at', '>=', $fromDate)
+            ->whereDate('created_at', '<=', $toDate)
             ->where('discount_type', 'fixed')
             ->sum('discount_value');
 
         // Calculate percentage header discounts using database-side calculation
         $percentageDiscounts = SalesInvoice::where('status', 'posted')
-            ->whereBetween('created_at', [$fromDate, $toDate])
+            ->whereDate('created_at', '>=', $fromDate)
+            ->whereDate('created_at', '<=', $toDate)
             ->where('discount_type', 'percentage')
             ->selectRaw('SUM(subtotal * (discount_value / 100)) as total_discount')
             ->value('total_discount');
@@ -253,7 +261,8 @@ class FinancialReportService
         $itemDiscounts = DB::table('sales_invoice_items')
             ->join('sales_invoices', 'sales_invoice_items.sales_invoice_id', '=', 'sales_invoices.id')
             ->where('sales_invoices.status', 'posted')
-            ->whereBetween('sales_invoices.created_at', [$fromDate, $toDate])
+            ->whereDate('sales_invoices.created_at', '>=', $fromDate)
+            ->whereDate('sales_invoices.created_at', '<=', $toDate)
             ->sum('sales_invoice_items.discount');
 
         return floatval($fixedDiscounts) + floatval($percentageDiscounts ?? 0) + floatval($itemDiscounts);
@@ -266,13 +275,15 @@ class FinancialReportService
     {
         // Calculate fixed header discounts
         $fixedDiscounts = PurchaseInvoice::where('status', 'posted')
-            ->whereBetween('created_at', [$fromDate, $toDate])
+            ->whereDate('created_at', '>=', $fromDate)
+            ->whereDate('created_at', '<=', $toDate)
             ->where('discount_type', 'fixed')
             ->sum('discount_value');
 
         // Calculate percentage header discounts using database-side calculation
         $percentageDiscounts = PurchaseInvoice::where('status', 'posted')
-            ->whereBetween('created_at', [$fromDate, $toDate])
+            ->whereDate('created_at', '>=', $fromDate)
+            ->whereDate('created_at', '<=', $toDate)
             ->where('discount_type', 'percentage')
             ->selectRaw('SUM(subtotal * (discount_value / 100)) as total_discount')
             ->value('total_discount');
@@ -281,7 +292,8 @@ class FinancialReportService
         $itemDiscounts = DB::table('purchase_invoice_items')
             ->join('purchase_invoices', 'purchase_invoice_items.purchase_invoice_id', '=', 'purchase_invoices.id')
             ->where('purchase_invoices.status', 'posted')
-            ->whereBetween('purchase_invoices.created_at', [$fromDate, $toDate])
+            ->whereDate('purchase_invoices.created_at', '>=', $fromDate)
+            ->whereDate('purchase_invoices.created_at', '<=', $toDate)
             ->sum('purchase_invoice_items.discount');
 
         return floatval($fixedDiscounts) + floatval($percentageDiscounts ?? 0) + floatval($itemDiscounts);
@@ -315,7 +327,8 @@ class FinancialReportService
             'payable',
             [\App\Models\PurchaseInvoice::class]
         )
-        ->whereBetween('payment_date', [$fromDate, $toDate])
+        ->whereDate('payment_date', '>=', $fromDate)
+        ->whereDate('payment_date', '<=', $toDate)
         ->sum('discount');
     }
 
@@ -329,7 +342,8 @@ class FinancialReportService
             'payable',
             [\App\Models\SalesInvoice::class]
         )
-        ->whereBetween('payment_date', [$fromDate, $toDate])
+        ->whereDate('payment_date', '>=', $fromDate)
+        ->whereDate('payment_date', '<=', $toDate)
         ->sum('discount');
     }
 }
