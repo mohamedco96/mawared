@@ -77,7 +77,7 @@
                             @forelse ($report['transactions'] as $transaction)
                                 <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                                     <td class="px-4 py-3 text-gray-900 dark:text-gray-100">{{ $transaction['date']->format('Y-m-d') }}</td>
-                                    <td class="px-4 py-3 text-gray-900 dark:text-gray-100">{{ $transaction['reference_number'] }}</td>
+                                    <td class="px-4 py-3 text-gray-900 dark:text-gray-100">{{ $transaction['reference'] }}</td>
                                     <td class="px-4 py-3 text-gray-900 dark:text-gray-100">
                                         {{ $transaction['description'] }}
                                         @if(isset($transaction['warehouse']))

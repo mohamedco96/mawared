@@ -11,6 +11,18 @@
     {{-- Print configuration --}}
     <meta name="print-format" content="{{ $format ?? 'a4' }}">
     <meta name="auto-print" content="{{ $autoPrint ? 'true' : 'false' }}">
+
+    {{-- Conditional @page styles for thermal format --}}
+    @if(($format ?? 'a4') === 'thermal')
+    <style>
+        @media print {
+            @page {
+                size: 80mm auto;
+                margin: 2mm 3mm 2mm 2mm;
+            }
+        }
+    </style>
+    @endif
 </head>
 <body class="format-{{ $format ?? 'a4' }}">
     {{-- Company Header --}}

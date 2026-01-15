@@ -147,14 +147,16 @@ class PaymentsRelationManager extends RelationManager
                             return false;
                         }
 
-                        // Load payments if not already loaded
+                        // Load payments and returns if not already loaded
                         if (!$invoice->relationLoaded('payments')) {
                             $invoice->loadSum('payments', 'amount');
                         }
+                        if (!$invoice->relationLoaded('returns')) {
+                            $invoice->loadSum('returns', 'total');
+                        }
 
-                        // Calculate current remaining
-                        $totalPaid = floatval($invoice->paid_amount) + floatval($invoice->payments_sum_amount ?? 0);
-                        $remaining = floatval($invoice->total) - $totalPaid;
+                        // Use the current_remaining attribute which accounts for returns
+                        $remaining = $invoice->current_remaining;
 
                         return $remaining > 0.01;
                     }),

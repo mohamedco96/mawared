@@ -109,7 +109,7 @@ class CollectPayments extends Page implements HasTable
                             ->label('المبلغ')
                             ->numeric()
                             ->required()
-                            ->default(fn (SalesInvoice $record) => $record->remaining_amount)
+                            ->default(fn (SalesInvoice $record) => $record->current_remaining)
                             ->minValue(0.01)
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->rules([
@@ -117,13 +117,22 @@ class CollectPayments extends Page implements HasTable
                                 'numeric',
                                 fn (SalesInvoice $record): \Closure =>
                                     function ($attribute, $value, $fail) use ($record) {
-                                        if ($value > $record->remaining_amount) {
-                                            $fail('المبلغ أكبر من المتبقي (' . number_format($record->remaining_amount, 2) . ' ج.م)');
+                                        // Load returns if not already loaded
+                                        if (!$record->relationLoaded('returns')) {
+                                            $record->loadSum('returns', 'total');
+                                        }
+                                        if (!$record->relationLoaded('payments')) {
+                                            $record->loadSum('payments', 'amount');
+                                        }
+
+                                        $currentRemaining = $record->current_remaining;
+                                        if ($value > $currentRemaining) {
+                                            $fail('المبلغ أكبر من المتبقي (' . number_format($currentRemaining, 2) . ' ج.م)');
                                         }
                                     }
                             ])
                             ->helperText(fn (SalesInvoice $record) =>
-                                'المبلغ المتبقي: ' . number_format($record->remaining_amount, 2) . ' ج.م'
+                                'المبلغ المتبقي: ' . number_format($record->current_remaining, 2) . ' ج.م'
                             ),
                         Forms\Components\Select::make('treasury_id')
                             ->label('الخزينة')
@@ -206,7 +215,15 @@ class CollectPayments extends Page implements HasTable
                                 $perInvoice = $remainingAmount / $records->count();
 
                                 foreach ($records as $invoice) {
-                                    $payAmount = min($perInvoice, $invoice->remaining_amount);
+                                    // Load required relationships
+                                    if (!$invoice->relationLoaded('returns')) {
+                                        $invoice->loadSum('returns', 'total');
+                                    }
+                                    if (!$invoice->relationLoaded('payments')) {
+                                        $invoice->loadSum('payments', 'amount');
+                                    }
+
+                                    $payAmount = min($perInvoice, $invoice->current_remaining);
                                     if ($payAmount > 0) {
                                         $treasuryService->recordInvoicePayment(
                                             $invoice,
@@ -222,7 +239,15 @@ class CollectPayments extends Page implements HasTable
                                 foreach ($records as $invoice) {
                                     if ($remainingAmount <= 0) break;
 
-                                    $payAmount = min($remainingAmount, $invoice->remaining_amount);
+                                    // Load required relationships
+                                    if (!$invoice->relationLoaded('returns')) {
+                                        $invoice->loadSum('returns', 'total');
+                                    }
+                                    if (!$invoice->relationLoaded('payments')) {
+                                        $invoice->loadSum('payments', 'amount');
+                                    }
+
+                                    $payAmount = min($remainingAmount, $invoice->current_remaining);
                                     if ($payAmount > 0) {
                                         $treasuryService->recordInvoicePayment(
                                             $invoice,

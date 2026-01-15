@@ -105,7 +105,15 @@ class PurchaseInvoice extends Model
      */
     public function getCurrentRemainingAttribute(): float
     {
-        return floatval($this->total) - $this->total_paid;
+        // Load returns sum if not already loaded
+        if (!$this->relationLoaded('returns')) {
+            $this->loadSum('returns', 'total');
+        }
+
+        $returnsTotal = floatval($this->returns_sum_total ?? 0);
+        $netTotal = floatval($this->total) - $returnsTotal;
+
+        return $netTotal - $this->total_paid;
     }
     public function isPosted(): bool
     {

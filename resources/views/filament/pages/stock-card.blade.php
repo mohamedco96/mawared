@@ -85,7 +85,7 @@
                                 <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                                     <td class="px-4 py-3 text-gray-900 dark:text-gray-100">{{ $movement['date']->format('Y-m-d') }}</td>
                                     <td class="px-4 py-3 text-gray-900 dark:text-gray-100">{{ $movement['type'] }}</td>
-                                    <td class="px-4 py-3 text-gray-900 dark:text-gray-100">{{ $movement['reference_number'] }}</td>
+                                    <td class="px-4 py-3 text-gray-900 dark:text-gray-100">{{ $movement['reference'] }}</td>
                                     <td class="px-4 py-3 text-gray-900 dark:text-gray-100">{{ $movement['warehouse'] }}</td>
                                     <td class="px-4 py-3 text-right text-green-600 dark:text-green-400">
                                         {{ $movement['in'] > 0 ? number_format($movement['in'], 0) : '-' }}
@@ -94,7 +94,7 @@
                                         {{ $movement['out'] > 0 ? number_format($movement['out'], 0) : '-' }}
                                     </td>
                                     <td class="px-4 py-3 text-right text-gray-900 dark:text-gray-100">
-                                        {{ number_format($movement['cost_at_time'], 2) }}
+                                        {{ number_format($movement['cost'], 2) }}
                                     </td>
                                     <td class="px-4 py-3 text-right font-bold {{ $movement['balance'] >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">
                                         {{ number_format($movement['balance'], 0) }}
