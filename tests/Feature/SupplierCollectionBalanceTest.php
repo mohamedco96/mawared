@@ -27,6 +27,14 @@ class SupplierCollectionBalanceTest extends TestCase
     /** @test */
     public function it_correctly_updates_supplier_balance_when_collecting_from_supplier()
     {
+        // Add initial balance to treasury to allow payment
+        TreasuryTransaction::create([
+            'treasury_id' => $this->treasury->id,
+            'type' => 'income',
+            'amount' => '10000.00',
+            'description' => 'Initial balance',
+        ]);
+
         // Create supplier
         $supplier = Partner::factory()->create([
             'type' => 'supplier',

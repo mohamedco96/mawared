@@ -137,7 +137,9 @@ class TreasuryService
     public function getTreasuryBalance(string $treasuryId): string
     {
         // Use lockForUpdate() to prevent race conditions during concurrent transactions
+        // Exclude 'discount' type transactions as they don't involve actual cash movement
         $balance = TreasuryTransaction::where('treasury_id', $treasuryId)
+            ->where('type', '!=', 'discount')
             ->lockForUpdate()
             ->sum('amount');
 
@@ -215,15 +217,14 @@ class TreasuryService
             // The total settled amount is the cash paid + discount given
             $totalSettled = $amount + $discount;
             $newPaidAmount = floatval($invoice->paid_amount) + $totalSettled;
-            
-            // Cap paid_amount at invoice total to prevent overpayment
+
+            // Calculate new remaining amount (can be negative for overpayments)
             $invoiceTotal = floatval($invoice->total);
-            $newPaidAmount = min($newPaidAmount, $invoiceTotal);
             $newRemainingAmount = $invoiceTotal - $newPaidAmount;
 
             $invoice->update([
                 'paid_amount' => $newPaidAmount,
-                'remaining_amount' => max(0, $newRemainingAmount), // Ensure no negative remaining
+                'remaining_amount' => $newRemainingAmount, // Allow negative for overpayments
             ]);
 
             // Apply payment to installments if they exist
@@ -505,15 +506,36 @@ class TreasuryService
             // Wait no - collections are summed and then subtracted. So positive collection = more subtraction = lower balance
 
             // After analysis: Keep treasury amount as the transaction record
+            // The treasury amount already includes the discount effect (reduced payment amount)
             $transaction = $this->recordTransaction(
                 $treasuryId,
                 $type,
                 $treasuryAmount,
                 $description,
                 $partnerId,
-                null, // No reference_type for standalone financial transactions
+                'financial_transaction', // Mark as financial transaction so Partner can identify it
                 null
             );
+
+            // CRITICAL: Discounts in financial transactions need special handling
+            // The discount was already applied to treasuryAmount (cash flow), but we need to also
+            // record the discount portion for partner balance calculation
+            if ($discount && $partnerId) {
+                // Create a separate 'discount' transaction that affects partner balance but NOT treasury cash
+                // For payments to suppliers: discount reduces what we owe (same direction as payment)
+                // For collections from customers: discount reduces what they owe (opposite of collection)
+                $discountAmount = $type === 'payment' ? -abs($discount) : abs($discount);
+
+                TreasuryTransaction::create([
+                    'treasury_id' => $treasuryId,
+                    'type' => 'discount',
+                    'amount' => $discountAmount,
+                    'description' => $description . ' - خصم تسوية',
+                    'partner_id' => $partnerId,
+                    'reference_type' => 'financial_transaction',
+                    'reference_id' => null,
+                ]);
+            }
 
             // Update partner balance if partner is involved
             if ($partnerId) {

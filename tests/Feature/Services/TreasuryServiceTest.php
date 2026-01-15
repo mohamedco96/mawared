@@ -278,9 +278,9 @@ class TreasuryServiceTest extends TestCase
         // For credit invoices, NO treasury transaction is created
         $this->assertCount(0, TreasuryTransaction::where('type', 'payment')->get());
 
-        // Verify partner balance updated (we owe supplier)
+        // Verify partner balance updated (we owe supplier - positive balance)
         $supplier->refresh();
-        $this->assertEquals('-1200.0000', $supplier->current_balance);
+        $this->assertEquals('1200.0000', $supplier->current_balance);
     }
 
     // ===== SALES RETURN OPERATIONS =====
@@ -521,9 +521,9 @@ class TreasuryServiceTest extends TestCase
         // Recalculate partner balance after status update
         $service->updatePartnerBalance($supplier->id);
 
-        // Verify supplier credit (we owe them)
+        // Verify supplier credit (we owe them - positive balance)
         $supplier->refresh();
-        $this->assertEquals('-2000.0000', $supplier->current_balance);
+        $this->assertEquals('2000.0000', $supplier->current_balance);
 
         // Create return
         $purchaseReturn = PurchaseReturn::factory()->create([
@@ -555,9 +555,9 @@ class TreasuryServiceTest extends TestCase
         // For credit returns, NO treasury transaction is created
         $this->assertCount(0, TreasuryTransaction::where('type', 'refund')->get());
 
-        // Verify partner balance updated (we owe less)
+        // Verify partner balance updated (we owe less - 2000 - 400 return = 1600 positive)
         $supplier->refresh();
-        $this->assertEquals('-1600.0000', $supplier->current_balance); // -2000 + 400
+        $this->assertEquals('1600.0000', $supplier->current_balance); // 2000 - 400
     }
 
     // ===== FINANCIAL TRANSACTION TESTS =====
@@ -679,9 +679,9 @@ class TreasuryServiceTest extends TestCase
         // Recalculate partner balance after status update
         $service->updatePartnerBalance($supplier->id);
 
-        // Verify credit
+        // Verify credit (we owe supplier - positive balance)
         $supplier->refresh();
-        $this->assertEquals('-1500.0000', $supplier->current_balance);
+        $this->assertEquals('1500.0000', $supplier->current_balance);
 
         // ACT - We pay supplier 800
         $service->recordFinancialTransaction(
@@ -699,9 +699,9 @@ class TreasuryServiceTest extends TestCase
 
         $this->assertEquals('-800.0000', $paymentTransaction->amount); // Negative (decreases treasury, reduces partner debt)
 
-        // Verify partner balance updated (we owe less)
+        // Verify partner balance updated (we owe less - 1500 - 800 = 700 positive)
         $supplier->refresh();
-        $this->assertEquals('-700.0000', $supplier->current_balance); // -1500 + 800
+        $this->assertEquals('700.0000', $supplier->current_balance); // 1500 - 800
     }
 
     public function test_applies_discount_to_collection_transaction(): void
@@ -838,8 +838,10 @@ class TreasuryServiceTest extends TestCase
         $this->assertEquals('-1900.0000', $paymentTransaction->amount);
 
         // Verify partner balance correctly updated
+        // With 2000 debt, paying 1900 cash + 100 discount should fully settle = 0 balance
+        // But we need to fix discount tracking in financial transactions
         $supplier->refresh();
-        $this->assertEquals('-100.0000', $supplier->current_balance); // -2000 + 1900
+        $this->assertEquals('0.0000', $supplier->current_balance); // Should be fully settled
     }
 
     // ===== EXPENSE & REVENUE TESTS =====
