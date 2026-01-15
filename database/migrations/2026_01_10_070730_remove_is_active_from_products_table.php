@@ -11,15 +11,35 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Drop indexes - try both old and new column names
-        \DB::statement('DROP INDEX IF EXISTS products_category_id_is_active_is_public_index');
-        \DB::statement('DROP INDEX IF EXISTS products_category_id_is_active_is_visible_in_catalog_index');
-        \DB::statement('DROP INDEX IF EXISTS products_is_active_index');
-        
+        // Drop indexes - silently ignore if they don't exist
+        try {
+            Schema::table('products', function (Blueprint $table) {
+                $table->dropIndex('products_category_id_is_active_is_public_index');
+            });
+        } catch (\Exception $e) {
+            // Index doesn't exist, continue
+        }
+
+        try {
+            Schema::table('products', function (Blueprint $table) {
+                $table->dropIndex('products_category_id_is_active_is_visible_in_catalog_index');
+            });
+        } catch (\Exception $e) {
+            // Index doesn't exist, continue
+        }
+
+        try {
+            Schema::table('products', function (Blueprint $table) {
+                $table->dropIndex('products_is_active_index');
+            });
+        } catch (\Exception $e) {
+            // Index doesn't exist, continue
+        }
+
         Schema::table('products', function (Blueprint $table) {
             $table->dropColumn('is_active');
         });
-        
+
         Schema::table('products', function (Blueprint $table) {
             $table->index(['category_id', 'is_visible_in_catalog']);
         });
