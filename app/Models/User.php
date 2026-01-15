@@ -89,6 +89,18 @@ class User extends Authenticatable
             'rehab@osoolerp.com',
         ];
 
-        return in_array($this->email, $authorizedEmails, true);
+        // First check if email is authorized
+        if (!in_array($this->email, $authorizedEmails, true)) {
+            return false;
+        }
+
+        // If user has super_admin role, always allow
+        if ($this->hasRole('super_admin')) {
+            return true;
+        }
+
+        // For other authorized users, check if they have the panel_user role
+        // or any role assigned (Shield requirement)
+        return $this->roles()->exists();
     }
 }
