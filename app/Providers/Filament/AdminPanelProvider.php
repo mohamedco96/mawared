@@ -29,6 +29,8 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            // ->spa()  // Disabled for now - can re-enable later if needed
+            ->databaseNotifications(isLazy: true)
             ->brandName('Osool - أصول')
             ->colors([
                 'primary' => Color::Blue,

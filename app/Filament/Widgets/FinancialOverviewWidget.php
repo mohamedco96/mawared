@@ -17,6 +17,8 @@ class FinancialOverviewWidget extends StatsOverviewWidget
 
     protected static ?string $pollingInterval = null;
 
+    protected static bool $isLazy = true;
+
     public bool $showBalances = false;
 
     public static function canView(): bool
