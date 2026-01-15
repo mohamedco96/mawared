@@ -194,6 +194,29 @@ class AdminPanelProvider extends PanelProvider
                         .dark .fi-wi-chart {
                             border-top-color: rgb(96 165 250); /* primary-400 */
                         }
+
+                        /* Financial Privacy - Blur Effect */
+                        .financial-blur .fi-wi-stats-overview-stat-value,
+                        .financial-blur .fi-wi-stats-overview-stat-value * {
+                            filter: blur(4px);
+                            transition: filter 0.3s ease;
+                            user-select: none;
+                        }
+                        .financial-blur:hover .fi-wi-stats-overview-stat-value,
+                        .financial-blur:hover .fi-wi-stats-overview-stat-value * {
+                            filter: blur(0);
+                        }
+                        .financial-value-stat.financial-blur .fi-wi-stats-overview-stat-value,
+                        .financial-value-stat.financial-blur .fi-wi-stats-overview-stat-value * {
+                            filter: blur(4px);
+                            transition: filter 0.3s ease;
+                        }
+                        .financial-value-stat:not(.financial-blur) .fi-wi-stats-overview-stat-value,
+                        .financial-value-stat:not(.financial-blur) .fi-wi-stats-overview-stat-value *,
+                        .financial-value-stat:hover .fi-wi-stats-overview-stat-value,
+                        .financial-value-stat:hover .fi-wi-stats-overview-stat-value * {
+                            filter: blur(0);
+                        }
                     </style>
                 ',
             )
@@ -203,6 +226,28 @@ class AdminPanelProvider extends PanelProvider
                     <script src="' . asset('js/filament/fix-arabic-numbers.js') . '"></script>
                     <script src="' . asset('js/filament/force-english-display.js') . '"></script>
                     <script type="module" src="' . \Vite::asset('resources/js/unsaved-changes-alert.js') . '"></script>
+                    <script>
+                        document.addEventListener("DOMContentLoaded", function() {
+                            // Add toggle button to FinancialOverviewWidget
+                            const financialWidget = document.querySelector("[wire\\:id*=\\"FinancialOverviewWidget\\"]");
+                            if (financialWidget) {
+                                const widgetHeader = financialWidget.querySelector(".fi-wi-stats-overview-header, .fi-section-header-actions");
+                                if (widgetHeader) {
+                                    const toggleBtn = document.createElement("button");
+                                    toggleBtn.type = "button";
+                                    toggleBtn.className = "fi-btn fi-btn-color-gray fi-btn-size-sm fi-btn-outlined";
+                                    toggleBtn.innerHTML = "<svg class=\\"fi-icon\\" fill=\\"none\\" viewBox=\\"0 0 24 24\\" stroke-width=\\"1.5\\" stroke=\\"currentColor\\" style=\\"width: 1rem; height: 1rem;\\"><path stroke-linecap=\\"round\\" stroke-linejoin=\\"round\\" d=\\"M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z\\"></path><path stroke-linecap=\\"round\\" stroke-linejoin=\\"round\\" d=\\"M15 12a3 3 0 11-6 0 3 3 0 016 0z\\"></path></svg><span class=\\"fi-btn-label\\">إظهار الأرصدة</span>";
+                                    toggleBtn.onclick = function() {
+                                        const widgetId = financialWidget.getAttribute("wire:id");
+                                        if (widgetId) {
+                                            Livewire.find(widgetId)?.call("toggleBalances");
+                                        }
+                                    };
+                                    widgetHeader.appendChild(toggleBtn);
+                                }
+                            }
+                        });
+                    </script>
                 ',
             )
             ->renderHook(
@@ -213,6 +258,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->pages([
                 \App\Filament\Pages\Dashboard::class,
+                \App\Filament\Pages\FinancialDashboard::class,
                 \App\Filament\Pages\CollectPayments::class,
                 \App\Filament\Pages\DailyOperations::class,
                 \App\Filament\Pages\GeneralSettings::class,

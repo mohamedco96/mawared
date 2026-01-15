@@ -76,7 +76,9 @@ class BestSellersWidget extends BaseWidget
                 ->weight('bold')
                 ->color('info')
                 ->alignEnd()
-                ->sortable(false),
+                ->sortable(false)
+                ->hidden(fn () => !auth()->user()?->can('view_profit') ?? false)
+                ->toggleable(isToggledHiddenByDefault: true),
         ];
     }
 

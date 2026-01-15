@@ -16,4 +16,18 @@ class Dashboard extends BaseDashboard
     {
         return '';
     }
+
+    /**
+     * Get the widgets that should be displayed on the main dashboard.
+     * Only operational widgets (no financial data) should appear here.
+     */
+    public function getWidgets(): array
+    {
+        return [
+            \App\Filament\Widgets\OperationalStatsWidget::class,
+            \App\Filament\Widgets\Tables\LowStockTableWidget::class,
+            \App\Filament\Widgets\Tables\BestSellersWidget::class,
+            \App\Filament\Widgets\LatestActivitiesWidget::class,
+        ];
+    }
 }
