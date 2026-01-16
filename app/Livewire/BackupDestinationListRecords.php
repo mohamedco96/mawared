@@ -82,17 +82,26 @@ class BackupDestinationListRecords extends BaseBackupDestinationListRecords
                     ->color('danger')
                     ->modalIcon('heroicon-o-trash')
                     ->action(function (BackupDestination $record) {
-                        SpatieBackupDestination::create($record->disk, config('backup.backup.name'))
+                        $backup = SpatieBackupDestination::create($record->disk, config('backup.backup.name'))
                             ->backups()
                             ->first(function (Backup $backup) use ($record) {
                                 return $backup->path() === $record->path;
-                            })
-                            ->delete();
+                            });
 
-                        Notification::make()
-                            ->title(__('filament-spatie-backup::backup.pages.backups.messages.backup_delete_success'))
-                            ->success()
-                            ->send();
+                        if ($backup) {
+                            $backup->delete();
+
+                            Notification::make()
+                                ->title(__('filament-spatie-backup::backup.pages.backups.messages.backup_delete_success'))
+                                ->success()
+                                ->send();
+                        } else {
+                            Notification::make()
+                                ->title('النسخة الاحتياطية غير موجودة')
+                                ->body('لم يتم العثور على النسخة الاحتياطية المطلوبة.')
+                                ->danger()
+                                ->send();
+                        }
                     }),
             ]);
     }

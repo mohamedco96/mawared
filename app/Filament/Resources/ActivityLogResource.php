@@ -31,6 +31,7 @@ class ActivityLogResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->with(['subject', 'causer']))
             ->columns([
                 Tables\Columns\ImageColumn::make('causer.name')
                     ->label('المستخدم')
