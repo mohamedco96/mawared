@@ -593,20 +593,112 @@ class TreasuryService
     }
 
     /**
-     * Post a fixed asset purchase - creates treasury transaction
+     * Post a fixed asset purchase with Double-Entry Bookkeeping
+     * This method handles the Debit (Asset) and Credit (Funding Source) sides
      */
     public function postFixedAssetPurchase(\App\Models\FixedAsset $asset): void
     {
+        \Log::info('TreasuryService::postFixedAssetPurchase called', [
+            'asset_id' => $asset->id,
+            'funding_method' => $asset->funding_method,
+            'purchase_amount' => $asset->purchase_amount,
+        ]);
+
+        if (!$asset->isDraft()) {
+            throw new \Exception('الأصل الثابت ليس في حالة مسودة');
+        }
+
         DB::transaction(function () use ($asset) {
-            $this->recordTransaction(
-                $asset->treasury_id,
-                'expense', // Reuse existing expense type
-                -abs($asset->purchase_amount), // Negative for expense
-                'شراء أصل ثابت: ' . $asset->name . ($asset->description ? ' - ' . $asset->description : ''),
-                null,
-                'fixed_asset',
-                $asset->id
-            );
+            // The Fixed Asset record itself represents the DEBIT (Asset Account)
+            // Now we need to record the CREDIT (Funding Source)
+
+            $description = 'شراء أصل ثابت: ' . $asset->name;
+            if ($asset->description) {
+                $description .= ' - ' . $asset->description;
+            }
+
+            switch ($asset->funding_method) {
+                case 'cash':
+                    // CASE 1: Paid from Treasury (Cash)
+                    // Credit: Treasury (money leaves treasury)
+                    // Debit: Fixed Asset (recorded in fixed_assets table)
+                    $this->recordTransaction(
+                        $asset->treasury_id,
+                        'expense', // Reuse existing expense type
+                        -abs($asset->purchase_amount), // Negative for expense (Credit Treasury)
+                        $description . ' - مدفوع نقداً',
+                        null,
+                        'fixed_asset',
+                        $asset->id
+                    );
+                    break;
+
+                case 'payable':
+                    // CASE 2: Bought on Credit (Payable/Liability)
+                    // Credit: Accounts Payable (create liability)
+                    // Debit: Fixed Asset (recorded in fixed_assets table)
+                    // We create a record showing what we owe the supplier
+
+                    // Get or create supplier partner
+                    $supplierId = $asset->supplier_id;
+                    if (!$supplierId && $asset->supplier_name) {
+                        // Create a supplier partner if only name was provided
+                        $supplier = \App\Models\Partner::create([
+                            'name' => $asset->supplier_name,
+                            'type' => 'supplier',
+                            'opening_balance' => 0,
+                        ]);
+                        $asset->update(['supplier_id' => $supplier->id]);
+                        $supplierId = $supplier->id;
+                    }
+
+                    // Record the payable as a "virtual" purchase invoice
+                    // This increases what we owe the supplier (liability)
+                    // Note: We don't create an actual treasury transaction here
+                    // The liability is tracked via the fixed asset record and will be
+                    // paid later when user records a payment to the supplier
+
+                    // Update supplier balance to reflect the liability
+                    if ($supplierId) {
+                        $supplier = \App\Models\Partner::findOrFail($supplierId);
+                        // For suppliers, positive balance means we owe them
+                        $newBalance = floatval($supplier->current_balance) + floatval($asset->purchase_amount);
+                        $supplier->update(['current_balance' => $newBalance]);
+                    }
+                    break;
+
+                case 'equity':
+                    // CASE 3: Funded by Partner/Owner (Equity/Capital)
+                    // Credit: Partner's Equity (increase capital contribution)
+                    // Debit: Fixed Asset (recorded in fixed_assets table)
+
+                    if (!$asset->partner_id) {
+                        throw new \Exception('يجب تحديد الشريك عند اختيار طريقة التمويل: مساهمة رأسمالية');
+                    }
+
+                    // Record the capital contribution as a shareholder transaction
+                    // This represents money/asset contributed by the partner
+                    // For shareholders, positive balance means they have equity in the business
+                    $partner = \App\Models\Partner::findOrFail($asset->partner_id);
+
+                    // Update partner balance directly to reflect the capital contribution
+                    // We don't create a treasury transaction because no cash enters the treasury
+                    // The asset comes directly from the partner's contribution
+                    $newBalance = floatval($partner->current_balance) + floatval($asset->purchase_amount);
+                    $partner->update(['current_balance' => $newBalance]);
+                    break;
+
+                default:
+                    throw new \Exception('طريقة التمويل غير صحيحة');
+            }
+
+            // Update asset status to active
+            $asset->update(['status' => 'active']);
+
+            \Log::info('Fixed asset posted successfully', [
+                'asset_id' => $asset->id,
+                'funding_method' => $asset->funding_method,
+            ]);
         });
     }
 

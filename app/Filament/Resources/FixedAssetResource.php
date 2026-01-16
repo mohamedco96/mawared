@@ -53,7 +53,7 @@ class FixedAssetResource extends Resource
                             ->required()
                             ->step(0.0001)
                             ->minValue(1)
-                            
+                            ->live(onBlur: true)
                             ->helperText('قيمة شراء الأصل الثابت')
                             ->rules([
                                 'required',
@@ -64,15 +64,20 @@ class FixedAssetResource extends Resource
                                         $fail('قيمة الشراء يجب أن تكون 1 على الأقل.');
                                     }
                                 },
+                                fn (Forms\Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                    // Check treasury balance if funding method is cash
+                                    if ($get('funding_method') === 'cash' && $get('treasury_id') && $value) {
+                                        $treasuryService = app(TreasuryService::class);
+                                        $currentBalance = (float) $treasuryService->getTreasuryBalance($get('treasury_id'));
+                                        $purchaseAmount = (float) $value;
+                                        
+                                        if ($currentBalance < $purchaseAmount) {
+                                            $fail("المبلغ المطلوب يتجاوز الرصيد المتاح في الخزينة. الرصيد الحالي: " . number_format($currentBalance, 2) . " ج.م");
+                                        }
+                                    }
+                                },
                             ])
                             ->validationAttribute('قيمة الشراء'),
-                        Forms\Components\Select::make('treasury_id')
-                            ->label('الخزينة')
-                            ->relationship('treasury', 'name')
-                            ->required()
-                            ->searchable()
-                            ->preload()
-                            ->helperText('الخزينة التي سيتم الدفع منها'),
                         Forms\Components\DatePicker::make('purchase_date')
                             ->label('تاريخ الشراء')
                             ->required()
@@ -80,6 +85,77 @@ class FixedAssetResource extends Resource
                             ->displayFormat('Y-m-d')
                             ->maxDate(now())
                             ->helperText('تاريخ شراء الأصل'),
+                    ])
+                    ->columns(2),
+
+                Forms\Components\Section::make('مصدر التمويل')
+                    ->description('حدد كيف تم تمويل شراء هذا الأصل (محاسبة القيد المزدوج)')
+                    ->schema([
+                        Forms\Components\Select::make('funding_method')
+                            ->label('طريقة التمويل')
+                            ->options([
+                                'payable' => 'شراء بالآجل (دائن / ذمم)',
+                                'cash' => 'مدفوع فوراً من الخزينة',
+                                'equity' => 'مساهمة رأسمالية من شريك',
+                            ])
+                            ->default('payable')
+                            ->required()
+                            ->live()
+                            ->helperText('اختر مصدر التمويل لهذا الأصل')
+                            ->columnSpanFull(),
+
+                        // Cash Payment: Show Treasury Selector
+                        Forms\Components\Select::make('treasury_id')
+                            ->label('الخزينة')
+                            ->relationship('treasury', 'name')
+                            ->required()
+                            ->searchable()
+                            ->preload()
+                            ->default(fn () => \App\Models\Treasury::first()?->id)
+                            ->live(onBlur: true)
+                            ->helperText('الخزينة التي سيتم الدفع منها')
+                            ->visible(fn (Forms\Get $get) => $get('funding_method') === 'cash')
+                            ->rules([
+                                fn (Forms\Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                    // Only validate if funding method is cash and we have both treasury_id and purchase_amount
+                                    if ($get('funding_method') === 'cash' && $value && $get('purchase_amount')) {
+                                        $treasuryService = app(TreasuryService::class);
+                                        $currentBalance = (float) $treasuryService->getTreasuryBalance($value);
+                                        $purchaseAmount = (float) $get('purchase_amount');
+                                        
+                                        if ($currentBalance < $purchaseAmount) {
+                                            $fail("الرصيد المتاح في الخزينة غير كافٍ. الرصيد الحالي: " . number_format($currentBalance, 2) . " ج.م، المبلغ المطلوب: " . number_format($purchaseAmount, 2) . " ج.م");
+                                        }
+                                    }
+                                },
+                            ])
+                            ->validationAttribute('الخزينة'),
+
+                        // Payable: Show Supplier Name or Selector
+                        Forms\Components\TextInput::make('supplier_name')
+                            ->label('اسم المورد')
+                            ->maxLength(255)
+                            ->helperText('اسم المورد الذي سيتم الشراء منه بالآجل')
+                            ->visible(fn (Forms\Get $get) => $get('funding_method') === 'payable')
+                            ->required(fn (Forms\Get $get) => $get('funding_method') === 'payable' && !$get('supplier_id')),
+
+                        Forms\Components\Select::make('supplier_id')
+                            ->label('أو اختر من الموردين المسجلين')
+                            ->relationship('supplier', 'name', fn ($query) => $query->where('type', 'supplier'))
+                            ->searchable()
+                            ->preload()
+                            ->helperText('اختر مورد موجود مسبقاً')
+                            ->visible(fn (Forms\Get $get) => $get('funding_method') === 'payable'),
+
+                        // Equity: Show Partner Selector
+                        Forms\Components\Select::make('partner_id')
+                            ->label('الشريك المساهم')
+                            ->relationship('partner', 'name', fn ($query) => $query->where('type', 'shareholder'))
+                            ->searchable()
+                            ->preload()
+                            ->required(fn (Forms\Get $get) => $get('funding_method') === 'equity')
+                            ->helperText('اختر الشريك الذي قام بالمساهمة الرأسمالية')
+                            ->visible(fn (Forms\Get $get) => $get('funding_method') === 'equity'),
                     ])
                     ->columns(2),
             ]);
@@ -102,19 +178,38 @@ class FixedAssetResource extends Resource
                 Tables\Columns\TextColumn::make('purchase_amount')
                     ->label('قيمة الشراء')
                     ->numeric(decimalPlaces: 2)
-                    
+
                     ->sortable(),
-                Tables\Columns\TextColumn::make('treasury.name')
-                    ->label('الخزينة')
+                Tables\Columns\TextColumn::make('funding_method')
+                    ->label('طريقة التمويل')
+                    ->badge()
+                    ->formatStateUsing(fn (string $state) => match ($state) {
+                        'cash' => 'نقدي',
+                        'payable' => 'آجل',
+                        'equity' => 'رأسمالي',
+                        default => $state,
+                    })
+                    ->color(fn (string $state) => match ($state) {
+                        'cash' => 'success',
+                        'payable' => 'warning',
+                        'equity' => 'info',
+                        default => 'gray',
+                    })
                     ->sortable(),
-                Tables\Columns\IconColumn::make('isPosted')
+                Tables\Columns\TextColumn::make('status')
                     ->label('الحالة')
-                    ->boolean()
-                    ->getStateUsing(fn (FixedAsset $record) => $record->isPosted())
-                    ->trueIcon('heroicon-o-check-circle')
-                    ->falseIcon('heroicon-o-clock')
-                    ->trueColor('success')
-                    ->falseColor('warning'),
+                    ->badge()
+                    ->formatStateUsing(fn (string $state) => match ($state) {
+                        'active' => 'مسجل',
+                        'draft' => 'مسودة',
+                        default => $state,
+                    })
+                    ->color(fn (string $state) => match ($state) {
+                        'active' => 'success',
+                        'draft' => 'warning',
+                        default => 'gray',
+                    })
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('purchase_date')
                     ->label('تاريخ الشراء')
                     ->date()
@@ -150,21 +245,33 @@ class FixedAssetResource extends Resource
                                 fn ($query, $date) => $query->whereDate('purchase_date', '<=', $date),
                             );
                     }),
-                Tables\Filters\TernaryFilter::make('posted')
-                    ->label('مسجل في الخزينة')
-                    ->queries(
-                        true: fn ($query) => $query->whereHas('treasuryTransactions'),
-                        false: fn ($query) => $query->whereDoesntHave('treasuryTransactions'),
-                    ),
+                Tables\Filters\SelectFilter::make('status')
+                    ->label('الحالة')
+                    ->options([
+                        'draft' => 'مسودة',
+                        'active' => 'مسجل',
+                    ]),
+                Tables\Filters\SelectFilter::make('funding_method')
+                    ->label('طريقة التمويل')
+                    ->options([
+                        'cash' => 'نقدي',
+                        'payable' => 'آجل',
+                        'equity' => 'رأسمالي',
+                    ]),
             ])
             ->actions([
                 Tables\Actions\Action::make('post')
-                    ->label('تسجيل في الخزينة')
+                    ->label('تسجيل الأصل')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('تسجيل الأصل الثابت')
-                    ->modalDescription('سيتم خصم المبلغ من الخزينة المحددة')
+                    ->modalDescription(fn (FixedAsset $record) => match($record->funding_method) {
+                        'cash' => 'سيتم خصم المبلغ من الخزينة المحددة',
+                        'payable' => 'سيتم إنشاء ذمة دائنة للمورد (الأصل مشترى بالآجل)',
+                        'equity' => 'سيتم تسجيل مساهمة رأسمالية للشريك',
+                        default => 'سيتم تسجيل الأصل الثابت',
+                    })
                     ->action(function (FixedAsset $record) {
                         $treasuryService = app(TreasuryService::class);
 

@@ -119,5 +119,5 @@
         setTimeout(convertAllNumbers, 0);
     });
 
-    console.log('✅ English Display Enforcer: Active - All numbers will display in English format');
+    // console.log('✅ English Display Enforcer: Active - All numbers will display in English format');
 })();

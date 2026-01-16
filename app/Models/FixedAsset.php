@@ -21,6 +21,11 @@ class FixedAsset extends Model
         'purchase_amount',
         'treasury_id',
         'purchase_date',
+        'funding_method',
+        'supplier_name',
+        'supplier_id',
+        'partner_id',
+        'status',
         'created_by',
     ];
 
@@ -43,6 +48,16 @@ class FixedAsset extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Partner::class, 'supplier_id');
+    }
+
+    public function partner(): BelongsTo
+    {
+        return $this->belongsTo(Partner::class, 'partner_id');
+    }
+
     public function treasuryTransactions(): MorphMany
     {
         return $this->morphMany(TreasuryTransaction::class, 'reference');
@@ -51,14 +66,19 @@ class FixedAsset extends Model
     // Business Logic
     public function isPosted(): bool
     {
-        return $this->treasuryTransactions()->exists();
+        return $this->status === 'active';
+    }
+
+    public function isDraft(): bool
+    {
+        return $this->status === 'draft';
     }
 
     // Activity Log
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['name', 'purchase_amount', 'treasury_id', 'purchase_date'])
+            ->logOnly(['name', 'purchase_amount', 'treasury_id', 'purchase_date', 'funding_method', 'status'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }

@@ -46,14 +46,45 @@ class ExpenseResource extends Resource
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->required()
                             ->step(0.01)
-                            ->minValue(0.01),
+                            ->minValue(0.01)
+                            ->live(onBlur: true)
+                            ->rules([
+                                fn (Forms\Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                    // Check treasury balance
+                                    if ($get('treasury_id') && $value) {
+                                        $treasuryService = app(\App\Services\TreasuryService::class);
+                                        $currentBalance = (float) $treasuryService->getTreasuryBalance($get('treasury_id'));
+                                        $expenseAmount = (float) $value;
+                                        
+                                        if ($currentBalance < $expenseAmount) {
+                                            $fail("المبلغ المطلوب يتجاوز الرصيد المتاح في الخزينة. الرصيد الحالي: " . number_format($currentBalance, 2) . " ج.م");
+                                        }
+                                    }
+                                },
+                            ]),
                         Forms\Components\Select::make('treasury_id')
                             ->label('الخزينة')
                             ->relationship('treasury', 'name')
                             ->required()
                             ->searchable()
                             ->preload()
-                            ->default(fn () => \App\Models\Treasury::where('type', 'cash')->first()?->id ?? \App\Models\Treasury::first()?->id),
+                            ->live(onBlur: true)
+                            ->default(fn () => \App\Models\Treasury::where('type', 'cash')->first()?->id ?? \App\Models\Treasury::first()?->id)
+                            ->rules([
+                                fn (Forms\Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                    // Check treasury balance
+                                    if ($value && $get('amount')) {
+                                        $treasuryService = app(\App\Services\TreasuryService::class);
+                                        $currentBalance = (float) $treasuryService->getTreasuryBalance($value);
+                                        $expenseAmount = (float) $get('amount');
+                                        
+                                        if ($currentBalance < $expenseAmount) {
+                                            $fail("الرصيد المتاح في الخزينة غير كافٍ. الرصيد الحالي: " . number_format($currentBalance, 2) . " ج.م، المبلغ المطلوب: " . number_format($expenseAmount, 2) . " ج.م");
+                                        }
+                                    }
+                                },
+                            ])
+                            ->validationAttribute('الخزينة'),
                         Forms\Components\DatePicker::make('expense_date')
                             ->label('تاريخ المصروف')
                             ->required()

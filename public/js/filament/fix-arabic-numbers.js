@@ -277,5 +277,5 @@
     }, true);
 
     // Arabic digit converter initialized successfully
-    console.log('✅ Arabic Numbers Converter: Active - All numeric fields ready');
+    // console.log('✅ Arabic Numbers Converter: Active - All numeric fields ready');
 })(); // Execute immediately, don't wait for DOMContentLoaded

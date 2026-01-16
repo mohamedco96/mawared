@@ -558,6 +558,20 @@ class PurchaseInvoiceResource extends Resource
                                     if ($paidAmount < 0) {
                                         $fail('المبلغ المدفوع يجب أن لا يكون سالباً.');
                                     }
+                                    
+                                    // Check treasury balance for purchase invoices (money leaving treasury)
+                                    if ($paidAmount > 0 && $get('payment_method') === 'cash') {
+                                        // Get the default treasury or first available
+                                        $treasury = \App\Models\Treasury::where('type', 'cash')->first() ?? \App\Models\Treasury::first();
+                                        if ($treasury) {
+                                            $treasuryService = app(\App\Services\TreasuryService::class);
+                                            $currentBalance = (float) $treasuryService->getTreasuryBalance($treasury->id);
+                                            
+                                            if ($currentBalance < $paidAmount) {
+                                                $fail("المبلغ المطلوب يتجاوز الرصيد المتاح في الخزينة. الرصيد الحالي: " . number_format($currentBalance, 2) . " ج.م");
+                                            }
+                                        }
+                                    }
                                 },
                             ])
                             ->validationAttribute('المبلغ المدفوع')

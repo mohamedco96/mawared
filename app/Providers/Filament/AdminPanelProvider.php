@@ -231,7 +231,7 @@ class AdminPanelProvider extends PanelProvider
                     <script>
                         document.addEventListener("DOMContentLoaded", function() {
                             // Add toggle button to FinancialOverviewWidget
-                            const financialWidget = document.querySelector("[wire\\:id*=\\"FinancialOverviewWidget\\"]");
+                            const financialWidget = document.querySelector("[wire\\\\:id*=\\"FinancialOverviewWidget\\"]");
                             if (financialWidget) {
                                 const widgetHeader = financialWidget.querySelector(".fi-wi-stats-overview-header, .fi-section-header-actions");
                                 if (widgetHeader) {
