@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\TreasuryTransactionResource\Pages;
 
+use App\Enums\TransactionType;
 use App\Filament\Resources\TreasuryTransactionResource;
 use App\Services\TreasuryService;
 use Filament\Actions;
@@ -19,21 +20,22 @@ class CreateTreasuryTransaction extends CreateRecord
             $data['amount'] = $data['final_amount'];
         }
 
-        // Set amount sign based on type
-        if (in_array($data['type'], ['payment', 'partner_drawing', 'employee_advance'])) {
-            $data['amount'] = -abs($data['amount']);
-        } else {
-            $data['amount'] = abs($data['amount']);
+        // Set amount sign based on type using enum
+        if (isset($data['type'])) {
+            $typeEnum = TransactionType::from($data['type']);
+            $sign = $typeEnum->getSign();
+            $data['amount'] = $sign * abs($data['amount']);
         }
 
-        // Set reference_type for collection/payment transactions with partners
+        // Set reference_type for collection/payment/loan transactions with partners
         // This is CRITICAL for partner balance calculations
-        if (in_array($data['type'], ['collection', 'payment']) && !empty($data['partner_id'])) {
+        if (in_array($data['type'], ['collection', 'payment', 'partner_loan_receipt', 'partner_loan_repayment']) && !empty($data['partner_id'])) {
             $data['reference_type'] = 'financial_transaction';
             $data['reference_id'] = null;
         }
 
-        unset($data['final_amount'], $data['discount'], $data['current_balance_display'], $data['employee_advance_balance_display']);
+        // Clean up virtual and form-only fields
+        unset($data['final_amount'], $data['discount'], $data['current_balance_display'], $data['employee_advance_balance_display'], $data['employee_salary_display'], $data['transaction_category']);
 
         return $data;
     }

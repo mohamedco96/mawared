@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Enums\TransactionType;
 use App\Filament\Resources\TreasuryTransactionResource\Pages;
 use App\Models\Partner;
 use App\Models\TreasuryTransaction;
@@ -37,18 +38,55 @@ class TreasuryTransactionResource extends Resource
             ->schema([
                 Forms\Components\Section::make('معلومات المعاملة')
                     ->schema([
+                        // Virtual category field (not saved to DB)
+                        Forms\Components\Select::make('transaction_category')
+                            ->label('تصنيف المعاملة')
+                            ->options(TransactionType::getCategoryOptions())
+                            ->native(false)
+                            ->live()
+                            ->afterStateUpdated(function (Set $set, $state) {
+                                // Reset dependent fields when category changes
+                                $set('type', null);
+                                $set('partner_id', null);
+                                $set('employee_id', null);
+                                $set('current_balance_display', null);
+                                $set('employee_advance_balance_display', null);
+                            })
+                            // Auto-select category when editing existing record
+                            ->afterStateHydrated(function (Set $set, Get $get, $state) {
+                                if (!$state && $get('type')) {
+                                    $typeEnum = TransactionType::from($get('type'));
+                                    $set('transaction_category', $typeEnum->getCategory());
+                                }
+                            })
+                            ->required()
+                            ->dehydrated(false), // Don't save to database
+
                         Forms\Components\Select::make('type')
                             ->label('نوع المعاملة')
-                            ->options([
-                                'collection' => 'تحصيل',
-                                'payment' => 'دفع',
-                                'capital_deposit' => 'إيداع رأس المال',
-                                'partner_drawing' => 'سحب شريك',
-                                'employee_advance' => 'سلفة موظف',
-                            ])
+                            ->options(function (Get $get) {
+                                $category = $get('transaction_category');
+                                if (!$category) {
+                                    return [];
+                                }
+
+                                $types = TransactionType::forCategory($category);
+                                return collect($types)
+                                    ->mapWithKeys(fn(TransactionType $type) => [$type->value => $type->getLabel()])
+                                    ->toArray();
+                            })
                             ->required()
                             ->native(false)
-                            ->live(),
+                            ->live()
+                            ->disabled(fn (Get $get) => !$get('transaction_category'))
+                            ->afterStateUpdated(function (Set $set, $state) {
+                                // Reset entity fields when type changes
+                                $set('partner_id', null);
+                                $set('employee_id', null);
+                                $set('current_balance_display', null);
+                                $set('employee_advance_balance_display', null);
+                            }),
+
                         Forms\Components\Select::make('treasury_id')
                             ->label('الخزينة')
                             ->relationship('treasury', 'name')
@@ -56,20 +94,29 @@ class TreasuryTransactionResource extends Resource
                             ->searchable()
                             ->preload()
                             ->default(fn () => \App\Models\Treasury::where('type', 'cash')->first()?->id ?? \App\Models\Treasury::first()?->id),
+
+                        // Customer/Supplier/Partner field (for commercial and partner transactions)
                         Forms\Components\Select::make('partner_id')
-                            ->label('الشريك')
+                            ->label(function (Get $get) {
+                                $type = $get('type');
+                                if (in_array($type, ['collection', 'payment'])) {
+                                    return 'العميل/المورد';
+                                }
+                                return 'الشريك';
+                            })
                             ->relationship(
                                 'partner',
                                 'name',
                                 function ($query, Get $get) {
                                     $type = $get('type');
 
-                                    if ($type === 'capital_deposit' || $type === 'partner_drawing') {
+                                    // For shareholder types
+                                    if (in_array($type, ['capital_deposit', 'partner_drawing', 'partner_loan_receipt', 'partner_loan_repayment'])) {
                                         return $query->where('type', 'shareholder');
                                     }
 
-                                    // For collection and payment, exclude partners with zero balance
-                                    if ($type === 'collection' || $type === 'payment') {
+                                    // For commercial types - exclude partners with zero balance
+                                    if (in_array($type, ['collection', 'payment'])) {
                                         return $query->whereIn('type', ['customer', 'supplier'])
                                             ->where('current_balance', '!=', 0);
                                     }
@@ -88,7 +135,15 @@ class TreasuryTransactionResource extends Resource
                                     }
                                 }
                             })
-                            ->visible(fn (Get $get) => in_array($get('type'), ['collection', 'payment', 'capital_deposit', 'partner_drawing'])),
+                            ->visible(fn (Get $get) => in_array($get('type'), [
+                                'collection', 'payment', 'capital_deposit', 'partner_drawing',
+                                'partner_loan_receipt', 'partner_loan_repayment'
+                            ]))
+                            ->required(fn (Get $get) => in_array($get('type'), [
+                                'collection', 'payment', 'capital_deposit', 'partner_drawing',
+                                'partner_loan_receipt', 'partner_loan_repayment'
+                            ])),
+
                         Forms\Components\Placeholder::make('current_balance_display')
                             ->label('الرصيد الحالي')
                             ->content(function (Get $get) {
@@ -106,22 +161,30 @@ class TreasuryTransactionResource extends Resource
                                 return '—';
                             })
                             ->visible(fn (Get $get) => $get('partner_id') !== null),
+
+                        // Employee field (for HR transactions)
                         Forms\Components\Select::make('employee_id')
                             ->label('الموظف')
                             ->relationship('employee', 'name')
                             ->searchable()
                             ->preload()
                             ->live()
-                            ->required(fn (Get $get) => $get('type') === 'employee_advance')
-                            ->visible(fn (Get $get) => $get('type') === 'employee_advance')
-                            ->afterStateUpdated(function ($state, Set $set) {
+                            ->required(fn (Get $get) => in_array($get('type'), ['employee_advance', 'salary_payment']))
+                            ->visible(fn (Get $get) => in_array($get('type'), ['employee_advance', 'salary_payment']))
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 if ($state) {
                                     $employee = \App\Models\User::find($state);
-                                    if ($employee && \Illuminate\Support\Facades\Schema::hasColumn('users', 'advance_balance')) {
-                                        $set('employee_advance_balance_display', $employee->advance_balance);
+                                    if ($employee) {
+                                        if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'advance_balance')) {
+                                            $set('employee_advance_balance_display', $employee->advance_balance);
+                                        }
+                                        if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'salary_amount')) {
+                                            $set('employee_salary_display', $employee->salary_amount);
+                                        }
                                     }
                                 }
                             }),
+
                         Forms\Components\Placeholder::make('employee_advance_balance_display')
                             ->label('رصيد السلف الحالي')
                             ->content(function (Get $get) {
@@ -139,6 +202,26 @@ class TreasuryTransactionResource extends Resource
                                 return '—';
                             })
                             ->visible(fn (Get $get) => $get('employee_id') !== null && $get('type') === 'employee_advance'),
+
+                        Forms\Components\Placeholder::make('employee_salary_display')
+                            ->label('الراتب المسجل')
+                            ->content(function (Get $get) {
+                                $employeeId = $get('employee_id');
+                                if ($employeeId) {
+                                    $employee = \App\Models\User::find($employeeId);
+                                    if ($employee && \Illuminate\Support\Facades\Schema::hasColumn('users', 'salary_amount')) {
+                                        $salary = $employee->salary_amount;
+                                        if ($salary > 0) {
+                                            return new \Illuminate\Support\HtmlString(
+                                                '<span class="text-blue-600 font-bold text-lg">' . number_format($salary, 2) . ' ج.م</span>'
+                                            );
+                                        }
+                                    }
+                                }
+                                return '—';
+                            })
+                            ->visible(fn (Get $get) => $get('employee_id') !== null && $get('type') === 'salary_payment'),
+
                         Forms\Components\TextInput::make('amount')
                             ->label('المبلغ')
                             ->numeric()
@@ -178,8 +261,9 @@ class TreasuryTransactionResource extends Resource
                                     $type = $get('type');
                                     $treasuryId = $get('treasury_id');
 
-                                    // For expense/payment/partner_drawing/employee_advance, check treasury balance
-                                    if (in_array($type, ['payment', 'expense', 'partner_drawing', 'employee_advance']) && $treasuryId) {
+                                    // For withdrawal types, check treasury balance
+                                    $withdrawalTypes = ['payment', 'expense', 'partner_drawing', 'employee_advance', 'salary_payment', 'partner_loan_repayment'];
+                                    if (in_array($type, $withdrawalTypes) && $treasuryId) {
                                         $treasury = \App\Models\Treasury::find($treasuryId);
 
                                         if ($treasury && $amount > $treasury->balance) {
@@ -189,6 +273,7 @@ class TreasuryTransactionResource extends Resource
                                 },
                             ])
                             ->validationAttribute('المبلغ'),
+
                         Forms\Components\TextInput::make('discount')
                             ->label('خصم')
                             ->numeric()
@@ -202,7 +287,9 @@ class TreasuryTransactionResource extends Resource
                                 $set('final_amount', max(0, $finalAmount));
                             })
                             ->visible(fn (Get $get) => in_array($get('type'), ['collection', 'payment'])),
+
                         Forms\Components\Hidden::make('final_amount'),
+
                         Forms\Components\Textarea::make('description')
                             ->label('الوصف')
                             ->required()
@@ -224,22 +311,9 @@ class TreasuryTransactionResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('type')
                     ->label('النوع')
-                    ->formatStateUsing(fn (string $state): string => match($state) {
-                        'collection' => 'تحصيل',
-                        'payment' => 'دفع',
-                        'income' => 'إيراد',
-                        'expense' => 'مصروف',
-                        'capital_deposit' => 'إيداع رأس المال',
-                        'partner_drawing' => 'سحب شريك',
-                        'employee_advance' => 'سلفة موظف',
-                        default => $state,
-                    })
+                    ->formatStateUsing(fn (string $state): string => TransactionType::from($state)->getLabel())
                     ->badge()
-                    ->color(fn (string $state): string => match($state) {
-                        'collection', 'income', 'capital_deposit' => 'success',
-                        'payment', 'expense', 'partner_drawing', 'employee_advance' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(fn (string $state): string => TransactionType::from($state)->getColor()),
                 Tables\Columns\TextColumn::make('treasury.name')
                     ->label('الخزينة')
                     ->sortable(),
@@ -306,15 +380,11 @@ class TreasuryTransactionResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('type')
                     ->label('النوع')
-                    ->options([
-                        'collection' => 'تحصيل',
-                        'payment' => 'دفع',
-                        'income' => 'إيراد',
-                        'expense' => 'مصروف',
-                        'capital_deposit' => 'إيداع رأس المال',
-                        'partner_drawing' => 'سحب شريك',
-                        'employee_advance' => 'سلفة موظف',
-                    ])
+                    ->options(function () {
+                        return collect(TransactionType::cases())
+                            ->mapWithKeys(fn(TransactionType $type) => [$type->value => $type->getLabel()])
+                            ->toArray();
+                    })
                     ->native(false),
                 Tables\Filters\SelectFilter::make('treasury_id')
                     ->label('الخزينة')
