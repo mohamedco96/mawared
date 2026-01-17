@@ -251,7 +251,7 @@ class DailyOperations extends Page implements HasTable
             'stock' => [
                 Tables\Filters\SelectFilter::make('warehouse_id')
                     ->label('المخزن')
-                    ->relationship('warehouse', 'name')
+                ->options(\App\Models\Warehouse::pluck('name', 'id'))
                     ->searchable()
                     ->preload(),
                 Tables\Filters\SelectFilter::make('type')

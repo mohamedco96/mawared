@@ -20,6 +20,7 @@ class SalesInvoice extends Model
         'invoice_number',
         'warehouse_id',
         'partner_id',
+        'sales_person_id',
         'status',
         'payment_method',
         'discount_type',
@@ -27,6 +28,10 @@ class SalesInvoice extends Model
         'subtotal',
         'discount',
         'total',
+        'cost_total',
+        'commission_rate',
+        'commission_amount',
+        'commission_paid',
         'paid_amount',
         'remaining_amount',
         'notes',
@@ -44,6 +49,10 @@ class SalesInvoice extends Model
             'discount' => 'decimal:4',
             'discount_value' => 'decimal:4',
             'total' => 'decimal:4',
+            'cost_total' => 'decimal:4',
+            'commission_rate' => 'decimal:2',
+            'commission_amount' => 'decimal:4',
+            'commission_paid' => 'boolean',
             'paid_amount' => 'decimal:4',
             'remaining_amount' => 'decimal:4',
             'has_installment_plan' => 'boolean',
@@ -95,6 +104,11 @@ class SalesInvoice extends Model
     public function returns(): HasMany
     {
         return $this->hasMany(SalesReturn::class, 'sales_invoice_id');
+    }
+
+    public function salesperson(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'sales_person_id');
     }
 
     // Helper Methods
@@ -180,6 +194,34 @@ class SalesInvoice extends Model
         return $this->has_installment_plan && $this->installments()->exists();
     }
 
+    /**
+     * Get gross profit (Total - COGS)
+     */
+    public function getGrossProfit(): float
+    {
+        return floatval($this->total) - floatval($this->cost_total);
+    }
+
+    /**
+     * Get net profit (Gross Profit - Commission)
+     */
+    public function getNetProfit(): float
+    {
+        $gross = $this->getGrossProfit();
+        return $gross - floatval($this->commission_amount);
+    }
+
+    /**
+     * Get profit margin as percentage
+     */
+    public function getProfitMargin(): float
+    {
+        if ($this->total <= 0) {
+            return 0;
+        }
+        return ($this->getNetProfit() / $this->total) * 100;
+    }
+
     // Immutable Logic: Prevent updates/deletes when posted
     protected static function booted(): void
     {
@@ -187,8 +229,8 @@ class SalesInvoice extends Model
             // Get the original status before changes
             $originalStatus = $invoice->getOriginal('status');
 
-            // Allow payment-related updates to posted invoices (paid_amount, remaining_amount, status)
-            $allowedFieldsForPosted = ['paid_amount', 'remaining_amount', 'status', 'updated_at'];
+            // Allow payment-related and commission updates to posted invoices
+            $allowedFieldsForPosted = ['paid_amount', 'remaining_amount', 'status', 'commission_paid', 'commission_amount', 'cost_total', 'updated_at'];
             $dirtyFields = array_keys($invoice->getDirty());
             $hasDisallowedChanges = !empty(array_diff($dirtyFields, $allowedFieldsForPosted));
 

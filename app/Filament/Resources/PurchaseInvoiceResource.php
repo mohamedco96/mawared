@@ -207,18 +207,10 @@ class PurchaseInvoiceResource extends Resource
                                             ->maxLength(255),
                                         Forms\Components\Select::make('small_unit_id')
                                             ->label('الوحدة الصغيرة (الأساسية)')
-                                            ->relationship('smallUnit', 'name')
+                                            ->options(\App\Models\Unit::pluck('name', 'id'))
                                             ->required()
                                             ->searchable()
-                                            ->preload()
-                                            ->createOptionForm([
-                                                Forms\Components\TextInput::make('name')
-                                                    ->label('الاسم')
-                                                    ->required(),
-                                                Forms\Components\TextInput::make('symbol')
-                                                    ->label('الرمز'),
-                                            ])
-                                            ->createOptionModalHeading('إضافة وحدة قياس جديدة'),
+                                            ->preload(),
                                         Forms\Components\TextInput::make('retail_price')
                                             ->label('سعر قطاعي')
                                             ->numeric()

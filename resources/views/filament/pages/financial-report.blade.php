@@ -11,22 +11,21 @@
         @php
             $report = $this->reportData;
 
-            // Income Statement calculations
-            // Note: Trade discounts are already included in invoice totals
-            // Only settlement discounts (payment-time discounts) are added separately
+            // Income Statement calculations - NEW COGS-BASED STRUCTURE
+            // Net Profit is already calculated in the service
+            $netProfit = $report['net_profit'];
+            
+            // For display purposes in the traditional format:
+            // Debit side (expenses/costs)
             $incomeDebitTotal =
-                $report['beginning_inventory'] +
-                $report['total_purchases'] +
-                $report['sales_returns'] +
-                $report['expenses'] +
-                $report['discount_allowed'];
+                $report['cost_of_goods_sold'] +
+                $report['operating_expenses'];
+            
+            // Credit side (revenues)
             $incomeCreditTotal =
-                $report['ending_inventory'] +
-                $report['total_sales'] +
-                $report['purchase_returns'] +
+                $report['net_sales'] +
                 $report['revenues'] +
                 $report['discount_received'];
-            $netProfit = $incomeCreditTotal - $incomeDebitTotal;
 
             // Financial Position calculations - CORRECT ACCOUNTING EQUATION
             // Assets = Liabilities + Equity
@@ -59,35 +58,28 @@
                     {{-- Right Column (مدين) --}}
                     <div class="p-6 dark:bg-gray-900">
                         <div class="mb-4 pb-2 border-b-2 border-gray-300 dark:border-primary-500">
-                            <h3 class="text-lg font-bold text-gray-700 dark:text-white">مدين</h3>
+                            <h3 class="text-lg font-bold text-gray-700 dark:text-white">مصروفات وتكاليف</h3>
                         </div>
                         <div class="space-y-3">
                             <div
                                 class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
-                                <span class="text-gray-700 dark:text-white">بضاعة أول المدة</span>
+                                <span class="text-gray-700 dark:text-white">تكلفة البضاعة المباعة</span>
                                 <span
-                                    class="font-semibold text-gray-900 dark:text-white">{{ number_format($report['beginning_inventory'], 2) }}
+                                    class="font-semibold text-gray-900 dark:text-white">{{ number_format($report['cost_of_goods_sold'], 2) }}
                                     </span>
                             </div>
                             <div
                                 class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
-                                <span class="text-gray-700 dark:text-white">مشتريات</span>
-                                <span
-                                    class="font-semibold text-gray-900 dark:text-white">{{ number_format($report['total_purchases'], 2) }}
-                                    </span>
-                            </div>
-                            <div
-                                class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
-                                <span class="text-gray-700 dark:text-white">مردودات مبيعات</span>
-                                <span
-                                    class="font-semibold text-gray-900 dark:text-white">{{ number_format($report['sales_returns'], 2) }}
-                                    </span>
-                            </div>
-                            <div
-                                class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
-                                <span class="text-gray-700 dark:text-white">مصروفات</span>
+                                <span class="text-gray-700 dark:text-white">مصروفات تشغيلية</span>
                                 <span
                                     class="font-semibold text-gray-900 dark:text-white">{{ number_format($report['expenses'], 2) }}
+                                    </span>
+                            </div>
+                            <div
+                                class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
+                                <span class="text-gray-700 dark:text-white">عمولات مبيعات</span>
+                                <span
+                                    class="font-semibold text-gray-900 dark:text-white">{{ number_format($report['commissions_paid'], 2) }}
                                     </span>
                             </div>
                             <div
@@ -110,33 +102,19 @@
                     {{-- Left Column (دائن) --}}
                     <div class="p-6 dark:bg-gray-900">
                         <div class="mb-4 pb-2 border-b-2 border-gray-300 dark:border-primary-500">
-                            <h3 class="text-lg font-bold text-gray-700 dark:text-white">دائن</h3>
+                            <h3 class="text-lg font-bold text-gray-700 dark:text-white">إيرادات</h3>
                         </div>
                         <div class="space-y-3">
                             <div
                                 class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
-                                <span class="text-gray-700 dark:text-white">بضاعة آخر المدة</span>
+                                <span class="text-gray-700 dark:text-white">صافي المبيعات</span>
                                 <span
-                                    class="font-semibold text-gray-900 dark:text-white">{{ number_format($report['ending_inventory'], 2) }}
+                                    class="font-semibold text-gray-900 dark:text-white">{{ number_format($report['net_sales'], 2) }}
                                     </span>
                             </div>
                             <div
                                 class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
-                                <span class="text-gray-700 dark:text-white">مبيعات</span>
-                                <span
-                                    class="font-semibold text-gray-900 dark:text-white">{{ number_format($report['total_sales'], 2) }}
-                                    </span>
-                            </div>
-                            <div
-                                class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
-                                <span class="text-gray-700 dark:text-white">مردودات مشتريات</span>
-                                <span
-                                    class="font-semibold text-gray-900 dark:text-white">{{ number_format($report['purchase_returns'], 2) }}
-                                    </span>
-                            </div>
-                            <div
-                                class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
-                                <span class="text-gray-700 dark:text-white">إيرادات</span>
+                                <span class="text-gray-700 dark:text-white">إيرادات أخرى</span>
                                 <span
                                     class="font-semibold text-gray-900 dark:text-white">{{ number_format($report['revenues'], 2) }}
                                     </span>

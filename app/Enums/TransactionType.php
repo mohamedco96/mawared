@@ -23,6 +23,8 @@ enum TransactionType: string
     case PROFIT_ALLOCATION = 'profit_allocation';
     case ASSET_CONTRIBUTION = 'asset_contribution';
     case DEPRECIATION_EXPENSE = 'depreciation_expense';
+    case COMMISSION_PAYOUT = 'commission_payout';
+    case COMMISSION_REVERSAL = 'commission_reversal';
 
     /**
      * Get the category this transaction type belongs to
@@ -34,7 +36,8 @@ enum TransactionType: string
             self::CAPITAL_DEPOSIT, self::PARTNER_DRAWING,
             self::PARTNER_LOAN_RECEIPT, self::PARTNER_LOAN_REPAYMENT,
             self::EMPLOYEE_ADVANCE, self::SALARY_PAYMENT,
-            self::PROFIT_ALLOCATION, self::ASSET_CONTRIBUTION => 'partners',
+            self::PROFIT_ALLOCATION, self::ASSET_CONTRIBUTION,
+            self::COMMISSION_PAYOUT, self::COMMISSION_REVERSAL => 'partners',
             self::INCOME, self::EXPENSE, self::DEPRECIATION_EXPENSE => 'system',
         };
     }
@@ -59,6 +62,8 @@ enum TransactionType: string
             self::PROFIT_ALLOCATION => 'توزيع أرباح',
             self::ASSET_CONTRIBUTION => 'مساهمة بأصل ثابت',
             self::DEPRECIATION_EXPENSE => 'استهلاك أصول',
+            self::COMMISSION_PAYOUT => 'دفع عمولة مبيعات',
+            self::COMMISSION_REVERSAL => 'عكس عمولة (مرتجع)',
         };
     }
 
@@ -69,10 +74,11 @@ enum TransactionType: string
     {
         return match($this) {
             self::COLLECTION, self::CAPITAL_DEPOSIT, self::INCOME,
-            self::PARTNER_LOAN_RECEIPT, self::PROFIT_ALLOCATION, self::ASSET_CONTRIBUTION => 1,
+            self::PARTNER_LOAN_RECEIPT, self::PROFIT_ALLOCATION, self::ASSET_CONTRIBUTION,
+            self::COMMISSION_REVERSAL => 1,
             self::PAYMENT, self::PARTNER_DRAWING, self::EMPLOYEE_ADVANCE,
             self::SALARY_PAYMENT, self::EXPENSE, self::PARTNER_LOAN_REPAYMENT,
-            self::REFUND, self::DEPRECIATION_EXPENSE => -1,
+            self::REFUND, self::DEPRECIATION_EXPENSE, self::COMMISSION_PAYOUT => -1,
         };
     }
 
@@ -86,8 +92,8 @@ enum TransactionType: string
             self::PARTNER_LOAN_RECEIPT, self::PROFIT_ALLOCATION, self::ASSET_CONTRIBUTION => 'success',
             self::PAYMENT, self::EXPENSE, self::PARTNER_DRAWING,
             self::EMPLOYEE_ADVANCE, self::SALARY_PAYMENT, self::PARTNER_LOAN_REPAYMENT,
-            self::DEPRECIATION_EXPENSE => 'danger',
-            self::REFUND => 'warning',
+            self::DEPRECIATION_EXPENSE, self::COMMISSION_PAYOUT => 'danger',
+            self::REFUND, self::COMMISSION_REVERSAL => 'warning',
         };
     }
 
@@ -103,7 +109,9 @@ enum TransactionType: string
             self::REFUND,
             self::PROFIT_ALLOCATION,
             self::ASSET_CONTRIBUTION,
-            self::DEPRECIATION_EXPENSE
+            self::DEPRECIATION_EXPENSE,
+            self::COMMISSION_PAYOUT,
+            self::COMMISSION_REVERSAL,
         ]);
     }
 

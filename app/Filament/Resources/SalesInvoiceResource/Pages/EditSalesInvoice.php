@@ -84,6 +84,14 @@ class EditSalesInvoice extends EditRecord
         $data['subtotal'] = $subtotal;
         $data['total'] = $total;
 
+        // Calculate commission amount
+        if (!empty($data['sales_person_id']) && !empty($data['commission_rate'])) {
+            $commissionRate = floatval($data['commission_rate']) / 100;
+            $data['commission_amount'] = $total * $commissionRate;
+        } else {
+            $data['commission_amount'] = 0;
+        }
+
         // FIX: Ensure paid_amount is set correctly for cash invoices
         // For cash payment: paid_amount should equal total
         // For credit payment: paid_amount comes from user input (or default 0)

@@ -253,6 +253,9 @@ class StockService
             // Lock the invoice to prevent concurrent posting
             $invoice = SalesInvoice::with('items.product')->lockForUpdate()->findOrFail($invoice->id);
 
+            // COGS Calculation
+            $totalCOGS = 0;
+
             foreach ($invoice->items as $item) {
                 $product = $item->product;
 
@@ -266,17 +269,24 @@ class StockService
                     throw new \Exception("المخزون غير كافٍ للمنتج: {$product->name}");
                 }
 
+                // CRITICAL: Calculate COGS using avg_cost at time of sale
+                $itemCOGS = floatval($product->avg_cost) * $baseQuantity;
+                $totalCOGS += $itemCOGS;
+
                 // Create negative stock movement (sale)
                 $this->recordMovement(
                     $invoice->warehouse_id,
                     $product->id,
                     'sale',
                     -$baseQuantity, // Negative for sale
-                    $product->avg_cost,
+                    $product->avg_cost, // Store cost at time of sale
                     'sales_invoice',
                     $invoice->id
                 );
             }
+
+            // Store COGS on invoice
+            $invoice->update(['cost_total' => $totalCOGS]);
         };
 
         // Only wrap in transaction if not already in one
@@ -431,11 +441,17 @@ class StockService
         }
 
         DB::transaction(function () use ($return) {
+            $totalCOGSReversal = 0;
+
             foreach ($return->items as $item) {
                 $product = $item->product;
 
                 // Convert to base unit
                 $baseQuantity = $this->convertToBaseUnit($product, $item->quantity, $item->unit_type);
+
+                // Calculate COGS reversal (add back the cost)
+                $itemCOGSReversal = floatval($product->avg_cost) * $baseQuantity;
+                $totalCOGSReversal += $itemCOGSReversal;
 
                 // Create POSITIVE stock movement (sale_return)
                 // REVERSE LOGIC: Sale removes stock (negative), return adds stock (positive)
@@ -448,6 +464,15 @@ class StockService
                     'sales_return',
                     $return->id
                 );
+            }
+
+            // CRITICAL: Update original invoice to reduce COGS
+            if ($return->sales_invoice_id) {
+                $originalInvoice = SalesInvoice::find($return->sales_invoice_id);
+                if ($originalInvoice) {
+                    $newCOGS = floatval($originalInvoice->cost_total) - $totalCOGSReversal;
+                    $originalInvoice->update(['cost_total' => max(0, $newCOGS)]);
+                }
             }
         });
     }

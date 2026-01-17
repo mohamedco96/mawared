@@ -42,23 +42,34 @@ class FinancialReportService
 
         // Trading calculations (Income Statement)
         $totalSales = $this->calculateTotalSales($fromDate, $toDate);
-        $totalPurchases = $this->calculateTotalPurchases($fromDate, $toDate);
         $salesReturns = $this->calculateSalesReturns($fromDate, $toDate);
-        $purchaseReturns = $this->calculatePurchaseReturns($fromDate, $toDate);
+
+        // CRITICAL CHANGE: Use COGS instead of Total Purchases
+        $costOfGoodsSold = $this->calculateCOGS($fromDate, $toDate);
+
         $expenses = $this->calculateExpenses($fromDate, $toDate);
         $revenues = $this->calculateRevenues($fromDate, $toDate);
+
+        // NEW: Include commissions in expenses
+        $commissionsPaid = $this->calculateCommissionsPaid($fromDate, $toDate);
 
         // Settlement discount calculations (payment-time discounts)
         // These are SEPARATE from invoice trade discounts which are already included in invoice totals
         $discountReceived = $this->calculateDiscountReceived($fromDate, $toDate);
         $discountAllowed = $this->calculateDiscountAllowed($fromDate, $toDate);
 
-        // Income Statement calculations
-        // NOTE: Trade discounts are already deducted in invoice totals (total = subtotal - discount)
-        // We only add settlement discounts (payment-time discounts) as separate line items
-        $debitTotal = $beginningInventory + $totalPurchases + $salesReturns + $expenses + $discountAllowed;
-        $creditTotal = $endingInventory + $totalSales + $purchaseReturns + $revenues + $discountReceived;
-        $netProfit = $creditTotal - $debitTotal;
+        // Income Statement calculations - NEW STRUCTURE WITH COGS
+        // Net Sales = Sales - Returns
+        $netSales = $totalSales - $salesReturns;
+
+        // Gross Profit = Net Sales - COGS
+        $grossProfit = $netSales - $costOfGoodsSold;
+
+        // Operating Expenses = Regular Expenses + Commissions + Discounts Allowed
+        $operatingExpenses = $expenses + $commissionsPaid + $discountAllowed;
+
+        // Net Profit = Gross Profit - Operating Expenses + Other Income + Discounts Received
+        $netProfit = $grossProfit - $operatingExpenses + $revenues + $discountReceived;
 
         // Financial Position calculations - CORRECT ACCOUNTING EQUATION
         // Assets = Liabilities + Equity
@@ -84,14 +95,16 @@ class FinancialReportService
             'total_creditors' => $totalCreditors,
             'total_cash' => $totalCash,
             'total_sales' => $totalSales,
-            'total_purchases' => $totalPurchases,
             'sales_returns' => $salesReturns,
-            'purchase_returns' => $purchaseReturns,
-            // Trade discounts removed - already included in invoice totals
+            'net_sales' => $netSales,
+            'cost_of_goods_sold' => $costOfGoodsSold,
+            'gross_profit' => $grossProfit,
+            'expenses' => $expenses,
+            'commissions_paid' => $commissionsPaid,
+            'operating_expenses' => $operatingExpenses,
+            'revenues' => $revenues,
             'discount_received' => $discountReceived,
             'discount_allowed' => $discountAllowed,
-            'expenses' => $expenses,
-            'revenues' => $revenues,
             'net_profit' => $netProfit,
             'total_assets' => $totalAssets,
             'total_liabilities' => $totalLiabilities,
@@ -194,6 +207,29 @@ class FinancialReportService
             ->whereDate('created_at', '>=', $fromDate)
             ->whereDate('created_at', '<=', $toDate)
             ->sum('total');
+    }
+
+    /**
+     * Calculate COGS (Cost of Goods Sold) from posted sales invoices
+     */
+    protected function calculateCOGS($fromDate, $toDate): float
+    {
+        return SalesInvoice::where('status', 'posted')
+            ->whereDate('created_at', '>=', $fromDate)
+            ->whereDate('created_at', '<=', $toDate)
+            ->sum('cost_total');
+    }
+
+    /**
+     * Calculate total commissions paid to salespeople
+     */
+    protected function calculateCommissionsPaid($fromDate, $toDate): float
+    {
+        return SalesInvoice::where('status', 'posted')
+            ->where('commission_paid', true)
+            ->whereDate('created_at', '>=', $fromDate)
+            ->whereDate('created_at', '<=', $toDate)
+            ->sum('commission_amount');
     }
 
     /**

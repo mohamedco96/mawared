@@ -65,6 +65,32 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(TreasuryTransaction::class, 'employee_id');
     }
 
+    public function salesInvoices(): HasMany
+    {
+        return $this->hasMany(SalesInvoice::class, 'sales_person_id');
+    }
+
+    /**
+     * Get total commissions earned from all posted sales invoices
+     */
+    public function getTotalCommissionsEarned(): float
+    {
+        return $this->salesInvoices()
+            ->where('status', 'posted')
+            ->sum('commission_amount');
+    }
+
+    /**
+     * Get unpaid commissions from posted sales invoices
+     */
+    public function getUnpaidCommissions(): float
+    {
+        return $this->salesInvoices()
+            ->where('status', 'posted')
+            ->where('commission_paid', false)
+            ->sum('commission_amount');
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()

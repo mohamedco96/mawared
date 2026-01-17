@@ -120,7 +120,21 @@ class EditSalesReturn extends EditRecord
                         'transaction_level' => DB::transactionLevel(),
                     ]);
 
-                    // 3. Update status back to posted (using saveQuietly to bypass model events)
+                    // 3. Reverse commission if original invoice had paid commission
+                    if ($record->sales_invoice_id) {
+                        \Log::info('Calling reverseCommission', [
+                            'transaction_level' => DB::transactionLevel(),
+                            'sales_invoice_id' => $record->sales_invoice_id,
+                        ]);
+
+                        $defaultTreasury = \App\Models\Treasury::first();
+                        if ($defaultTreasury) {
+                            app(\App\Services\CommissionService::class)->reverseCommission($record, $defaultTreasury->id);
+                            \Log::info('Commission reversed successfully');
+                        }
+                    }
+
+                    // 4. Update status back to posted (using saveQuietly to bypass model events)
                     \Log::info('Before saving as posted', [
                         'status' => $record->status,
                         'original_status' => $record->getOriginal('status'),

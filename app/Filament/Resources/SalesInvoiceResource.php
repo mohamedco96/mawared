@@ -145,6 +145,29 @@ class SalesInvoiceResource extends Resource
                             ])
                             ->createOptionModalHeading('إضافة عميل جديد')
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                        Forms\Components\Select::make('sales_person_id')
+                            ->label('مندوب المبيعات')
+                            ->relationship('salesperson', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->reactive()
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                        Forms\Components\TextInput::make('commission_rate')
+                            ->label('نسبة العمولة (%)')
+                            ->numeric()
+                            ->suffix('%')
+                            ->step(0.01)
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->default(1)
+                            ->reactive()
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                $total = floatval($get('total') ?? 0);
+                                $rate = floatval($state ?? 0) / 100;
+                                $set('commission_amount', $total * $rate);
+                            })
+                            ->visible(fn (Get $get) => $get('sales_person_id') !== null)
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Select::make('payment_method')
                             ->label('طريقة الدفع')
                             ->options([
@@ -651,6 +674,22 @@ class SalesInvoiceResource extends Resource
 
                                 return number_format($total, 2);
                             }),
+                        Forms\Components\Placeholder::make('calculated_commission')
+                            ->label('قيمة العمولة')
+                            ->content(function (Get $get) {
+                                if (!$get('sales_person_id')) {
+                                    return '—';
+                                }
+                                $total = floatval($get('total') ?? 0);
+                                $rate = floatval($get('commission_rate') ?? 0) / 100;
+                                $commission = $total * $rate;
+                                return number_format($commission, 2) . ' ج.م';
+                            })
+                            ->visible(fn (Get $get) => $get('sales_person_id') !== null)
+                            ->extraAttributes(['style' => 'color: #f59e0b; font-weight: bold;']),
+                        Forms\Components\Hidden::make('commission_amount')
+                            ->default(0)
+                            ->dehydrated(),
                         // Input for CREDIT (Editable Down Payment)
                         Forms\Components\TextInput::make('paid_amount')
                             ->label('المبلغ المدفوع (مقدم)')
@@ -997,6 +1036,11 @@ class SalesInvoiceResource extends Resource
         $set('discount', $totalDiscount); // OLD field for backward compatibility
         $set('total', $netTotal);
 
+        // NEW: Recalculate commission
+        $commissionRate = floatval($get('commission_rate') ?? 0) / 100;
+        $commissionAmount = $netTotal * $commissionRate;
+        $set('commission_amount', $commissionAmount);
+
         // Handle remaining_amount based on payment method
         if ($paymentMethod === 'cash') {
             // For cash: DO NOTHING to paid_amount (dehydrate logic handles saving)
@@ -1120,6 +1164,24 @@ class SalesInvoiceResource extends Resource
                         };
                     })
                     ->visible(fn () => auth()->user()->can('view_profit'))
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('salesperson.name')
+                    ->label('المندوب')
+                    ->searchable()
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('commission_amount')
+                    ->label('العمولة')
+                    ->numeric(decimalPlaces: 2)
+                    ->badge()
+                    ->color(fn ($record) => $record->commission_paid ? 'success' : 'warning')
+                    ->formatStateUsing(function ($record) {
+                        if (!$record->sales_person_id || $record->commission_amount <= 0) {
+                            return '—';
+                        }
+                        $amount = number_format($record->commission_amount, 2);
+                        $status = $record->commission_paid ? '✓' : '✗';
+                        return "{$amount} {$status}";
+                    })
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('التاريخ')
@@ -1420,6 +1482,51 @@ class SalesInvoiceResource extends Resource
                     ->visible(fn (SalesInvoice $record) =>
                         $record->isPosted() &&
                         !$record->isFullyPaid()
+                    ),
+
+                Tables\Actions\Action::make('pay_commission')
+                    ->label('دفع العمولة')
+                    ->icon('heroicon-o-banknotes')
+                    ->color('success')
+                    ->modalHeading('دفع عمولة مندوب المبيعات')
+                    ->form([
+                        Forms\Components\Placeholder::make('salesperson_name')
+                            ->label('المندوب')
+                            ->content(fn (SalesInvoice $record) => $record->salesperson?->name ?? '—'),
+
+                        Forms\Components\Placeholder::make('commission_amount_display')
+                            ->label('قيمة العمولة')
+                            ->content(fn (SalesInvoice $record) => number_format($record->commission_amount, 2) . ' ج.م'),
+
+                        Forms\Components\Select::make('treasury_id')
+                            ->label('الخزينة')
+                            ->options(Treasury::pluck('name', 'id'))
+                            ->required()
+                            ->default(fn () => Treasury::first()?->id),
+                    ])
+                    ->action(function (SalesInvoice $record, array $data) {
+                        $commissionService = app(\App\Services\CommissionService::class);
+
+                        try {
+                            $commissionService->payCommission($record, $data['treasury_id']);
+
+                            Notification::make()
+                                ->success()
+                                ->title('تم دفع العمولة بنجاح')
+                                ->send();
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('خطأ في دفع العمولة')
+                                ->body($e->getMessage())
+                                ->send();
+                        }
+                    })
+                    ->visible(fn (SalesInvoice $record) =>
+                        $record->isPosted() &&
+                        $record->sales_person_id &&
+                        !$record->commission_paid &&
+                        $record->commission_amount > 0
                     ),
 
                 Tables\Actions\EditAction::make()

@@ -179,7 +179,7 @@ class ItemProfitabilityReport extends Page implements HasForms, HasTable
         return [
             Tables\Filters\SelectFilter::make('category_id')
                 ->label('التصنيف')
-                ->relationship('category', 'name')
+                ->options(\App\Models\ProductCategory::pluck('name', 'id'))
                 ->searchable()
                 ->preload(),
 
