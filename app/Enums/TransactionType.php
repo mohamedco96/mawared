@@ -20,6 +20,9 @@ enum TransactionType: string
     // System Types (not user-selectable)
     case INCOME = 'income';
     case EXPENSE = 'expense';
+    case PROFIT_ALLOCATION = 'profit_allocation';
+    case ASSET_CONTRIBUTION = 'asset_contribution';
+    case DEPRECIATION_EXPENSE = 'depreciation_expense';
 
     /**
      * Get the category this transaction type belongs to
@@ -30,8 +33,9 @@ enum TransactionType: string
             self::COLLECTION, self::PAYMENT, self::REFUND => 'commercial',
             self::CAPITAL_DEPOSIT, self::PARTNER_DRAWING,
             self::PARTNER_LOAN_RECEIPT, self::PARTNER_LOAN_REPAYMENT,
-            self::EMPLOYEE_ADVANCE, self::SALARY_PAYMENT => 'partners',
-            self::INCOME, self::EXPENSE => 'system',
+            self::EMPLOYEE_ADVANCE, self::SALARY_PAYMENT,
+            self::PROFIT_ALLOCATION, self::ASSET_CONTRIBUTION => 'partners',
+            self::INCOME, self::EXPENSE, self::DEPRECIATION_EXPENSE => 'system',
         };
     }
 
@@ -52,6 +56,9 @@ enum TransactionType: string
             self::SALARY_PAYMENT => 'راتب موظف',
             self::INCOME => 'إيراد آخر',
             self::EXPENSE => 'مصروف تشغيلي',
+            self::PROFIT_ALLOCATION => 'توزيع أرباح',
+            self::ASSET_CONTRIBUTION => 'مساهمة بأصل ثابت',
+            self::DEPRECIATION_EXPENSE => 'استهلاك أصول',
         };
     }
 
@@ -62,9 +69,10 @@ enum TransactionType: string
     {
         return match($this) {
             self::COLLECTION, self::CAPITAL_DEPOSIT, self::INCOME,
-            self::PARTNER_LOAN_RECEIPT => 1,
+            self::PARTNER_LOAN_RECEIPT, self::PROFIT_ALLOCATION, self::ASSET_CONTRIBUTION => 1,
             self::PAYMENT, self::PARTNER_DRAWING, self::EMPLOYEE_ADVANCE,
-            self::SALARY_PAYMENT, self::EXPENSE, self::PARTNER_LOAN_REPAYMENT, self::REFUND => -1,
+            self::SALARY_PAYMENT, self::EXPENSE, self::PARTNER_LOAN_REPAYMENT,
+            self::REFUND, self::DEPRECIATION_EXPENSE => -1,
         };
     }
 
@@ -75,9 +83,10 @@ enum TransactionType: string
     {
         return match($this) {
             self::COLLECTION, self::INCOME, self::CAPITAL_DEPOSIT,
-            self::PARTNER_LOAN_RECEIPT => 'success',
+            self::PARTNER_LOAN_RECEIPT, self::PROFIT_ALLOCATION, self::ASSET_CONTRIBUTION => 'success',
             self::PAYMENT, self::EXPENSE, self::PARTNER_DRAWING,
-            self::EMPLOYEE_ADVANCE, self::SALARY_PAYMENT, self::PARTNER_LOAN_REPAYMENT => 'danger',
+            self::EMPLOYEE_ADVANCE, self::SALARY_PAYMENT, self::PARTNER_LOAN_REPAYMENT,
+            self::DEPRECIATION_EXPENSE => 'danger',
             self::REFUND => 'warning',
         };
     }
@@ -87,8 +96,15 @@ enum TransactionType: string
      */
     public function isUserSelectable(): bool
     {
-        // System types (income, expense, refund) are created by TreasuryService only
-        return !in_array($this, [self::INCOME, self::EXPENSE, self::REFUND]);
+        // System types are created by services only, not selectable by users
+        return !in_array($this, [
+            self::INCOME,
+            self::EXPENSE,
+            self::REFUND,
+            self::PROFIT_ALLOCATION,
+            self::ASSET_CONTRIBUTION,
+            self::DEPRECIATION_EXPENSE
+        ]);
     }
 
     /**

@@ -27,6 +27,13 @@ class FixedAsset extends Model
         'partner_id',
         'status',
         'created_by',
+        'useful_life_years',
+        'salvage_value',
+        'accumulated_depreciation',
+        'last_depreciation_date',
+        'depreciation_method',
+        'is_contributed_asset',
+        'contributing_partner_id',
     ];
 
     protected function casts(): array
@@ -34,6 +41,10 @@ class FixedAsset extends Model
         return [
             'purchase_amount' => 'decimal:4',
             'purchase_date' => 'date',
+            'salvage_value' => 'decimal:4',
+            'accumulated_depreciation' => 'decimal:4',
+            'last_depreciation_date' => 'date',
+            'is_contributed_asset' => 'boolean',
         ];
     }
 
@@ -58,6 +69,11 @@ class FixedAsset extends Model
         return $this->belongsTo(Partner::class, 'partner_id');
     }
 
+    public function contributingPartner(): BelongsTo
+    {
+        return $this->belongsTo(Partner::class, 'contributing_partner_id');
+    }
+
     public function treasuryTransactions(): MorphMany
     {
         return $this->morphMany(TreasuryTransaction::class, 'reference');
@@ -72,6 +88,47 @@ class FixedAsset extends Model
     public function isDraft(): bool
     {
         return $this->status === 'draft';
+    }
+
+    // Depreciation Methods
+    public function calculateMonthlyDepreciation(): float
+    {
+        if (!$this->useful_life_years || $this->useful_life_years <= 0) {
+            return 0;
+        }
+
+        // Straight-line: (Cost - Salvage) / (Useful Life in Months)
+        $depreciableAmount = bcsub(
+            (string)$this->purchase_amount,
+            (string)$this->salvage_value,
+            4
+        );
+
+        $totalMonths = $this->useful_life_years * 12;
+
+        return floatval(bcdiv($depreciableAmount, (string)$totalMonths, 4));
+    }
+
+    public function getBookValue(): float
+    {
+        return floatval(bcsub(
+            (string)$this->purchase_amount,
+            (string)$this->accumulated_depreciation,
+            4
+        ));
+    }
+
+    public function needsDepreciation(): bool
+    {
+        if (!$this->useful_life_years) {
+            return false;
+        }
+
+        if (!$this->last_depreciation_date) {
+            return true;
+        }
+
+        return $this->last_depreciation_date < now()->startOfMonth();
     }
 
     // Activity Log

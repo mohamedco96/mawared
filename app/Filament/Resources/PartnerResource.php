@@ -6,6 +6,7 @@ use App\Filament\Resources\PartnerResource\Pages;
 use App\Models\Partner;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -74,6 +75,41 @@ class PartnerResource extends Resource
                             ->default(0),
                     ])
                     ->columns(2),
+
+                Forms\Components\Section::make('معلومات رأس المال')
+                    ->schema([
+                        Forms\Components\TextInput::make('current_capital')
+                            ->label('رأس المال الحالي')
+                            ->numeric()
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->suffix('ج.م')
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal']),
+
+                        Forms\Components\TextInput::make('equity_percentage')
+                            ->label('نسبة الملكية')
+                            ->numeric()
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->suffix('%')
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal']),
+
+                        Forms\Components\Toggle::make('is_manager')
+                            ->label('شريك مدير؟')
+                            ->reactive()
+                            ->default(false),
+
+                        Forms\Components\TextInput::make('monthly_salary')
+                            ->label('الراتب الشهري')
+                            ->numeric()
+                            ->required(fn (Get $get) => $get('is_manager'))
+                            ->visible(fn (Get $get) => $get('is_manager'))
+                            ->suffix('ج.م')
+                            ->minValue(0)
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal']),
+                    ])
+                    ->visible(fn (Get $get) => $get('type') === 'shareholder')
+                    ->columns(2),
             ]);
     }
 
@@ -112,10 +148,30 @@ class PartnerResource extends Resource
                     ->searchable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('current_balance')
-                    ->label('الرصيد')
+                    ->label('الرصيد الجاري')
                     ->numeric(decimalPlaces: 2)
                     ->sortable()
-                    ->color(fn ($state) => $state < 0 ? 'danger' : ($state > 0 ? 'success' : 'gray')),
+                    ->color(fn ($state) => $state < 0 ? 'danger' : ($state > 0 ? 'success' : 'gray'))
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('current_capital')
+                    ->label('رأس المال')
+                    ->numeric(decimalPlaces: 2)
+                    ->sortable()
+                    ->badge()
+                    ->color('success')
+                    ->formatStateUsing(fn ($state) => $state > 0 ? number_format($state, 2) : '—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('equity_percentage')
+                    ->label('نسبة الملكية')
+                    ->formatStateUsing(fn ($state) => $state ? number_format($state, 2) . '%' : '—')
+                    ->badge()
+                    ->color('info')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\IconColumn::make('is_manager')
+                    ->label('مدير')
+                    ->boolean()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\IconColumn::make('is_banned')
                     ->label('محظور')
                     ->boolean(),

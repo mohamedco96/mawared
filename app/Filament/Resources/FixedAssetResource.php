@@ -7,6 +7,7 @@ use App\Models\FixedAsset;
 use App\Services\TreasuryService;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -158,6 +159,98 @@ class FixedAssetResource extends Resource
                             ->visible(fn (Forms\Get $get) => $get('funding_method') === 'equity'),
                     ])
                     ->columns(2),
+
+                Forms\Components\Section::make('معلومات الاستهلاك')
+                    ->description('إعدادات الاستهلاك السنوي للأصل الثابت')
+                    ->schema([
+                        Forms\Components\TextInput::make('useful_life_years')
+                            ->label('العمر الإنتاجي (سنوات)')
+                            ->numeric()
+                            ->minValue(1)
+                            ->maxValue(50)
+                            ->default(5)
+                            ->suffix('سنة')
+                            ->helperText('عدد السنوات المتوقعة لاستخدام الأصل')
+                            ->live(onBlur: true),
+
+                        Forms\Components\TextInput::make('salvage_value')
+                            ->label('قيمة الخردة')
+                            ->numeric()
+                            ->default(0)
+                            ->minValue(0)
+                            ->suffix('ج.م')
+                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                            ->helperText('القيمة المتبقية في نهاية العمر الإنتاجي')
+                            ->live(onBlur: true),
+
+                        Forms\Components\Select::make('depreciation_method')
+                            ->label('طريقة الاستهلاك')
+                            ->options(['straight_line' => 'القسط الثابت'])
+                            ->default('straight_line')
+                            ->disabled()
+                            ->dehydrated(true)
+                            ->helperText('طريقة حساب الاستهلاك (حالياً: القسط الثابت فقط)'),
+
+                        Forms\Components\Toggle::make('is_contributed_asset')
+                            ->label('مساهمة من شريك؟')
+                            ->reactive()
+                            ->default(fn (Get $get) => $get('funding_method') === 'equity')
+                            ->helperText('هل هذا الأصل مساهمة من أحد الشركاء؟')
+                            ->disabled(fn (Get $get) => $get('funding_method') === 'equity')
+                            ->dehydrated(true),
+
+                        Forms\Components\Select::make('contributing_partner_id')
+                            ->label('الشريك المساهم')
+                            ->relationship('contributingPartner', 'name', fn ($query) => $query->where('type', 'shareholder'))
+                            ->searchable()
+                            ->preload()
+                            ->required(fn (Get $get) => $get('is_contributed_asset'))
+                            ->visible(fn (Get $get) => $get('is_contributed_asset'))
+                            ->default(fn (Get $get) => $get('partner_id'))
+                            ->helperText('الشريك الذي ساهم بهذا الأصل'),
+
+                        Forms\Components\Placeholder::make('monthly_depreciation_info')
+                            ->label('الاستهلاك الشهري')
+                            ->content(function (Get $get, $record) {
+                                $amount = floatval($get('purchase_amount') ?? 0);
+                                $salvage = floatval($get('salvage_value') ?? 0);
+                                $years = intval($get('useful_life_years') ?? 5);
+
+                                if ($amount > 0 && $years > 0) {
+                                    $monthly = ($amount - $salvage) / ($years * 12);
+                                    return number_format($monthly, 2) . ' ج.م شهرياً';
+                                }
+
+                                return '—';
+                            })
+                            ->helperText('يتم حسابه تلقائياً: (قيمة الشراء - قيمة الخردة) / (العمر الإنتاجي × 12)'),
+
+                        Forms\Components\Placeholder::make('accumulated_depreciation_info')
+                            ->label('الاستهلاك المتراكم')
+                            ->content(fn ($record) => $record ? number_format($record->accumulated_depreciation, 2) . ' ج.م' : '0.00 ج.م')
+                            ->visible(fn ($record) => $record !== null),
+
+                        Forms\Components\Placeholder::make('book_value_info')
+                            ->label('القيمة الدفترية')
+                            ->content(function ($record, Get $get) {
+                                if ($record && method_exists($record, 'getBookValue')) {
+                                    return number_format($record->getBookValue(), 2) . ' ج.م';
+                                }
+
+                                $amount = floatval($get('purchase_amount') ?? 0);
+                                return number_format($amount, 2) . ' ج.م';
+                            })
+                            ->helperText('قيمة الشراء - الاستهلاك المتراكم'),
+
+                        Forms\Components\Placeholder::make('last_depreciation_info')
+                            ->label('آخر استهلاك')
+                            ->content(fn ($record) => $record && $record->last_depreciation_date
+                                ? $record->last_depreciation_date->format('Y-m-d')
+                                : 'لم يتم بعد')
+                            ->visible(fn ($record) => $record !== null),
+                    ])
+                    ->columns(2)
+                    ->collapsible(),
             ]);
     }
 
@@ -214,6 +307,29 @@ class FixedAssetResource extends Resource
                     ->label('تاريخ الشراء')
                     ->date()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('book_value')
+                    ->label('القيمة الدفترية')
+                    ->getStateUsing(fn ($record) => method_exists($record, 'getBookValue') ? $record->getBookValue() : $record->purchase_amount)
+                    ->numeric(decimalPlaces: 2)
+                    ->badge()
+                    ->color('success')
+                    ->sortable(query: function ($query, string $direction) {
+                        return $query->orderByRaw('(purchase_amount - accumulated_depreciation) ' . $direction);
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('accumulated_depreciation')
+                    ->label('الاستهلاك المتراكم')
+                    ->numeric(decimalPlaces: 2)
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\IconColumn::make('is_contributed_asset')
+                    ->label('مساهمة شريك')
+                    ->boolean()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('contributingPartner.name')
+                    ->label('الشريك المساهم')
+                    ->default('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('تاريخ الإنشاء')
                     ->dateTime()

@@ -99,11 +99,23 @@ class FinancialReportService
     }
 
     /**
-     * Calculate total fixed assets value from FixedAsset table
+     * Calculate total fixed assets value from FixedAsset table (book value)
      */
     protected function calculateFixedAssetsValue(): float
     {
-        return (float) \App\Models\FixedAsset::sum('purchase_amount') ?? 0;
+        // Book Value = Purchase Amount - Accumulated Depreciation
+        $assets = \App\Models\FixedAsset::all();
+        $totalBookValue = 0;
+
+        foreach ($assets as $asset) {
+            if (method_exists($asset, 'getBookValue')) {
+                $totalBookValue += $asset->getBookValue();
+            } else {
+                $totalBookValue += $asset->purchase_amount - ($asset->accumulated_depreciation ?? 0);
+            }
+        }
+
+        return (float) $totalBookValue;
     }
 
     /**
@@ -300,12 +312,17 @@ class FinancialReportService
     }
 
     /**
-     * Calculate total shareholder capital from capital_deposit transactions
+     * Calculate total shareholder capital
+     * Uses current_capital from Partner model which includes:
+     * - Initial capital deposits
+     * - Asset contributions
+     * - Profit allocations
+     * - Minus drawings
      */
     protected function calculateShareholderCapital(): float
     {
-        return TreasuryTransaction::where('type', 'capital_deposit')
-            ->sum('amount');
+        return Partner::where('type', 'shareholder')
+            ->sum('current_capital');
     }
 
     /**

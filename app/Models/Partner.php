@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\LogOptions;
@@ -25,6 +27,10 @@ class Partner extends Model
         'is_banned',
         'current_balance',
         'opening_balance',
+        'current_capital',
+        'equity_percentage',
+        'is_manager',
+        'monthly_salary',
     ];
 
     protected function casts(): array
@@ -33,6 +39,10 @@ class Partner extends Model
             'is_banned' => 'boolean',
             'current_balance' => 'decimal:4',
             'opening_balance' => 'decimal:4',
+            'current_capital' => 'decimal:4',
+            'equity_percentage' => 'decimal:4',
+            'is_manager' => 'boolean',
+            'monthly_salary' => 'decimal:4',
         ];
     }
 
@@ -65,6 +75,29 @@ class Partner extends Model
     public function invoicePayments(): HasMany
     {
         return $this->hasMany(InvoicePayment::class);
+    }
+
+    public function equityPeriods(): BelongsToMany
+    {
+        return $this->belongsToMany(EquityPeriod::class, 'equity_period_partners')
+            ->withPivot([
+                'equity_percentage',
+                'capital_at_start',
+                'profit_allocated',
+                'capital_injected',
+                'drawings_taken',
+            ])
+            ->withTimestamps();
+    }
+
+    public function contributedAssets(): HasMany
+    {
+        return $this->hasMany(FixedAsset::class, 'contributing_partner_id');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     // Balance Calculation Methods
@@ -217,6 +250,59 @@ class Partner extends Model
         }
     }
 
+    // Capital Management Methods
+
+    /**
+     * Recalculate partner capital from capital transactions
+     */
+    public function recalculateCapital(): float
+    {
+        $capital = $this->treasuryTransactions()
+            ->whereIn('type', [
+                'capital_deposit',
+                'asset_contribution',
+                'profit_allocation',
+                'partner_drawing',
+            ])
+            ->sum('amount');
+
+        $this->update(['current_capital' => $capital]);
+
+        return $capital;
+    }
+
+    /**
+     * Get current equity percentage
+     */
+    public function getCurrentEquityPercentage(): float
+    {
+        return floatval($this->equity_percentage ?? 0);
+    }
+
+    /**
+     * Check if this partner is a manager
+     */
+    public function isManager(): bool
+    {
+        return $this->is_manager === true;
+    }
+
+    /**
+     * Get capital ledger transactions
+     */
+    public function getCapitalLedger()
+    {
+        return $this->treasuryTransactions()
+            ->whereIn('type', [
+                'capital_deposit',
+                'asset_contribution',
+                'profit_allocation',
+                'partner_drawing',
+            ])
+            ->orderBy('created_at', 'desc')
+            ->get();
+    }
+
     // Scopes
     public function scopeCustomers($query)
     {
@@ -231,6 +317,11 @@ class Partner extends Model
     public function scopeShareholders($query)
     {
         return $query->where('type', 'shareholder');
+    }
+
+    public function scopeManagers($query)
+    {
+        return $query->where('is_manager', true);
     }
 
     public function scopeUnknown($query)
