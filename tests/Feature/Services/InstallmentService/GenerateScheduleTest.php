@@ -175,6 +175,6 @@ test('it handles different month lengths', function () {
     $secondDueDate = \Carbon\Carbon::parse($installments[1]->due_date);
     $thirdDueDate = \Carbon\Carbon::parse($installments[2]->due_date);
 
-    expect($firstDueDate->diffInMonths($secondDueDate))->toBe(1);
-    expect($secondDueDate->diffInMonths($thirdDueDate))->toBe(1);
+    expect($firstDueDate->diffInMonths($secondDueDate))->toEqual(1);
+    expect($secondDueDate->diffInMonths($thirdDueDate))->toEqual(1);
 });

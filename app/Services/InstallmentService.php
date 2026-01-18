@@ -36,6 +36,10 @@ class InstallmentService
             throw new \Exception('خطة الأقساط موجودة بالفعل لهذه الفاتورة');
         }
 
+        if ($invoice->installment_months <= 0) {
+            throw new \Exception('عدد الأقساط يجب أن يكون أكبر من الصفر');
+        }
+
         // Calculate installment amount
         $totalToInstall = (string) $invoice->remaining_amount;
         $months = $invoice->installment_months;
