@@ -59,20 +59,48 @@ class EquityPeriodResource extends Resource
                     ->columns(2),
 
                 Forms\Components\Section::make('الملخص المالي')
+                    ->description(fn ($record) => $record && $record->status === 'open' ? 'يتم حساب القيم تلقائياً من البيانات الحالية' : null)
                     ->schema([
                         Forms\Components\Placeholder::make('total_revenue')
                             ->label('إجمالي الإيرادات')
-                            ->content(fn ($record) => $record ? number_format($record->total_revenue, 2) . ' ج.م' : '—'),
+                            ->content(function ($record) {
+                                if (! $record) {
+                                    return '—';
+                                }
+                                $value = $record->status === 'open'
+                                    ? app(CapitalService::class)->getFinancialSummary($record)['total_revenue']
+                                    : $record->total_revenue;
+
+                                return number_format($value, 2) . ' ج.م';
+                            }),
 
                         Forms\Components\Placeholder::make('total_expenses')
                             ->label('إجمالي المصروفات')
-                            ->content(fn ($record) => $record ? number_format($record->total_expenses, 2) . ' ج.م' : '—'),
+                            ->content(function ($record) {
+                                if (! $record) {
+                                    return '—';
+                                }
+                                $value = $record->status === 'open'
+                                    ? app(CapitalService::class)->getFinancialSummary($record)['total_expenses']
+                                    : $record->total_expenses;
+
+                                return number_format($value, 2) . ' ج.م';
+                            }),
 
                         Forms\Components\Placeholder::make('net_profit')
                             ->label('صافي الربح')
-                            ->content(fn ($record) => $record ? number_format($record->net_profit, 2) . ' ج.م' : '—'),
+                            ->content(function ($record) {
+                                if (! $record) {
+                                    return '—';
+                                }
+                                $value = $record->status === 'open'
+                                    ? app(CapitalService::class)->getFinancialSummary($record)['net_profit']
+                                    : $record->net_profit;
+
+                                return number_format($value, 2) . ' ج.م';
+                            }),
                     ])
-                    ->visible(fn ($record) => $record && $record->status === 'closed')
+                    ->visible(fn ($record) => $record !== null)
                     ->columns(3),
 
                 Forms\Components\Textarea::make('notes')
@@ -94,17 +122,24 @@ class EquityPeriodResource extends Resource
 
                 Tables\Columns\TextColumn::make('start_date')
                     ->label('من')
-                    ->date('Y-m-d')
+                    ->dateTime('Y-m-d H:i:s')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('end_date')
                     ->label('إلى')
-                    ->date('Y-m-d')
+                    ->dateTime('Y-m-d H:i:s')
                     ->placeholder('—')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('net_profit')
                     ->label('صافي الربح')
+                    ->state(function (EquityPeriod $record): float {
+                        if ($record->status === 'open') {
+                            return app(CapitalService::class)->getFinancialSummary($record)['net_profit'];
+                        }
+
+                        return $record->net_profit;
+                    })
                     ->numeric(decimalPlaces: 2)
                     ->suffix(' ج.م')
                     ->badge()
@@ -135,14 +170,8 @@ class EquityPeriodResource extends Resource
                     ->visible(fn ($record) => $record->status === 'open')
                     ->requiresConfirmation()
                     ->modalHeading('إغلاق فترة رأس المال')
-                    ->modalDescription('سيتم حساب الربح وتوزيعه على الشركاء حسب نسبهم المقفلة. هل أنت متأكد؟')
+                    ->modalDescription('سيتم إغلاق الفترة بالتوقيت الحالي وحساب الربح وتوزيعه على الشركاء حسب نسبهم المقفلة. هل أنت متأكد؟')
                     ->form([
-                        Forms\Components\DatePicker::make('end_date')
-                            ->label('تاريخ نهاية الفترة')
-                            ->required()
-                            ->default(now())
-                            ->maxDate(now()),
-
                         Forms\Components\Textarea::make('notes')
                             ->label('ملاحظات')
                             ->placeholder('سبب الإغلاق (اختياري)'),
@@ -151,8 +180,9 @@ class EquityPeriodResource extends Resource
                         $capitalService = app(CapitalService::class);
 
                         try {
+                            // Use current timestamp as the exact end time
                             $capitalService->closePeriodAndAllocate(
-                                Carbon::parse($data['end_date']),
+                                now(),
                                 $data['notes'] ?? null
                             );
 

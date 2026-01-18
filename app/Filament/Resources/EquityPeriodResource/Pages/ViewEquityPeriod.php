@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\EquityPeriodResource\Pages;
 
 use App\Filament\Resources\EquityPeriodResource;
+use App\Services\CapitalService;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Infolists;
 use Filament\Infolists\Infolist;
@@ -10,6 +11,28 @@ use Filament\Infolists\Infolist;
 class ViewEquityPeriod extends ViewRecord
 {
     protected static string $resource = EquityPeriodResource::class;
+
+    protected ?array $liveFinancialSummary = null;
+
+    /**
+     * Get live financial summary for open periods
+     */
+    protected function getLiveFinancialSummary(): array
+    {
+        if ($this->liveFinancialSummary === null) {
+            if ($this->record->status === 'open') {
+                $this->liveFinancialSummary = app(CapitalService::class)->getFinancialSummary($this->record);
+            } else {
+                $this->liveFinancialSummary = [
+                    'total_revenue' => $this->record->total_revenue,
+                    'total_expenses' => $this->record->total_expenses,
+                    'net_profit' => $this->record->net_profit,
+                ];
+            }
+        }
+
+        return $this->liveFinancialSummary;
+    }
 
     public function infolist(Infolist $infolist): Infolist
     {
@@ -22,10 +45,10 @@ class ViewEquityPeriod extends ViewRecord
                             ->badge(),
                         Infolists\Components\TextEntry::make('start_date')
                             ->label('تاريخ البداية')
-                            ->date('Y-m-d'),
+                            ->dateTime('Y-m-d H:i:s'),
                         Infolists\Components\TextEntry::make('end_date')
                             ->label('تاريخ النهاية')
-                            ->date('Y-m-d')
+                            ->dateTime('Y-m-d H:i:s')
                             ->placeholder('مفتوحة'),
                         Infolists\Components\TextEntry::make('status')
                             ->label('الحالة')
@@ -36,17 +59,21 @@ class ViewEquityPeriod extends ViewRecord
                     ->columns(2),
 
                 Infolists\Components\Section::make('الملخص المالي')
+                    ->description(fn ($record) => $record->status === 'open' ? 'يتم حساب القيم تلقائياً من البيانات الحالية' : null)
                     ->schema([
                         Infolists\Components\TextEntry::make('total_revenue')
                             ->label('إجمالي الإيرادات')
+                            ->state(fn () => $this->getLiveFinancialSummary()['total_revenue'])
                             ->money('EGP'),
                         Infolists\Components\TextEntry::make('total_expenses')
                             ->label('إجمالي المصروفات')
+                            ->state(fn () => $this->getLiveFinancialSummary()['total_expenses'])
                             ->money('EGP'),
                         Infolists\Components\TextEntry::make('net_profit')
                             ->label('صافي الربح')
+                            ->state(fn () => $this->getLiveFinancialSummary()['net_profit'])
                             ->money('EGP')
-                            ->color(fn ($state) => $state > 0 ? 'success' : ($state < 0 ? 'danger' : 'gray')),
+                            ->color(fn () => $this->getLiveFinancialSummary()['net_profit'] > 0 ? 'success' : ($this->getLiveFinancialSummary()['net_profit'] < 0 ? 'danger' : 'gray')),
                     ])
                     ->columns(3),
 

@@ -693,16 +693,26 @@ class TreasuryService
                         throw new \Exception('يجب تحديد الشريك عند اختيار طريقة التمويل: مساهمة رأسمالية');
                     }
 
-                    // Record the capital contribution as a shareholder transaction
-                    // This represents money/asset contributed by the partner
-                    // For shareholders, positive balance means they have equity in the business
                     $partner = \App\Models\Partner::findOrFail($asset->partner_id);
 
-                    // Update partner balance directly to reflect the capital contribution
-                    // We don't create a treasury transaction because no cash enters the treasury
-                    // The asset comes directly from the partner's contribution
-                    $newBalance = floatval($partner->current_balance) + floatval($asset->purchase_amount);
-                    $partner->update(['current_balance' => $newBalance]);
+                    // Mark the asset as a contributed asset from this partner
+                    $asset->update([
+                        'is_contributed_asset' => true,
+                        'contributing_partner_id' => $partner->id,
+                    ]);
+
+                    // Use CapitalService to properly inject capital
+                    // This updates: partner's current_capital, equity_period_partners table, and recalculates percentages
+                    app(CapitalService::class)->injectCapital(
+                        $partner,
+                        floatval($asset->purchase_amount),
+                        'asset', // Type is 'asset' not 'cash' - no treasury transaction will be created
+                        [
+                            'description' => $description . ' - مساهمة رأسمالية',
+                            'reference_type' => 'fixed_asset',
+                            'reference_id' => $asset->id,
+                        ]
+                    );
                     break;
 
                 default:

@@ -72,49 +72,49 @@ class CapitalService
     }
 
     /**
-     * Calculate net profit for a period
+     * Get calculated financial summary for a period (without saving)
+     * Returns array with total_revenue, total_expenses, net_profit
      */
-    public function calculatePeriodProfit(EquityPeriod $period): float
+    public function getFinancialSummary(EquityPeriod $period): array
     {
-        $startDate = $period->start_date->copy();
-        $endDate = $period->end_date ? $period->end_date->copy() : now();
+        // Use exact timestamps for period boundaries
+        $startDateTime = $period->start_date->copy();
+        $endDateTime = $period->end_date ? $period->end_date->copy() : now();
 
-        // Revenue: Sales - Sales Returns
+        // Revenue: Sales - Sales Returns + Other Revenue
         $salesRevenue = SalesInvoice::where('status', 'posted')
-            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereBetween('created_at', [$startDateTime, $endDateTime])
             ->sum('total');
 
         $salesReturns = SalesReturn::where('status', 'posted')
-            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereBetween('created_at', [$startDateTime, $endDateTime])
             ->sum('total');
 
-        $revenueOther = Revenue::whereBetween('revenue_date', [$startDate, $endDate])
+        $revenueOther = Revenue::whereBetween('revenue_date', [$startDateTime, $endDateTime])
             ->sum('amount');
 
         $totalRevenue = $salesRevenue - $salesReturns + $revenueOther;
 
         // Expenses: Purchases - Purchase Returns + Operating Expenses + Manager Salaries + Depreciation
         $purchases = PurchaseInvoice::where('status', 'posted')
-            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereBetween('created_at', [$startDateTime, $endDateTime])
             ->sum('total');
 
         $purchaseReturns = PurchaseReturn::where('status', 'posted')
-            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereBetween('created_at', [$startDateTime, $endDateTime])
             ->sum('total');
 
-        $operatingExpenses = Expense::whereBetween('expense_date', [$startDate, $endDate])
+        $operatingExpenses = Expense::whereBetween('expense_date', [$startDateTime, $endDateTime])
             ->sum('amount');
 
         // Manager salaries (from salary_payment transactions)
-        // For now, we'll count all salary payments as expenses
-        // In future, could filter by partner_id if needed
         $managerSalaries = TreasuryTransaction::where('type', TransactionType::SALARY_PAYMENT->value)
-            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereBetween('created_at', [$startDateTime, $endDateTime])
             ->sum(DB::raw('ABS(amount)'));
 
         // Depreciation expenses
         $depreciation = TreasuryTransaction::where('type', TransactionType::DEPRECIATION_EXPENSE->value)
-            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereBetween('created_at', [$startDateTime, $endDateTime])
             ->sum(DB::raw('ABS(amount)'));
 
         $totalExpenses = $purchases - $purchaseReturns + $operatingExpenses + $managerSalaries + $depreciation;
@@ -122,14 +122,28 @@ class CapitalService
         // Calculate net profit
         $netProfit = $totalRevenue - $totalExpenses;
 
-        // Store in period for reference
-        $period->update([
+        return [
             'total_revenue' => $totalRevenue,
             'total_expenses' => $totalExpenses,
             'net_profit' => $netProfit,
+        ];
+    }
+
+    /**
+     * Calculate net profit for a period and save to database
+     */
+    public function calculatePeriodProfit(EquityPeriod $period): float
+    {
+        $summary = $this->getFinancialSummary($period);
+
+        // Store in period for reference
+        $period->update([
+            'total_revenue' => $summary['total_revenue'],
+            'total_expenses' => $summary['total_expenses'],
+            'net_profit' => $summary['net_profit'],
         ]);
 
-        return $netProfit;
+        return $summary['net_profit'];
     }
 
     /**
@@ -185,11 +199,11 @@ class CapitalService
             // Get current open period
             $period = $this->getCurrentPeriod();
 
-            if (!$period) {
+            if (! $period) {
                 throw new \Exception('No open period found to close');
             }
 
-            // Set end date (defaults to now if not provided)
+            // Set end date to exact timestamp (defaults to now if not provided)
             $period->end_date = $endDate ?? now();
 
             // Calculate and allocate profit
@@ -202,7 +216,7 @@ class CapitalService
             $period->notes = $notes;
             $period->save();
 
-            // Automatically create new period starting immediately after (same moment)
+            // Create new period starting exactly 1 second after the closed period ends
             $this->createNewPeriod($period->end_date->copy()->addSecond());
 
             return $period;
@@ -254,19 +268,20 @@ class CapitalService
                     ->first();
 
                 if ($periodPartner) {
-                    // Update existing record
+                    // Update existing record - only update equity_percentage and capital_injected
+                    // capital_at_start should NOT be changed (it's the capital at period START)
                     $periodPartner->equity_percentage = $newEquityPercentage;
-                    $periodPartner->capital_at_start = $newCapital; // Update to reflect new capital
                     $periodPartner->capital_injected = bcadd((string)$periodPartner->capital_injected, (string)$amount, 4);
                     $periodPartner->save();
                 } else {
                     // Create new record for this partner in the current period
-                    // Use the values we just calculated (no need to re-fetch from DB)
+                    // capital_at_start = capital BEFORE this injection
+                    $capitalAtStart = bcsub((string)$newCapital, (string)$amount, 4);
                     EquityPeriodPartner::create([
                         'equity_period_id' => $currentPeriod->id,
                         'partner_id' => $partner->id,
                         'equity_percentage' => $newEquityPercentage,
-                        'capital_at_start' => $newCapital,
+                        'capital_at_start' => $capitalAtStart,
                         'capital_injected' => $amount,
                     ]);
                 }
