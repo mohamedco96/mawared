@@ -154,9 +154,10 @@ class StockService
             $product = Product::findOrFail($productId);
 
             // Calculate weighted average cost from purchase and purchase_return movements
-            // Purchase returns have negative quantity, so they reduce both cost and quantity
+            // Only non-zero quantities (to avoid division by zero and filter noise)
             $purchaseMovements = StockMovement::where('product_id', $productId)
                 ->whereIn('type', ['purchase', 'purchase_return'])
+                ->where('quantity', '!=', 0)
                 ->get();
 
             if ($purchaseMovements->isEmpty()) {
@@ -314,6 +315,8 @@ class StockService
             throw new \Exception('الفاتورة ليست في حالة مسودة');
         }
 
+        $invoice->load('items.product');
+
         $execute = function () use ($invoice) {
             \Log::info('Inside postPurchaseInvoice execute closure', [
                 'invoice_id' => $invoice->id,
@@ -440,6 +443,31 @@ class StockService
             throw new \Exception('المرتجع ليس في حالة مسودة');
         }
 
+        // Validate return quantities if linked to an invoice
+        if ($return->sales_invoice_id) {
+            $invoice = SalesInvoice::with(['items', 'returns.items'])->find($return->sales_invoice_id);
+
+            if ($invoice) {
+                // Check if adding this return would exceed the invoice total
+                $totalReturnedValue = $invoice->returns()->where('status', 'posted')->sum('total');
+                $totalAfterThisReturn = floatval($totalReturnedValue) + floatval($return->total);
+
+                if (bccomp((string) $totalAfterThisReturn, (string) $invoice->total, 4) > 0) {
+                    throw new \Exception('لا يمكن تأكيد المرتجع: قيمة المرتجع تتجاوز قيمة الفاتورة المتبقية');
+                }
+
+                // Validate each return item against available quantities
+                foreach ($return->items as $item) {
+                    $availableQty = $invoice->getAvailableReturnQuantity($item->product_id, $item->unit_type);
+
+                    if ($item->quantity > $availableQty) {
+                        $productName = $item->product->name ?? 'Unknown';
+                        throw new \Exception("الكمية المتاحة للإرجاع من المنتج '{$productName}' هي {$availableQty} فقط");
+                    }
+                }
+            }
+        }
+
         DB::transaction(function () use ($return) {
             $totalCOGSReversal = 0;
 
@@ -484,6 +512,31 @@ class StockService
     {
         if (! $return->isDraft()) {
             throw new \Exception('المرتجع ليس في حالة مسودة');
+        }
+
+        // Validate return quantities if linked to an invoice
+        if ($return->purchase_invoice_id) {
+            $invoice = PurchaseInvoice::with(['items', 'returns.items'])->find($return->purchase_invoice_id);
+
+            if ($invoice) {
+                // Check if adding this return would exceed the invoice total
+                $totalReturnedValue = $invoice->returns()->where('status', 'posted')->sum('total');
+                $totalAfterThisReturn = floatval($totalReturnedValue) + floatval($return->total);
+
+                if (bccomp((string) $totalAfterThisReturn, (string) $invoice->total, 4) > 0) {
+                    throw new \Exception('لا يمكن تأكيد المرتجع: قيمة المرتجع تتجاوز قيمة الفاتورة المتبقية');
+                }
+
+                // Validate each return item against available quantities
+                foreach ($return->items as $item) {
+                    $availableQty = $invoice->getAvailableReturnQuantity($item->product_id, $item->unit_type);
+
+                    if ($item->quantity > $availableQty) {
+                        $productName = $item->product->name ?? 'Unknown';
+                        throw new \Exception("الكمية المتاحة للإرجاع من المنتج '{$productName}' هي {$availableQty} فقط");
+                    }
+                }
+            }
         }
 
         DB::transaction(function () use ($return) {

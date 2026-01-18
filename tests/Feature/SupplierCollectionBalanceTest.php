@@ -55,11 +55,24 @@ class SupplierCollectionBalanceTest extends TestCase
         $supplier->refresh();
         $this->assertEquals(1000, $supplier->current_balance);
 
-        // Pay the supplier 1400 (overpayment)
-        $this->treasuryService->recordInvoicePayment($invoice, 1400, 0, $this->treasury->id);
+        // Pay the supplier 1000 (total payment)
+        $this->treasuryService->recordInvoicePayment($invoice, 1000, 0, $this->treasury->id);
+        $supplier->refresh();
+        $this->assertEquals(0, $supplier->current_balance);
+
+        // Record a manual overpayment as generic transaction
+        $this->treasuryService->recordFinancialTransaction(
+            $this->treasury->id,
+            'payment',
+            '400.00',
+            'Overpayment on account',
+            partnerId: $supplier->id
+        );
         $supplier->refresh();
 
-        // After paying 1400 against a 1000 invoice, supplier owes us 400
+        // After paying 400 extra, we have credit with supplier (supplier owes us 400)
+        // Wait, positive balance for supplier = we owe THEM.
+        // If we overpay, THEY owe US. So balance should be -400.
         $this->assertEquals(-400, $supplier->current_balance);
 
         // Collect 400 from supplier (they pay us back)
@@ -102,11 +115,22 @@ class SupplierCollectionBalanceTest extends TestCase
         $customer->refresh();
         $this->assertEquals(1000, $customer->current_balance);
 
-        // Collect 1400 from customer (overpayment)
-        $this->treasuryService->recordInvoicePayment($invoice, 1400, 0, $this->treasury->id);
+        // Collect 1000 from customer (exact payment)
+        $this->treasuryService->recordInvoicePayment($invoice, 1000, 0, $this->treasury->id);
+        $customer->refresh();
+        $this->assertEquals(0, $customer->current_balance);
+
+        // Record a manual overpayment from customer
+        $this->treasuryService->recordFinancialTransaction(
+            $this->treasury->id,
+            'collection',
+            '400.00',
+            'Customer overpayment on account',
+            partnerId: $customer->id
+        );
         $customer->refresh();
 
-        // After collecting 1400 against a 1000 invoice, we owe customer 400
+        // After collecting total 1400, customer owes us -400 (we owe them 400)
         $this->assertEquals(-400, $customer->current_balance);
 
         // Refund 400 to customer

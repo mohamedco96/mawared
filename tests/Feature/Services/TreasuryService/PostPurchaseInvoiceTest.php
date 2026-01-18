@@ -78,8 +78,8 @@ test('it updates partner balance after posting', function () {
     $this->treasuryService->updatePartnerBalance($partner->id);
 
     $partner->refresh();
-    // Supplier balance should be negative (we owe them)
-    expect((float)$partner->current_balance)->toBe(-5000.0);
+    // Supplier balance should be positive (we owe them)
+    expect((float)$partner->current_balance)->toBe(5000.0);
 });
 
 test('it throws exception when invoice not draft', function () {

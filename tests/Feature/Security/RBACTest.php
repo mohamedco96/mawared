@@ -258,7 +258,7 @@ class RBACTest extends TestCase
         $this->actingAs($user);
 
         $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('Cannot update a posted invoice');
+        $this->expectExceptionMessage('لا يمكن تعديل فاتورة مؤكدة');
 
         $invoice->update(['notes' => 'Trying to update posted invoice']);
     }

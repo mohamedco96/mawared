@@ -185,6 +185,15 @@ class TreasuryService
         $treasuryId = $treasuryId ?? $this->getDefaultTreasury();
 
         return DB::transaction(function () use ($invoice, $amount, $discount, $treasuryId, $notes) {
+            // Validate overpayment
+            $totalSettled = $amount + $discount;
+            $remainingAtStart = floatval($invoice->remaining_amount);
+
+            // Use bccomp for precision comparison
+            if (bccomp((string) $totalSettled, (string) $remainingAtStart, 2) === 1) {
+                throw new \Exception("لا يمكن الدفع أكثر من المبلغ المتبقي. المتبقي: {$remainingAtStart} ج.م");
+            }
+
             $isSales = $invoice instanceof SalesInvoice;
             $transactionType = $isSales ? 'collection' : 'payment';
             $transactionAmount = $isSales ? $amount : -$amount;
@@ -245,7 +254,7 @@ class TreasuryService
     /**
      * Get default treasury (first treasury or create one)
      */
-    private function getDefaultTreasury(): string
+    public function getDefaultTreasury(): string
     {
         $treasury = \App\Models\Treasury::first();
         if (! $treasury) {
@@ -417,6 +426,14 @@ class TreasuryService
                     'sales_return',
                     $return->id
                 );
+            }
+
+            // NEW: Handle commission reversal
+            if ($return->sales_invoice_id) {
+                // Resolve CommissionService here to avoid circular dependency in constructor
+                // as CommissionService depends on TreasuryService
+                $commissionService = app(\App\Services\CommissionService::class);
+                $commissionService->reverseCommission($return, $treasuryId);
             }
 
             // For credit returns, no treasury transaction needed

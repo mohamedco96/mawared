@@ -382,7 +382,7 @@ class StockServiceTest extends TestCase
             'unit_type' => 'large',
             'quantity' => 10,
             'unit_cost' => '600.00',
-            'new_selling_price' => '1300.00',
+            'new_large_selling_price' => '1300.00',
         ]);
 
         $service = new StockService();

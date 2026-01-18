@@ -161,6 +161,57 @@ class PurchaseInvoice extends Model
             && bccomp((string) $this->remaining_amount, '0', 4) === 1;
     }
 
+    /**
+     * Check if invoice is fully returned
+     */
+    public function isFullyReturned(): bool
+    {
+        // Load returns sum if not already loaded
+        if (!$this->relationLoaded('returns')) {
+            $this->loadSum('returns', 'total');
+        }
+
+        $returnsTotal = floatval($this->returns_sum_total ?? 0);
+
+        // Compare using bccomp for precision
+        return bccomp((string) $returnsTotal, (string) $this->total, 4) >= 0;
+    }
+
+    /**
+     * Get total quantity returned for a specific product and unit type
+     */
+    public function getReturnedQuantity(string $productId, string $unitType): int
+    {
+        return $this->returns()
+            ->where('status', 'posted')
+            ->with('items')
+            ->get()
+            ->flatMap(function ($return) {
+                return $return->items;
+            })
+            ->where('product_id', $productId)
+            ->where('unit_type', $unitType)
+            ->sum('quantity');
+    }
+
+    /**
+     * Get available quantity for return for a specific product and unit type
+     */
+    public function getAvailableReturnQuantity(string $productId, string $unitType): int
+    {
+        $originalItem = $this->items()
+            ->where('product_id', $productId)
+            ->where('unit_type', $unitType)
+            ->first();
+
+        if (!$originalItem) {
+            return 0;
+        }
+
+        $returnedQty = $this->getReturnedQuantity($productId, $unitType);
+        return max(0, $originalItem->quantity - $returnedQty);
+    }
+
     // Immutable Logic: Prevent updates/deletes when posted
     protected static function booted(): void
     {

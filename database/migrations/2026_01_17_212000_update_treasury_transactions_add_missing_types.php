@@ -29,7 +29,8 @@ return new class extends Migration
                     'asset_contribution',
                     'depreciation_expense',
                     'commission_payout',
-                    'commission_reversal'
+                    'commission_reversal',
+                    'discount'
                 ) NOT NULL
             ");
         }

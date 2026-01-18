@@ -36,7 +36,9 @@ class ReportService
         $transactions = $invoices
             ->concat($payments)
             ->concat($returns)
-            ->sortBy('date')
+            ->sortBy(function ($transaction) {
+                return \Carbon\Carbon::parse($transaction['date']);
+            })
             ->values();
 
         // Calculate running balance
@@ -84,7 +86,7 @@ class ReportService
 
         // Credit: Invoice payments (payment_date < start_date)
         $paymentsCredit = InvoicePayment::where('partner_id', $partnerId)
-            ->where('payable_type', 'App\\Models\\SalesInvoice')
+            ->where('payable_type', 'sales_invoice')
             ->where('payment_date', '<', $startDate)
             ->sum(DB::raw('amount + discount'));
 
@@ -109,8 +111,8 @@ class ReportService
     {
         return SalesInvoice::where('partner_id', $partnerId)
             ->where('status', 'posted')
-            ->whereDate('created_at', '>=', $startDate)
-            ->whereDate('created_at', '<=', $endDate)
+            ->where('created_at', '>=', $startDate . ' 00:00:00')
+            ->where('created_at', '<=', $endDate . ' 23:59:59')
             ->with('warehouse')
             ->get()
             ->map(function ($invoice) {
@@ -137,9 +139,9 @@ class ReportService
     protected function fetchInvoicePayments(string $partnerId, string $startDate, string $endDate): Collection
     {
         return InvoicePayment::where('partner_id', $partnerId)
-            ->where('payable_type', 'App\\Models\\SalesInvoice')
-            ->whereDate('payment_date', '>=', $startDate)
-            ->whereDate('payment_date', '<=', $endDate)
+            ->where('payable_type', 'sales_invoice')
+            ->where('payment_date', '>=', $startDate)
+            ->where('payment_date', '<=', $endDate)
             ->with('payable')
             ->get()
             ->map(function ($payment) {
@@ -167,8 +169,8 @@ class ReportService
     {
         return SalesReturn::where('partner_id', $partnerId)
             ->where('status', 'posted')
-            ->whereDate('created_at', '>=', $startDate)
-            ->whereDate('created_at', '<=', $endDate)
+            ->where('created_at', '>=', $startDate . ' 00:00:00')
+            ->where('created_at', '<=', $endDate . ' 23:59:59')
             ->with('warehouse')
             ->get()
             ->map(function ($return) {
@@ -244,7 +246,7 @@ class ReportService
     protected function calculateOpeningStock(string $productId, ?string $warehouseId, string $startDate): int
     {
         $query = StockMovement::where('product_id', $productId)
-            ->where('created_at', '<', $startDate);
+            ->where('created_at', '<', $startDate . ' 00:00:00');
 
         if ($warehouseId && $warehouseId !== 'all') {
             $query->where('warehouse_id', $warehouseId);
@@ -265,8 +267,8 @@ class ReportService
     protected function fetchStockMovements(string $productId, ?string $warehouseId, string $startDate, string $endDate): Collection
     {
         $query = StockMovement::where('product_id', $productId)
-            ->whereDate('created_at', '>=', $startDate)
-            ->whereDate('created_at', '<=', $endDate)
+            ->where('created_at', '>=', $startDate . ' 00:00:00')
+            ->where('created_at', '<=', $endDate . ' 23:59:59')
             ->with(['warehouse', 'reference']);
 
         if ($warehouseId && $warehouseId !== 'all') {

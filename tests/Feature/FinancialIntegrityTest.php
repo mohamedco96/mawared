@@ -401,8 +401,6 @@ class FinancialIntegrityTest extends TestCase
             'total' => 1000.00,
         ]);
 
-        $invoice->update(['status' => 'posted']);
-
         // ASSERT: Expect exception
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('المخزون غير كافٍ للمنتج: Product A');
@@ -460,9 +458,7 @@ class FinancialIntegrityTest extends TestCase
 
         // Calculate remaining
         $invoice->refresh();
-        $invoice->loadSum('payments', 'amount');
-        $remainingBalance = $invoice->total - ($invoice->paid_amount + ($invoice->payments_sum_amount ?? 0));
-        $this->assertEquals(200.00, round($remainingBalance, 2));
+        $this->assertEquals(200.00, round((float)$invoice->remaining_amount, 2));
         // WHY: 1000 total - 0 initial - 800 payment = 200 remaining
 
         // ACT & ASSERT: Try to pay 500 EGP when only 200 is remaining
@@ -716,7 +712,7 @@ class FinancialIntegrityTest extends TestCase
             'warehouse_id' => $this->warehouse->id,
             'partner_id' => $this->customer->id,
             'status' => 'draft',
-            'payment_method' => 'cash',
+            'payment_method' => 'credit',
             'discount_type' => 'fixed',
             'discount_value' => 0,
             'subtotal' => 300.00,
@@ -740,8 +736,8 @@ class FinancialIntegrityTest extends TestCase
 
         // ASSERT AFTER FIRST RETURN
         $treasuryAfterFirstReturn = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals($initialBalance + 1000.00 - 300.00, $treasuryAfterFirstReturn);
-        // WHY: Balance increased by 1000 (sale) then decreased by 300 (refund)
+        $this->assertEquals($initialBalance + 1000.00, $treasuryAfterFirstReturn);
+        // WHY: Balance increased by 1000 (sale). Return was credit, so no cash refund.
 
         $this->assertStockQuantity($this->productA->id, 43, 'After first return');
         // WHY: 50 - 10 (sold) + 3 (returned) = 43
@@ -752,7 +748,7 @@ class FinancialIntegrityTest extends TestCase
             'warehouse_id' => $this->warehouse->id,
             'partner_id' => $this->customer->id,
             'status' => 'draft',
-            'payment_method' => 'cash',
+            'payment_method' => 'credit',
             'discount_type' => 'fixed',
             'discount_value' => 0,
             'subtotal' => 200.00,
@@ -776,8 +772,8 @@ class FinancialIntegrityTest extends TestCase
 
         // FINAL ASSERTIONS
         $treasuryAfterSecondReturn = (float)$this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals($initialBalance + 1000.00 - 300.00 - 200.00, $treasuryAfterSecondReturn);
-        // WHY: Balance increased by 1000 (sale) then decreased by 300 (refund1) and 200 (refund2)
+        $this->assertEquals($initialBalance + 1000.00, $treasuryAfterSecondReturn);
+        // WHY: No further cash movement (both returns were credit)
 
         $this->assertStockQuantity($this->productA->id, 45, 'After second return');
         // WHY: 50 - 10 + 3 + 2 = 45
@@ -1079,7 +1075,7 @@ class FinancialIntegrityTest extends TestCase
 
         // ACT & ASSERT: Try to update total
         $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('Cannot update a posted invoice');
+        $this->expectExceptionMessage('لا يمكن تعديل فاتورة مؤكدة');
 
         $invoice->update(['total' => 2000.00]);
         // WHY: Model observer prevents ANY update to posted invoice

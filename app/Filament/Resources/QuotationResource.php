@@ -223,7 +223,33 @@ class QuotationResource extends Resource
                                     ->relationship('product', 'name')
                                     ->required()
                                     ->searchable(['name', 'barcode', 'sku'])
-                                    ->getOptionLabelFromRecordUsing(fn (Product $record) => "{$record->name} - {$record->barcode}")
+                                    ->getSearchResultsUsing(function (?string $search): array {
+                                        $query = Product::query();
+
+                                        if (!empty($search)) {
+                                            $query->where(function ($q) use ($search) {
+                                                $q->where('name', 'like', "%{$search}%")
+                                                  ->orWhere('sku', 'like', "%{$search}%")
+                                                  ->orWhere('barcode', 'like', "%{$search}%");
+                                            });
+                                        } else {
+                                            // Load latest products when no search
+                                            $query->latest();
+                                        }
+
+                                        return $query->limit(10)
+                                            ->get()
+                                            ->mapWithKeys(fn ($product) => [$product->id => "{$product->name} - {$product->barcode}"])
+                                            ->toArray();
+                                    })
+                                    ->getOptionLabelUsing(function ($value): string {
+                                        $product = Product::find($value);
+                                        return $product ? "{$product->name} - {$product->barcode}" : '';
+                                    })
+                                    ->loadingMessage('جاري التحميل...')
+                                    ->searchPrompt('ابحث عن منتج بالاسم أو الباركود أو SKU')
+                                    ->noSearchResultsMessage('لم يتم العثور على منتجات')
+                                    ->searchingMessage('جاري البحث...')
                                     ->preload()
                                     ->live()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {

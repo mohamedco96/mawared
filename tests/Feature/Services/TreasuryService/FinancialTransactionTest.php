@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Partner;
+use App\Models\SalesInvoice;
 use App\Models\Treasury;
 use App\Models\TreasuryTransaction;
 use App\Services\TreasuryService;

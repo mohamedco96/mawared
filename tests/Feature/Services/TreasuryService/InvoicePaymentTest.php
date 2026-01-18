@@ -227,18 +227,13 @@ test('it handles overpayment scenario', function () {
         'remaining_amount' => '10000.0000',
     ]);
 
-    // Overpayment: 15000 (more than total)
-    $payment = $this->treasuryService->recordInvoicePayment(
+    // Overpayment should now throw an exception
+    expect(fn () => $this->treasuryService->recordInvoicePayment(
         $invoice,
         amount: 15000.0,
         discount: 0.0,
         treasuryId: $this->treasury->id,
-    );
-
-    $invoice->refresh();
-    // paid_amount should be capped at total
-    expect((float)$invoice->paid_amount)->toBe(10000.0);
-    expect((float)$invoice->remaining_amount)->toBe(0.0);
+    ))->toThrow(\Exception::class, 'لا يمكن الدفع أكثر من المبلغ المتبقي');
 });
 
 test('it handles zero discount payment', function () {

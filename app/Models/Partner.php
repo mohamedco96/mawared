@@ -140,10 +140,6 @@ class Partner extends Model
                 ->where('reference_type', 'financial_transaction')
                 ->sum('amount'); // Already negative
 
-            // Settlement discounts given during invoice payments (amount + discount = total debt reduction)
-            $discounts = $this->invoicePayments()
-                ->sum('discount');
-
             // Discounts from financial transactions (not invoice-level discounts)
             $financialDiscounts = $this->treasuryTransactions()
                 ->where('type', 'discount')
@@ -156,14 +152,14 @@ class Partner extends Model
 
             // Formula explanation for customers (positive balance = they owe us):
             // Start with: Opening Balance + What they bought (Sales)
-            // Subtract: What they returned (Returns) + What they paid (Collections) + Invoice discounts + Financial discounts
+            // Subtract: What they returned (Returns) + What they paid (Collections) + Financial discounts
             // Add back: What we refunded to them (abs of negative Payments)
             // Since Payments is negative, we subtract it to add back the absolute value
 
-            return $openingBalance + $salesTotal - $returnsTotal - $collections - $discounts - $financialDiscounts - $payments;
+            return $openingBalance + $salesTotal - $returnsTotal - $collections - $financialDiscounts - $payments;
 
         } elseif ($this->type === 'supplier') {
-            // Supplier is owed money by us (negative balance means we owe them)
+            // Supplier: We owe them money (positive balance means we owe them)
 
             // What we bought on credit (only the unpaid portion - remaining_amount)
             // Cash invoices have remaining_amount = 0, so they don't affect balance
@@ -191,15 +187,11 @@ class Partner extends Model
                 ->where('reference_type', 'financial_transaction')
                 ->sum('amount'); // Positive
 
-            // Discounts from financial transactions (not invoice-level discounts)
+            // Financial transaction discounts (negative for payments, so adding reduces balance)
             $financialDiscounts = $this->treasuryTransactions()
                 ->where('type', 'discount')
                 ->where('reference_type', 'financial_transaction')
                 ->sum('amount'); // Negative for payments, positive for collections
-
-            // Settlement discounts received during payments (amount + discount = total debt reduction)
-            $discounts = $this->invoicePayments()
-                ->sum('discount');
 
             // IMPORTANT: Cash refunds do NOT affect supplier balance
             // When we return items for CASH, supplier gives us money but our debt stays the same
@@ -210,12 +202,11 @@ class Partner extends Model
             // Subtract: What we returned (Returns) - reduces what we owe
             // ADD: What we paid (Payments is negative, so adding reduces the positive balance - we owe less)
             //      Example: 1500 owed + (-800 payment) = 700 owed
-            // Subtract: Invoice-level discounts given during invoice payments
             // ADD: Financial transaction discounts (negative for payments, so adding reduces balance)
             // ADD: What they paid us back (Collections - when supplier owes us and pays us back)
             //      Collections are positive, adding them increases balance from negative towards zero
 
-            return $openingBalance + $purchaseTotal - $returnsTotal + $payments - $discounts + $financialDiscounts + $collections;
+            return $openingBalance + $purchaseTotal - $returnsTotal + $payments + $financialDiscounts + $collections;
 
         } else { // shareholder
             // Shareholders track capital deposits, drawings, etc. via treasury transactions only

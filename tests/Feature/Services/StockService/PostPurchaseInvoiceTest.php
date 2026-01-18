@@ -46,7 +46,7 @@ test('it adds stock correctly when purchase invoice is posted', function () {
     expect($movement)->not->toBeNull();
     expect($movement->quantity)->toBe(100); // Positive for purchase
     expect($movement->type)->toBe('purchase');
-    expect($movement->cost_at_time)->toBe('50.00');
+    expect($movement->cost_at_time)->toBe('50.0000');
 });
 
 test('it updates weighted average cost after purchase', function () {

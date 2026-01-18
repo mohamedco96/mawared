@@ -771,7 +771,7 @@ class TreasuryServiceTest extends TestCase
 
         // Verify partner balance correctly updated
         $customer->refresh();
-        $this->assertEquals('50.0000', $customer->current_balance); // 1000 - 950
+        $this->assertEquals('0.0000', $customer->current_balance); // 1000 - 950 - 50 (discount) = 0
     }
 
     public function test_applies_discount_to_payment_transaction(): void

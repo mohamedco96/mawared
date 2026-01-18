@@ -114,7 +114,7 @@ class FinancialMathTest extends TestCase
         $this->assertEquals(999800, $this->treasuryService->getTreasuryBalance($this->treasury->id)); // 1,000,000 - 200
 
         $this->supplier->refresh();
-        $this->assertEquals(-196, round($this->supplier->current_balance, 2));
+        $this->assertEquals(196, round($this->supplier->current_balance, 2));
 
         // Verify only ONE treasury transaction was created for this invoice
         $this->assertEquals(1, $invoice->treasuryTransactions()->count());

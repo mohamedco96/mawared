@@ -97,6 +97,30 @@ class WarehouseTransferResource extends Resource
                                     ->relationship('product', 'name')
                                     ->required()
                                     ->searchable(['name', 'barcode', 'sku'])
+                                    ->getSearchResultsUsing(function (?string $search): array {
+                                        $query = Product::query();
+
+                                        if (!empty($search)) {
+                                            $query->where(function ($q) use ($search) {
+                                                $q->where('name', 'like', "%{$search}%")
+                                                  ->orWhere('sku', 'like', "%{$search}%")
+                                                  ->orWhere('barcode', 'like', "%{$search}%");
+                                            });
+                                        } else {
+                                            // Load latest products when no search
+                                            $query->latest();
+                                        }
+
+                                        return $query->limit(10)->pluck('name', 'id')->toArray();
+                                    })
+                                    ->getOptionLabelUsing(function ($value): string {
+                                        $product = Product::find($value);
+                                        return $product ? $product->name : '';
+                                    })
+                                    ->loadingMessage('جاري التحميل...')
+                                    ->searchPrompt('ابحث عن منتج بالاسم أو الباركود أو SKU')
+                                    ->noSearchResultsMessage('لم يتم العثور على منتجات')
+                                    ->searchingMessage('جاري البحث...')
                                     ->preload()
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {

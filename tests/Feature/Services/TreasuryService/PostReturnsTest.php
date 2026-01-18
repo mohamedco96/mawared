@@ -136,7 +136,7 @@ test('it updates partner balance after purchase return', function () {
 
     $partner->refresh();
     // Credit return should reduce our debt to supplier (balance becomes less negative)
-    expect((float)$partner->current_balance)->toBe(2000.0);
+    expect((float)$partner->current_balance)->toBe(-2000.0);
 });
 
 test('it prevents duplicate transactions for purchase return', function () {

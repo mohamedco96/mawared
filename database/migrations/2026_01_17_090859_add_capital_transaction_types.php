@@ -12,24 +12,26 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Add new enum values to treasury_transactions.type column
-        DB::statement("ALTER TABLE treasury_transactions MODIFY COLUMN type ENUM(
-            'collection',
-            'payment',
-            'refund',
-            'capital_deposit',
-            'partner_drawing',
-            'partner_loan_receipt',
-            'partner_loan_repayment',
-            'employee_advance',
-            'salary_payment',
-            'income',
-            'expense',
-            'discount',
-            'profit_allocation',
-            'asset_contribution',
-            'depreciation_expense'
-        ) NOT NULL");
+        if (DB::getDriverName() !== 'sqlite') {
+            // Add new enum values to treasury_transactions.type column
+            DB::statement("ALTER TABLE treasury_transactions MODIFY COLUMN type ENUM(
+                'collection',
+                'payment',
+                'refund',
+                'capital_deposit',
+                'partner_drawing',
+                'partner_loan_receipt',
+                'partner_loan_repayment',
+                'employee_advance',
+                'salary_payment',
+                'income',
+                'expense',
+                'discount',
+                'profit_allocation',
+                'asset_contribution',
+                'depreciation_expense'
+            ) NOT NULL");
+        }
     }
 
     /**
@@ -37,20 +39,22 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Remove the new enum values
-        DB::statement("ALTER TABLE treasury_transactions MODIFY COLUMN type ENUM(
-            'collection',
-            'payment',
-            'refund',
-            'capital_deposit',
-            'partner_drawing',
-            'partner_loan_receipt',
-            'partner_loan_repayment',
-            'employee_advance',
-            'salary_payment',
-            'income',
-            'expense',
-            'discount'
-        ) NOT NULL");
+        if (DB::getDriverName() !== 'sqlite') {
+            // Remove the new enum values
+            DB::statement("ALTER TABLE treasury_transactions MODIFY COLUMN type ENUM(
+                'collection',
+                'payment',
+                'refund',
+                'capital_deposit',
+                'partner_drawing',
+                'partner_loan_receipt',
+                'partner_loan_repayment',
+                'employee_advance',
+                'salary_payment',
+                'income',
+                'expense',
+                'discount'
+            ) NOT NULL");
+        }
     }
 };

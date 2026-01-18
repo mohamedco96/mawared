@@ -102,17 +102,41 @@ class SalesReturnResource extends Resource
                                 if ($state) {
                                     $invoice = \App\Models\SalesInvoice::with('items.product')->find($state);
                                     if ($invoice) {
-                                        $items = $invoice->items->map(function ($item) {
+                                        // Check if invoice is fully returned
+                                        if ($invoice->isFullyReturned()) {
+                                            Notification::make()
+                                                ->danger()
+                                                ->title('لا يمكن إنشاء مرتجع')
+                                                ->body('هذه الفاتورة تم إرجاعها بالكامل')
+                                                ->send();
+                                            $set('sales_invoice_id', null);
+                                            $set('items', []);
+                                            return;
+                                        }
+
+                                        $items = $invoice->items->map(function ($item) use ($invoice) {
+                                            $availableQty = $invoice->getAvailableReturnQuantity($item->product_id, $item->unit_type);
                                             return [
                                                 'product_id' => $item->product_id,
                                                 'unit_type' => $item->unit_type,
-                                                'quantity' => 1,
+                                                'quantity' => min(1, $availableQty),
                                                 'unit_price' => $item->net_unit_price,
                                                 'discount' => 0,
-                                                'total' => $item->net_unit_price,
-                                                'max_quantity' => $item->quantity,
+                                                'total' => $item->net_unit_price * min(1, $availableQty),
+                                                'max_quantity' => $availableQty,
+                                                'original_quantity' => $item->quantity,
                                             ];
-                                        })->toArray();
+                                        })->filter(fn($item) => $item['max_quantity'] > 0)->toArray();
+
+                                        if (empty($items)) {
+                                            Notification::make()
+                                                ->warning()
+                                                ->title('تحذير')
+                                                ->body('جميع أصناف هذه الفاتورة تم إرجاعها بالكامل')
+                                                ->send();
+                                            $set('sales_invoice_id', null);
+                                        }
+
                                         $set('items', $items);
                                     }
                                 } else {
@@ -140,6 +164,30 @@ class SalesReturnResource extends Resource
                                     ->relationship('product', 'name')
                                     ->required()
                                     ->searchable(['name', 'barcode', 'sku'])
+                                    ->getSearchResultsUsing(function (?string $search): array {
+                                        $query = Product::query();
+
+                                        if (!empty($search)) {
+                                            $query->where(function ($q) use ($search) {
+                                                $q->where('name', 'like', "%{$search}%")
+                                                  ->orWhere('sku', 'like', "%{$search}%")
+                                                  ->orWhere('barcode', 'like', "%{$search}%");
+                                            });
+                                        } else {
+                                            // Load latest products when no search
+                                            $query->latest();
+                                        }
+
+                                        return $query->limit(10)->pluck('name', 'id')->toArray();
+                                    })
+                                    ->getOptionLabelUsing(function ($value): string {
+                                        $product = Product::find($value);
+                                        return $product ? $product->name : '';
+                                    })
+                                    ->loadingMessage('جاري التحميل...')
+                                    ->searchPrompt('ابحث عن منتج بالاسم أو الباركود أو SKU')
+                                    ->noSearchResultsMessage('لم يتم العثور على منتجات')
+                                    ->searchingMessage('جاري البحث...')
                                     ->preload()
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get, $record) {
@@ -212,13 +260,31 @@ class SalesReturnResource extends Resource
                                         'required',
                                         'integer',
                                         'min:1',
-                                        fn (): \Closure => function (string $attribute, $value, \Closure $fail) {
+                                        fn (Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
                                             if ($value !== null && intval($value) <= 0) {
                                                 $fail('الكمية يجب أن تكون أكبر من صفر.');
+                                            }
+
+                                            // Validate against max_quantity if sales_invoice_id is set
+                                            $salesInvoiceId = $get('../../sales_invoice_id');
+                                            if ($salesInvoiceId && $value !== null) {
+                                                $productId = $get('product_id');
+                                                $unitType = $get('unit_type');
+
+                                                if ($productId && $unitType) {
+                                                    $invoice = \App\Models\SalesInvoice::find($salesInvoiceId);
+                                                    if ($invoice) {
+                                                        $availableQty = $invoice->getAvailableReturnQuantity($productId, $unitType);
+                                                        if (intval($value) > $availableQty) {
+                                                            $fail("الكمية المتاحة للإرجاع هي {$availableQty} فقط.");
+                                                        }
+                                                    }
+                                                }
                                             }
                                         },
                                     ])
                                     ->validationAttribute('الكمية')
+                                    ->helperText(fn (Get $get) => $get('max_quantity') ? "الكمية المتاحة: {$get('max_quantity')}" : null)
                                     ->columnSpan(2),
                                 Forms\Components\TextInput::make('unit_price')
                                     ->label('سعر الوحدة')
