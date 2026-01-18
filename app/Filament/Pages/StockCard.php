@@ -66,7 +66,7 @@ class StockCard extends Page implements HasForms
                             ->placeholder('اختر المنتج'),
                         Forms\Components\Select::make('warehouse_id')
                             ->label('المخزن')
-                            ->options(['all' => 'جميع المخازن'] + Warehouse::pluck('name', 'id')->toArray())
+                            ->options(['all' => 'جميع المخازن'] + Warehouse::where('is_active', true)->pluck('name', 'id')->toArray())
                             ->default('all')
                             ->required(),
                         Forms\Components\DatePicker::make('from_date')

@@ -69,20 +69,36 @@ class CreateTreasuryTransaction extends CreateRecord
                                 $capitalService->createInitialPeriod(now(), $shareholders->all());
                             }
                         } else {
-                            // If period exists, add new shareholders to it and update percentages
-                            // Check if this partner is already in the current period
-                            $partnerInPeriod = \App\Models\EquityPeriodPartner::where('equity_period_id', $currentPeriod->id)
-                                ->where('partner_id', $partner->id)
-                                ->exists();
+                            // If period exists, sync ALL shareholders to it with updated percentages
+                            // This is necessary because changing one partner's capital affects everyone's percentage
+                            $allPartners = \App\Models\Partner::where('type', 'shareholder')->get();
 
-                            if (!$partnerInPeriod && in_array($this->record->type, ['capital_deposit', 'asset_contribution'])) {
-                                // New shareholder joining - add to current period with current capital
-                                \App\Models\EquityPeriodPartner::create([
-                                    'equity_period_id' => $currentPeriod->id,
-                                    'partner_id' => $partner->id,
-                                    'equity_percentage' => $partner->equity_percentage ?? 0,
-                                    'capital_at_start' => $partner->current_capital ?? 0,
-                                ]);
+                            foreach ($allPartners as $p) {
+                                $pivotRecord = \App\Models\EquityPeriodPartner::firstOrCreate(
+                                    [
+                                        'equity_period_id' => $currentPeriod->id,
+                                        'partner_id' => $p->id,
+                                    ],
+                                    [
+                                        'equity_percentage' => $p->equity_percentage ?? 0,
+                                        'capital_at_start' => $p->current_capital ?? 0,
+                                    ]
+                                );
+
+                                if (! $pivotRecord->wasRecentlyCreated) {
+                                    $pivotRecord->update([
+                                        'equity_percentage' => $p->equity_percentage ?? 0,
+                                    ]);
+                                }
+
+                                // If this is the partner from the current transaction, update their activity tracking fields
+                                if ($p->id === $partner->id) {
+                                    if (in_array($this->record->type, ['capital_deposit', 'asset_contribution'])) {
+                                        $pivotRecord->increment('capital_injected', abs($this->record->amount));
+                                    } elseif ($this->record->type === 'partner_drawing') {
+                                        $pivotRecord->increment('drawings_taken', abs($this->record->amount));
+                                    }
+                                }
                             }
                         }
                     }

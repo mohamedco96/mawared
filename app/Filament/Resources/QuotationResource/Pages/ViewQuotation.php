@@ -85,11 +85,12 @@ class ViewQuotation extends ViewRecord
                     $baseFields = [
                         Forms\Components\Select::make('warehouse_id')
                             ->label('المستودع')
-                            ->options(Warehouse::pluck('name', 'id'))
+                            ->options(Warehouse::where('is_active', true)->pluck('name', 'id'))
                             ->required()
                             ->native(false)
                             ->preload()
-                            ->searchable(),
+                            ->searchable()
+                            ->default(fn () => Warehouse::where('is_active', true)->first()?->id ?? Warehouse::first()?->id),
                         Forms\Components\Select::make('payment_method')
                             ->label('طريقة الدفع')
                             ->options(['cash' => 'نقدي', 'credit' => 'آجل'])

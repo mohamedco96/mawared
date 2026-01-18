@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\SalesReturnResource\Pages;
 use App\Models\Product;
 use App\Models\SalesReturn;
+use App\Models\Warehouse;
 use App\Services\StockService;
 use App\Services\TreasuryService;
 use Filament\Forms;
@@ -70,10 +71,11 @@ class SalesReturnResource extends Resource
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Select::make('warehouse_id')
                             ->label('المخزن')
-                            ->relationship('warehouse', 'name')
+                            ->relationship('warehouse', 'name', fn ($query) => $query->where('is_active', true))
                             ->required()
                             ->searchable()
                             ->preload()
+                            ->default(fn () => Warehouse::where('is_active', true)->first()?->id ?? Warehouse::first()?->id)
                             ->reactive()
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Select::make('partner_id')

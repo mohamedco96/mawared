@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\StockMovementResource\Pages;
 use App\Models\StockMovement;
+use App\Models\Warehouse;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -30,10 +31,11 @@ class StockMovementResource extends Resource
             ->schema([
                 Forms\Components\Select::make('warehouse_id')
                     ->label('المخزن')
-                    ->relationship('warehouse', 'name')
+                    ->relationship('warehouse', 'name', fn ($query) => $query->where('is_active', true))
                     ->required()
                     ->searchable()
-                    ->preload(),
+                    ->preload()
+                    ->default(fn () => Warehouse::where('is_active', true)->first()?->id ?? Warehouse::first()?->id),
                 Forms\Components\Select::make('product_id')
                     ->label('المنتج')
                     ->relationship('product', 'name')

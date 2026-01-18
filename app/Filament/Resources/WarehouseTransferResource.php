@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\WarehouseTransferResource\Pages;
 use App\Models\Product;
+use App\Models\Warehouse;
 use App\Models\WarehouseTransfer;
 use App\Services\StockService;
 use Filament\Forms;
@@ -48,10 +49,11 @@ class WarehouseTransferResource extends Resource
                             ->readOnly(fn ($context) => $context === 'edit'),
                         Forms\Components\Select::make('from_warehouse_id')
                             ->label('من المخزن')
-                            ->relationship('fromWarehouse', 'name')
+                            ->relationship('fromWarehouse', 'name', fn ($query) => $query->where('is_active', true))
                             ->required()
                             ->searchable()
                             ->preload()
+                            ->default(fn () => Warehouse::where('is_active', true)->first()?->id ?? Warehouse::first()?->id)
                             ->reactive()
                             ->afterStateUpdated(function ($state, Get $get, Set $set) {
                                 // Clear to_warehouse if same as from_warehouse
@@ -62,7 +64,7 @@ class WarehouseTransferResource extends Resource
                             }),
                         Forms\Components\Select::make('to_warehouse_id')
                             ->label('إلى المخزن')
-                            ->relationship('toWarehouse', 'name')
+                            ->relationship('toWarehouse', 'name', fn ($query) => $query->where('is_active', true))
                             ->required()
                             ->searchable()
                             ->preload()

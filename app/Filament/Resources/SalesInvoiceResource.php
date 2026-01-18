@@ -7,6 +7,7 @@ use App\Filament\Resources\SalesInvoiceResource\RelationManagers;
 use App\Models\Product;
 use App\Models\SalesInvoice;
 use App\Models\Treasury;
+use App\Models\Warehouse;
 use App\Services\StockService;
 use App\Services\TreasuryService;
 use Filament\Forms;
@@ -111,12 +112,12 @@ class SalesInvoiceResource extends Resource
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Select::make('warehouse_id')
                             ->label('المخزن')
-                            ->relationship('warehouse', 'name')
+                            ->relationship('warehouse', 'name', fn ($query) => $query->where('is_active', true))
                             ->required()
                             ->searchable()
                             ->preload()
                             ->reactive()
-                            ->default(fn () => \App\Models\Warehouse::where('is_active', true)->first()?->id ?? \App\Models\Warehouse::first()?->id)
+                            ->default(fn () => Warehouse::where('is_active', true)->first()?->id ?? Warehouse::first()?->id)
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Select::make('partner_id')
                             ->label('العميل')

@@ -25,7 +25,7 @@ class Revenue extends Model
     {
         return [
             'amount' => 'decimal:4',
-            'revenue_date' => 'date',
+            'revenue_date' => 'datetime',
         ];
     }
 

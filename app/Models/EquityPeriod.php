@@ -26,8 +26,8 @@ class EquityPeriod extends Model
     ];
 
     protected $casts = [
-        'start_date' => 'date',
-        'end_date' => 'date',
+        'start_date' => 'datetime',
+        'end_date' => 'datetime',
         'closed_at' => 'datetime',
         'net_profit' => 'decimal:4',
         'total_revenue' => 'decimal:4',

@@ -139,7 +139,8 @@ class CollectPayments extends Page implements HasTable
                             ->options(Treasury::pluck('name', 'id'))
                             ->required()
                             ->native(false)
-                            ->searchable(),
+                            ->searchable()
+                            ->default(fn () => Treasury::first()?->id),
                         Forms\Components\Textarea::make('notes')
                             ->label('ملاحظات')
                             ->rows(2),
@@ -197,7 +198,8 @@ class CollectPayments extends Page implements HasTable
                             ->options(Treasury::pluck('name', 'id'))
                             ->required()
                             ->native(false)
-                            ->searchable(),
+                            ->searchable()
+                            ->default(fn () => Treasury::first()?->id),
                         Forms\Components\Toggle::make('distribute_equally')
                             ->label('توزيع بالتساوي')
                             ->default(false)

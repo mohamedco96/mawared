@@ -3,7 +3,9 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\StockAdjustmentResource\Pages;
+use App\Models\Product;
 use App\Models\StockAdjustment;
+use App\Models\Warehouse;
 use App\Services\StockService;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -47,10 +49,11 @@ class StockAdjustmentResource extends Resource
                             ->disabled(fn ($record) => $record && $record->isPosted()),
                         Forms\Components\Select::make('warehouse_id')
                             ->label('المخزن')
-                            ->relationship('warehouse', 'name')
+                            ->relationship('warehouse', 'name', fn ($query) => $query->where('is_active', true))
                             ->required()
                             ->searchable()
                             ->preload()
+                            ->default(fn () => Warehouse::where('is_active', true)->first()?->id ?? Warehouse::first()?->id)
                             ->disabled(fn ($record) => $record && $record->isPosted()),
                         Forms\Components\Select::make('product_id')
                             ->label('المنتج')

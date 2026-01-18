@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\RevenueResource\Pages;
 use App\Models\Revenue;
+use App\Models\Treasury;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -50,14 +51,17 @@ class RevenueResource extends Resource
                         Forms\Components\Select::make('treasury_id')
                             ->label('الخزينة')
                             ->relationship('treasury', 'name')
+                            ->default(fn () => Treasury::first()?->id)
                             ->required()
                             ->searchable()
                             ->preload(),
-                        Forms\Components\DatePicker::make('revenue_date')
+                        Forms\Components\DateTimePicker::make('revenue_date')
                             ->label('تاريخ الإيراد')
                             ->required()
                             ->default(now())
-                            ->displayFormat('Y-m-d'),
+                            ->seconds(false)
+                            ->timezone('Africa/Cairo')
+                            ->displayFormat('Y-m-d H:i'),
                     ])
                     ->columns(2),
             ]);
@@ -85,7 +89,8 @@ class RevenueResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('revenue_date')
                     ->label('التاريخ')
-                    ->date()
+                    ->dateTime('Y-m-d H:i')
+                    ->timezone('Africa/Cairo')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('تاريخ الإنشاء')

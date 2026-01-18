@@ -76,8 +76,8 @@ class CapitalService
      */
     public function calculatePeriodProfit(EquityPeriod $period): float
     {
-        $startDate = $period->start_date->copy()->startOfDay();
-        $endDate = $period->end_date ? $period->end_date->copy()->endOfDay() : now()->endOfDay();
+        $startDate = $period->start_date->copy();
+        $endDate = $period->end_date ? $period->end_date->copy() : now();
 
         // Revenue: Sales - Sales Returns
         $salesRevenue = SalesInvoice::where('status', 'posted')
@@ -179,7 +179,7 @@ class CapitalService
      * Close current period and allocate profit
      * Automatically creates a new period after closing
      */
-    public function closePeriodAndAllocate(Carbon $endDate, ?string $notes = null): EquityPeriod
+    public function closePeriodAndAllocate(?Carbon $endDate = null, ?string $notes = null): EquityPeriod
     {
         return DB::transaction(function () use ($endDate, $notes) {
             // Get current open period
@@ -189,8 +189,8 @@ class CapitalService
                 throw new \Exception('No open period found to close');
             }
 
-            // Set end date
-            $period->end_date = $endDate;
+            // Set end date (defaults to now if not provided)
+            $period->end_date = $endDate ?? now();
 
             // Calculate and allocate profit
             $this->allocateProfitToPartners($period);
@@ -202,8 +202,8 @@ class CapitalService
             $period->notes = $notes;
             $period->save();
 
-            // Automatically create new period starting the next day
-            $this->createNewPeriod($endDate->copy()->addDay());
+            // Automatically create new period starting immediately after (same moment)
+            $this->createNewPeriod($period->end_date->copy()->addSecond());
 
             return $period;
         });
@@ -215,13 +215,7 @@ class CapitalService
     public function injectCapital(Partner $partner, float $amount, string $type = 'cash', ?array $metadata = null): void
     {
         DB::transaction(function () use ($partner, $amount, $type, $metadata) {
-            // Step 1: Auto-close current period if exists
-            $currentPeriod = $this->getCurrentPeriod();
-            if ($currentPeriod) {
-                $this->closePeriodAndAllocate(now(), "Auto-closed for capital injection");
-            }
-
-            // Step 2: Record the capital injection
+            // Step 1: Record the capital injection
             // For cash contributions, record a treasury transaction
             // For asset contributions, we don't record cash treasury transaction (the asset itself is tracked separately)
             if ($type === 'cash') {
@@ -237,15 +231,60 @@ class CapitalService
             }
             // Note: Asset contributions are tracked via the FixedAsset model, not cash treasury
 
-            // Step 3: Update partner's current_capital
-            $partner->current_capital = bcadd((string)$partner->current_capital, (string)$amount, 4);
+            // Step 2: Update partner's current_capital
+            $newCapital = bcadd((string)$partner->current_capital, (string)$amount, 4);
+            $partner->current_capital = $newCapital;
             $partner->save();
 
-            // Step 4: Recalculate and lock new percentages
-            $this->recalculateEquityPercentages();
+            // Step 3: Recalculate equity percentages for all shareholders
+            $newPercentages = $this->recalculateEquityPercentages();
+            $newEquityPercentage = $newPercentages[$partner->id] ?? 0;
 
-            // Step 5: Create new period with updated percentages
-            $this->createNewPeriod(now());
+            // Step 4: Check if we need to create initial period or update existing period
+            $currentPeriod = $this->getCurrentPeriod();
+
+            if (!$currentPeriod) {
+                // No open period exists - create the first one
+                $this->createNewPeriod(now());
+            } else {
+                // Update the existing period's partner percentages
+                // First, check if this partner already has a record in the current period
+                $periodPartner = EquityPeriodPartner::where('equity_period_id', $currentPeriod->id)
+                    ->where('partner_id', $partner->id)
+                    ->first();
+
+                if ($periodPartner) {
+                    // Update existing record
+                    $periodPartner->equity_percentage = $newEquityPercentage;
+                    $periodPartner->capital_at_start = $newCapital; // Update to reflect new capital
+                    $periodPartner->capital_injected = bcadd((string)$periodPartner->capital_injected, (string)$amount, 4);
+                    $periodPartner->save();
+                } else {
+                    // Create new record for this partner in the current period
+                    // Use the values we just calculated (no need to re-fetch from DB)
+                    EquityPeriodPartner::create([
+                        'equity_period_id' => $currentPeriod->id,
+                        'partner_id' => $partner->id,
+                        'equity_percentage' => $newEquityPercentage,
+                        'capital_at_start' => $newCapital,
+                        'capital_injected' => $amount,
+                    ]);
+                }
+
+                // Update all other partners' percentages in the current period
+                foreach ($newPercentages as $partnerId => $percentage) {
+                    if ($partnerId !== $partner->id) {
+                        $otherPeriodPartner = EquityPeriodPartner::where('equity_period_id', $currentPeriod->id)
+                            ->where('partner_id', $partnerId)
+                            ->first();
+
+                        if ($otherPeriodPartner) {
+                            $otherPeriodPartner->equity_percentage = $percentage;
+                            $otherPeriodPartner->save();
+                        }
+                    }
+                }
+            }
         });
     }
 
@@ -313,10 +352,23 @@ class CapitalService
     {
         return DB::transaction(function () use ($startDate) {
             // Close any existing open period first
-            EquityPeriod::where('status', 'open')->update([
-                'status' => 'closed',
-                'end_date' => $startDate->copy()->subDay()
-            ]);
+            $openPeriod = EquityPeriod::where('status', 'open')->first();
+            if ($openPeriod) {
+                // Only update end_date if it would be valid (after start_date)
+                $proposedEndDate = $startDate->copy()->subSecond();
+                if ($proposedEndDate->gte($openPeriod->start_date)) {
+                    $openPeriod->update([
+                        'status' => 'closed',
+                        'end_date' => $proposedEndDate
+                    ]);
+                } else {
+                    // If proposed end date is before start date, set them equal
+                    $openPeriod->update([
+                        'status' => 'closed',
+                        'end_date' => $openPeriod->start_date
+                    ]);
+                }
+            }
 
             // Create new period
             $period = EquityPeriod::create([

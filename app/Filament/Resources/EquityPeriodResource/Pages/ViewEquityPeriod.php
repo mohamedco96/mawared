@@ -64,7 +64,13 @@ class ViewEquityPeriod extends ViewRecord
                                     ->color('info'),
                                 Infolists\Components\TextEntry::make('pivot.capital_at_start')
                                     ->label('رأس المال في البداية')
-                                    ->money('EGP'),
+                                    ->money('EGP')
+                                    ->formatStateUsing(function ($record) {
+                                        // Total capital = capital at start + capital injected during period
+                                        $capitalAtStart = $record->pivot->capital_at_start ?? 0;
+                                        $capitalInjected = $record->pivot->capital_injected ?? 0;
+                                        return $capitalAtStart + $capitalInjected;
+                                    }),
                                 Infolists\Components\TextEntry::make('pivot.profit_allocated')
                                     ->label('الربح المخصص')
                                     ->money('EGP')

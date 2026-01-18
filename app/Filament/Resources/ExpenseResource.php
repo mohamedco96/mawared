@@ -85,11 +85,13 @@ class ExpenseResource extends Resource
                                 },
                             ])
                             ->validationAttribute('الخزينة'),
-                        Forms\Components\DatePicker::make('expense_date')
+                        Forms\Components\DateTimePicker::make('expense_date')
                             ->label('تاريخ المصروف')
                             ->required()
                             ->default(now())
-                            ->displayFormat('Y-m-d'),
+                            ->seconds(false)
+                            ->timezone('Africa/Cairo')
+                            ->displayFormat('Y-m-d H:i'),
                     ])
                     ->columns(2),
             ]);
@@ -117,7 +119,8 @@ class ExpenseResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('expense_date')
                     ->label('التاريخ')
-                    ->date()
+                    ->dateTime('Y-m-d H:i')
+                    ->timezone('Africa/Cairo')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('تاريخ الإنشاء')

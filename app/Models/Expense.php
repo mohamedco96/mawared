@@ -25,7 +25,7 @@ class Expense extends Model
     {
         return [
             'amount' => 'decimal:4',
-            'expense_date' => 'date',
+            'expense_date' => 'datetime',
         ];
     }
 
