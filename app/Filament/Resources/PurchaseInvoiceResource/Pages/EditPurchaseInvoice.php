@@ -57,7 +57,17 @@ class EditPurchaseInvoice extends EditRecord
                 }),
 
             Actions\DeleteAction::make()
-                ->visible(fn () => $this->record->isDraft()),
+                ->before(function (Actions\DeleteAction $action) {
+                    if ($this->getRecord()->hasAssociatedRecords()) {
+                        \Filament\Notifications\Notification::make()
+                            ->danger()
+                            ->title('لا يمكن الحذف')
+                            ->body('لا يمكن حذف الفاتورة لوجود حركات مخزون أو خزينة أو مدفوعات مرتبطة بها أو لأنها مؤكدة.')
+                            ->send();
+
+                        $action->halt();
+                    }
+                }),
         ];
     }
 

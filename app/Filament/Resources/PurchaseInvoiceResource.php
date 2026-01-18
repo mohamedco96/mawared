@@ -965,24 +965,48 @@ class PurchaseInvoiceResource extends Resource
                     }),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\DeleteAction::make()
-                    ->visible(fn (PurchaseInvoice $record) => $record->isDraft()),
+                    ->before(function (Tables\Actions\DeleteAction $action, PurchaseInvoice $record) {
+                        if ($record->hasAssociatedRecords()) {
+                            Notification::make()
+                                ->danger()
+                                ->title('لا يمكن الحذف')
+                                ->body('لا يمكن حذف الفاتورة لوجود حركات مخزون أو خزينة أو مدفوعات مرتبطة بها أو لأنها مؤكدة.')
+                                ->send();
+
+                            $action->halt();
+                        }
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
-                        ->before(function ($records) {
-                            foreach ($records as $record) {
-                                if ($record->stockMovements()->exists() ||
-                                    $record->treasuryTransactions()->exists() ||
-                                    $record->payments()->exists()) {
-                                    Notification::make()
-                                        ->danger()
-                                        ->title('خطأ في الحذف')
-                                        ->body("الفاتورة {$record->invoice_number} لديها حركات مرتبطة ولا يمكن حذفها")
-                                        ->send();
+                        ->action(function (Collection $records) {
+                            $skippedCount = 0;
+                            $deletedCount = 0;
 
-                                    throw new \Filament\Notifications\HaltActionException();
+                            $records->each(function (PurchaseInvoice $record) use (&$skippedCount, &$deletedCount) {
+                                if ($record->hasAssociatedRecords()) {
+                                    $skippedCount++;
+                                } else {
+                                    $record->delete();
+                                    $deletedCount++;
                                 }
+                            });
+
+                            if ($deletedCount > 0) {
+                                Notification::make()
+                                    ->success()
+                                    ->title('تم الحذف بنجاح')
+                                    ->body("تم حذف {$deletedCount} فاتورة")
+                                    ->send();
+                            }
+
+                            if ($skippedCount > 0) {
+                                Notification::make()
+                                    ->warning()
+                                    ->title('تم تخطي بعض الفواتير')
+                                    ->body("لم يتم حذف {$skippedCount} فاتورة لوجود حركات مالية مرتبطة أو لكونها مؤكدة")
+                                    ->send();
                             }
                         }),
                 ]),

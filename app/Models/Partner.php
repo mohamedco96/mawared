@@ -209,8 +209,9 @@ class Partner extends Model
             return $openingBalance + $purchaseTotal - $returnsTotal + $payments + $financialDiscounts + $collections;
 
         } else { // shareholder
-            // Shareholders track capital deposits, drawings, etc. via treasury transactions only
-            return $openingBalance + $this->treasuryTransactions()->sum('amount');
+            // Shareholders use current_capital instead of current_balance
+            // current_balance is not used for shareholders to avoid confusion
+            return 0;
         }
     }
 
@@ -347,18 +348,24 @@ class Partner extends Model
         return ['name', 'phone', 'gov_id'];
     }
 
+    /**
+     * Check if this partner has any associated financial records
+     */
+    public function hasAssociatedRecords(): bool
+    {
+        return $this->salesInvoices()->exists()
+            || $this->purchaseInvoices()->exists()
+            || $this->salesReturns()->exists()
+            || $this->purchaseReturns()->exists()
+            || $this->treasuryTransactions()->exists()
+            || $this->invoicePayments()->exists();
+    }
+
     // Deletion Protection
     protected static function booted(): void
     {
         static::deleting(function (Partner $partner) {
-            $hasInvoices = $partner->salesInvoices()->exists()
-                || $partner->purchaseInvoices()->exists();
-            $hasReturns = $partner->salesReturns()->exists()
-                || $partner->purchaseReturns()->exists();
-            $hasTransactions = $partner->treasuryTransactions()->exists();
-            $hasPayments = $partner->invoicePayments()->exists();
-
-            if ($hasInvoices || $hasReturns || $hasTransactions || $hasPayments) {
+            if ($partner->hasAssociatedRecords()) {
                 throw new \Exception('لا يمكن حذف الشريك لوجود فواتير أو معاملات مالية مرتبطة به');
             }
         });

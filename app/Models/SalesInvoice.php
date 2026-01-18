@@ -273,6 +273,17 @@ class SalesInvoice extends Model
         return max(0, $originalItem->quantity - $returnedQty);
     }
 
+    /**
+     * Check if this invoice has any associated financial records that prevent deletion
+     */
+    public function hasAssociatedRecords(): bool
+    {
+        return $this->stockMovements()->exists()
+            || $this->treasuryTransactions()->exists()
+            || $this->payments()->exists()
+            || $this->isPosted();
+    }
+
     // Immutable Logic: Prevent updates/deletes when posted
     protected static function booted(): void
     {
@@ -302,18 +313,8 @@ class SalesInvoice extends Model
         });
 
         static::deleting(function (SalesInvoice $invoice) {
-            // Check for related records using efficient exists() queries
-            $hasStockMovements = $invoice->stockMovements()->exists();
-            $hasTreasuryTransactions = $invoice->treasuryTransactions()->exists();
-            $hasPayments = $invoice->payments()->exists();
-
-            if ($hasStockMovements || $hasTreasuryTransactions || $hasPayments) {
-                throw new \Exception('لا يمكن حذف الفاتورة لوجود حركات مخزون أو خزينة أو مدفوعات مرتبطة بها. استخدم المرتجعات بدلاً من ذلك.');
-            }
-
-            // Fallback check for posted status
-            if ($invoice->isPosted()) {
-                throw new \Exception('لا يمكن حذف فاتورة مؤكدة');
+            if ($invoice->hasAssociatedRecords()) {
+                throw new \Exception('لا يمكن حذف الفاتورة لوجود حركات مخزون أو خزينة أو مدفوعات مرتبطة بها أو لأنها مؤكدة. استخدم المرتجعات بدلاً من ذلك.');
             }
         });
     }

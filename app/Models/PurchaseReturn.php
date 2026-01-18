@@ -84,6 +84,14 @@ class PurchaseReturn extends Model
         return $this->status === 'draft';
     }
 
+    /**
+     * Check if this return has any associated financial records that prevent deletion
+     */
+    public function hasAssociatedRecords(): bool
+    {
+        return $this->isPosted() || $this->stockMovements()->exists() || $this->treasuryTransactions()->exists();
+    }
+
     // Immutable Logic: Prevent updates/deletes when posted
     protected static function booted(): void
     {
@@ -93,13 +101,13 @@ class PurchaseReturn extends Model
 
             // If already posted, prevent any updates
             if ($originalStatus === 'posted' && $return->isDirty()) {
-                throw new \Exception('Cannot update a posted return');
+                throw new \Exception('لا يمكن تعديل مرتجع مؤكد');
             }
         });
 
         static::deleting(function (PurchaseReturn $return) {
-            if ($return->isPosted()) {
-                throw new \Exception('Cannot delete a posted return');
+            if ($return->hasAssociatedRecords()) {
+                throw new \Exception('لا يمكن حذف مرتجع مؤكد أو له حركات مالية مرتبطة');
             }
         });
     }

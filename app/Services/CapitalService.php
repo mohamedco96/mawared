@@ -76,8 +76,8 @@ class CapitalService
      */
     public function calculatePeriodProfit(EquityPeriod $period): float
     {
-        $startDate = $period->start_date;
-        $endDate = $period->end_date ?? now();
+        $startDate = $period->start_date->copy()->startOfDay();
+        $endDate = $period->end_date ? $period->end_date->copy()->endOfDay() : now()->endOfDay();
 
         // Revenue: Sales - Sales Returns
         $salesRevenue = SalesInvoice::where('status', 'posted')
@@ -177,6 +177,7 @@ class CapitalService
 
     /**
      * Close current period and allocate profit
+     * Automatically creates a new period after closing
      */
     public function closePeriodAndAllocate(Carbon $endDate, ?string $notes = null): EquityPeriod
     {
@@ -200,6 +201,9 @@ class CapitalService
             $period->closed_at = now();
             $period->notes = $notes;
             $period->save();
+
+            // Automatically create new period starting the next day
+            $this->createNewPeriod($endDate->copy()->addDay());
 
             return $period;
         });

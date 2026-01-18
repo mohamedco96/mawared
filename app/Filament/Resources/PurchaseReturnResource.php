@@ -570,11 +570,50 @@ class PurchaseReturnResource extends Resource
                     ->visible(fn (PurchaseReturn $record) => $record->isDraft()),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\DeleteAction::make()
-                    ->visible(fn (PurchaseReturn $record) => $record->isDraft()),
+                    ->before(function (Tables\Actions\DeleteAction $action, PurchaseReturn $record) {
+                        if ($record->hasAssociatedRecords()) {
+                            Notification::make()
+                                ->danger()
+                                ->title('لا يمكن الحذف')
+                                ->body('لا يمكن حذف المرتجع لأنه مؤكد أو له حركات مالية مرتبطة.')
+                                ->send();
+
+                            $action->halt();
+                        }
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $skippedCount = 0;
+                            $deletedCount = 0;
+
+                            $records->each(function (PurchaseReturn $record) use (&$skippedCount, &$deletedCount) {
+                                if ($record->hasAssociatedRecords()) {
+                                    $skippedCount++;
+                                } else {
+                                    $record->delete();
+                                    $deletedCount++;
+                                }
+                            });
+
+                            if ($deletedCount > 0) {
+                                Notification::make()
+                                    ->success()
+                                    ->title('تم الحذف بنجاح')
+                                    ->body("تم حذف {$deletedCount} مرتجع")
+                                    ->send();
+                            }
+
+                            if ($skippedCount > 0) {
+                                Notification::make()
+                                    ->warning()
+                                    ->title('تم تخطي بعض المرتجعات')
+                                    ->body("لم يتم حذف {$skippedCount} مرتجع لكونها مؤكدة أو لها حركات مرتبطة")
+                                    ->send();
+                            }
+                        }),
                 ]),
             ]);
     }

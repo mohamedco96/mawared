@@ -13,7 +13,18 @@ class EditQuotation extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\DeleteAction::make(),
+            Actions\DeleteAction::make()
+                ->before(function (Actions\DeleteAction $action) {
+                    if ($this->getRecord()->hasAssociatedRecords()) {
+                        \Filament\Notifications\Notification::make()
+                            ->danger()
+                            ->title('لا يمكن الحذف')
+                            ->body('لا يمكن حذف عرض السعر لأنه محول إلى فاتورة.')
+                            ->send();
+
+                        $action->halt();
+                    }
+                }),
         ];
     }
 }

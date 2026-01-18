@@ -174,29 +174,15 @@ class ProductCategoryResource extends Resource
                     ->label('تعديل'),
                 Tables\Actions\DeleteAction::make()
                     ->label('حذف')
-                    ->before(function (Tables\Actions\DeleteAction $action, Model $record) {
-                        // Check for related products
-                        if ($record->products()->exists()) {
+                    ->before(function (Tables\Actions\DeleteAction $action, ProductCategory $record) {
+                        if ($record->hasAssociatedRecords()) {
                             Notification::make()
                                 ->danger()
                                 ->title('لا يمكن حذف التصنيف')
-                                ->body('لا يمكن حذف التصنيف لوجود منتجات مرتبطة به')
-                                ->persistent()
+                                ->body('لا يمكن حذف التصنيف لوجود منتجات أو تصنيفات فرعية مرتبطة به.')
                                 ->send();
 
-                            $action->cancel();
-                        }
-
-                        // Check for child categories
-                        if ($record->children()->exists()) {
-                            Notification::make()
-                                ->danger()
-                                ->title('لا يمكن حذف التصنيف')
-                                ->body('لا يمكن حذف التصنيف لوجود تصنيفات فرعية مرتبطة به')
-                                ->persistent()
-                                ->send();
-
-                            $action->cancel();
+                            $action->halt();
                         }
                     }),
             ])
@@ -204,26 +190,33 @@ class ProductCategoryResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
                         ->label('حذف المحدد')
-                        ->before(function (Tables\Actions\DeleteBulkAction $action, $records) {
-                            $cannotDelete = [];
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $skippedCount = 0;
+                            $deletedCount = 0;
 
-                            foreach ($records as $record) {
-                                if ($record->products()->exists()) {
-                                    $cannotDelete[] = $record->name . ' (يحتوي على منتجات)';
-                                } elseif ($record->children()->exists()) {
-                                    $cannotDelete[] = $record->name . ' (يحتوي على تصنيفات فرعية)';
+                            $records->each(function (ProductCategory $record) use (&$skippedCount, &$deletedCount) {
+                                if ($record->hasAssociatedRecords()) {
+                                    $skippedCount++;
+                                } else {
+                                    $record->delete();
+                                    $deletedCount++;
                                 }
+                            });
+
+                            if ($deletedCount > 0) {
+                                Notification::make()
+                                    ->success()
+                                    ->title('تم الحذف بنجاح')
+                                    ->body("تم حذف {$deletedCount} تصنيف")
+                                    ->send();
                             }
 
-                            if (count($cannotDelete) > 0) {
+                            if ($skippedCount > 0) {
                                 Notification::make()
-                                    ->danger()
-                                    ->title('لا يمكن حذف بعض التصنيفات')
-                                    ->body('التصنيفات التالية لا يمكن حذفها: ' . implode(', ', $cannotDelete))
-                                    ->persistent()
+                                    ->warning()
+                                    ->title('تم تخطي بعض السجلات')
+                                    ->body("لم يتم حذف {$skippedCount} تصنيف لوجود سجلات مرتبطة")
                                     ->send();
-
-                                $action->cancel();
                             }
                         }),
                 ]),

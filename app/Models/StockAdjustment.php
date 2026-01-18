@@ -61,6 +61,14 @@ class StockAdjustment extends Model
         return $this->status === 'draft';
     }
 
+    /**
+     * Check if this adjustment has any associated financial records that prevent deletion
+     */
+    public function hasAssociatedRecords(): bool
+    {
+        return $this->isPosted() || $this->stockMovements()->exists();
+    }
+
     // Immutable Logic: Prevent updates/deletes when posted
     protected static function booted(): void
     {
@@ -70,13 +78,13 @@ class StockAdjustment extends Model
 
             // If already posted, prevent any updates
             if ($originalStatus === 'posted' && $adjustment->isDirty()) {
-                throw new \Exception('Cannot update a posted stock adjustment');
+                throw new \Exception('لا يمكن تعديل حركة مخزون مؤكدة');
             }
         });
 
         static::deleting(function (StockAdjustment $adjustment) {
-            if ($adjustment->isPosted()) {
-                throw new \Exception('Cannot delete a posted stock adjustment');
+            if ($adjustment->hasAssociatedRecords()) {
+                throw new \Exception('لا يمكن حذف حركة مخزون مؤكدة أو لها حركات مخزون مرتبطة');
             }
         });
     }

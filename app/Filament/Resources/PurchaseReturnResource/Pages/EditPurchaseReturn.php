@@ -15,7 +15,17 @@ class EditPurchaseReturn extends EditRecord
     {
         return [
             Actions\DeleteAction::make()
-                ->visible(fn () => $this->record->isDraft()),
+                ->before(function (Actions\DeleteAction $action) {
+                    if ($this->getRecord()->hasAssociatedRecords()) {
+                        \Filament\Notifications\Notification::make()
+                            ->danger()
+                            ->title('لا يمكن الحذف')
+                            ->body('لا يمكن حذف المرتجع لأنه مؤكد أو له حركات مالية مرتبطة.')
+                            ->send();
+
+                        $action->halt();
+                    }
+                }),
         ];
     }
 

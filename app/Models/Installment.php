@@ -42,6 +42,14 @@ class Installment extends Model
     }
 
     /**
+     * Check if this installment has any associated financial records that prevent deletion
+     */
+    public function hasAssociatedRecords(): bool
+    {
+        return $this->paid_amount > 0 || $this->status === 'paid' || $this->invoice_payment_id !== null;
+    }
+
+    /**
      * Prevent modification of critical fields after creation
      */
     protected static function booted(): void
@@ -57,8 +65,8 @@ class Installment extends Model
         });
 
         static::deleting(function (Installment $installment) {
-            if ($installment->paid_amount > 0) {
-                throw new \Exception('لا يمكن حذف قسط تم دفع مبلغ منه');
+            if ($installment->hasAssociatedRecords()) {
+                throw new \Exception('لا يمكن حذف قسط تم دفع مبلغ منه أو مرتبط بعملية دفع');
             }
         });
     }

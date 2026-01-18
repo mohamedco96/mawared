@@ -14,7 +14,18 @@ class EditProductCategory extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\DeleteAction::make(),
+            Actions\DeleteAction::make()
+                ->before(function (Actions\DeleteAction $action) {
+                    if ($this->getRecord()->hasAssociatedRecords()) {
+                        Notification::make()
+                            ->danger()
+                            ->title('لا يمكن حذف التصنيف')
+                            ->body('لا يمكن حذف التصنيف لوجود منتجات أو تصنيفات فرعية مرتبطة به.')
+                            ->send();
+
+                        $action->halt();
+                    }
+                }),
         ];
     }
 

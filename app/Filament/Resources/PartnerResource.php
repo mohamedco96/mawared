@@ -7,9 +7,11 @@ use App\Models\Partner;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
 
 class PartnerResource extends Resource
 {
@@ -71,8 +73,9 @@ class PartnerResource extends Resource
                             ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->disabled()
-                            ->dehydrated()
-                            ->default(0),
+                            ->dehydrated(false)
+                            ->default(0)
+                            ->visible(fn (Get $get) => $get('type') !== 'shareholder'),
                     ])
                     ->columns(2),
 
@@ -262,11 +265,51 @@ class PartnerResource extends Resource
                     ]))
                     ->openUrlInNewTab(false)
                     ->visible(fn () => auth()->user()?->can('page_PartnerStatement')),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->before(function (Tables\Actions\DeleteAction $action, Partner $record) {
+                        if ($record->hasAssociatedRecords()) {
+                            Notification::make()
+                                ->danger()
+                                ->title('لا يمكن الحذف')
+                                ->body('لا يمكن حذف الشريك لوجود فواتير أو معاملات مالية مرتبطة به')
+                                ->send();
+
+                            $action->halt();
+                        }
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->action(function (Collection $records) {
+                            $skippedCount = 0;
+                            $deletedCount = 0;
+
+                            $records->each(function (Partner $record) use (&$skippedCount, &$deletedCount) {
+                                if ($record->hasAssociatedRecords()) {
+                                    $skippedCount++;
+                                } else {
+                                    $record->delete();
+                                    $deletedCount++;
+                                }
+                            });
+
+                            if ($deletedCount > 0) {
+                                Notification::make()
+                                    ->success()
+                                    ->title('تم الحذف بنجاح')
+                                    ->body("تم حذف {$deletedCount} سجل")
+                                    ->send();
+                            }
+
+                            if ($skippedCount > 0) {
+                                Notification::make()
+                                    ->warning()
+                                    ->title('تم تخطي بعض السجلات')
+                                    ->body("لم يتم حذف {$skippedCount} شريك لوجود سجلات مالية مرتبطة")
+                                    ->send();
+                            }
+                        }),
                 ]),
             ]);
     }

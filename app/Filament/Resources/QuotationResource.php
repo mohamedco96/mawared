@@ -532,11 +532,50 @@ class QuotationResource extends Resource
                 Tables\Actions\EditAction::make()
                     ->visible(fn (Quotation $record) => $record->canBeEdited()),
                 Tables\Actions\DeleteAction::make()
-                    ->visible(fn (Quotation $record) => $record->status === 'draft'),
+                    ->before(function (Tables\Actions\DeleteAction $action, Quotation $record) {
+                        if ($record->hasAssociatedRecords()) {
+                            Notification::make()
+                                ->danger()
+                                ->title('لا يمكن الحذف')
+                                ->body('لا يمكن حذف عرض السعر لأنه محول إلى فاتورة.')
+                                ->send();
+
+                            $action->halt();
+                        }
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $skippedCount = 0;
+                            $deletedCount = 0;
+
+                            $records->each(function (Quotation $record) use (&$skippedCount, &$deletedCount) {
+                                if ($record->hasAssociatedRecords()) {
+                                    $skippedCount++;
+                                } else {
+                                    $record->delete();
+                                    $deletedCount++;
+                                }
+                            });
+
+                            if ($deletedCount > 0) {
+                                Notification::make()
+                                    ->success()
+                                    ->title('تم الحذف بنجاح')
+                                    ->body("تم حذف {$deletedCount} عرض سعر")
+                                    ->send();
+                            }
+
+                            if ($skippedCount > 0) {
+                                Notification::make()
+                                    ->warning()
+                                    ->title('تم تخطي بعض السجلات')
+                                    ->body("لم يتم حذف {$skippedCount} عرض سعر لكونها محولة إلى فواتير")
+                                    ->send();
+                            }
+                        }),
                 ]),
             ])
             ->defaultSort('created_at', 'desc');

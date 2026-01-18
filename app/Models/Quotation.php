@@ -156,6 +156,11 @@ class Quotation extends Model
         $this->save();
     }
 
+    public function hasAssociatedRecords(): bool
+    {
+        return $this->status === 'converted' || $this->converted_invoice_id !== null;
+    }
+
     // Model Events
     protected static function booted(): void
     {
@@ -182,6 +187,12 @@ class Quotation extends Model
             // Prevent editing converted quotations
             if ($original === 'converted' && $quotation->isDirty() && !$quotation->isDirty('status')) {
                 throw new \Exception('لا يمكن تعديل عرض سعر محول إلى فاتورة');
+            }
+        });
+
+        static::deleting(function (Quotation $quotation) {
+            if ($quotation->hasAssociatedRecords()) {
+                throw new \Exception('لا يمكن حذف عرض سعر محول إلى فاتورة');
             }
         });
     }

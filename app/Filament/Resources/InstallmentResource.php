@@ -290,10 +290,52 @@ class InstallmentResource extends Resource
                     ]))
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('إغلاق'),
+
+                Tables\Actions\DeleteAction::make()
+                    ->before(function (Tables\Actions\DeleteAction $action, Installment $record) {
+                        if ($record->hasAssociatedRecords()) {
+                            Notification::make()
+                                ->danger()
+                                ->title('لا يمكن الحذف')
+                                ->body('لا يمكن حذف القسط لوجود مبالغ مدفوعة مرتبطة به.')
+                                ->send();
+
+                            $action->halt();
+                        }
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $skippedCount = 0;
+                            $deletedCount = 0;
+
+                            $records->each(function (Installment $record) use (&$skippedCount, &$deletedCount) {
+                                if ($record->hasAssociatedRecords()) {
+                                    $skippedCount++;
+                                } else {
+                                    $record->delete();
+                                    $deletedCount++;
+                                }
+                            });
+
+                            if ($deletedCount > 0) {
+                                Notification::make()
+                                    ->success()
+                                    ->title('تم الحذف بنجاح')
+                                    ->body("تم حذف {$deletedCount} قسط")
+                                    ->send();
+                            }
+
+                            if ($skippedCount > 0) {
+                                Notification::make()
+                                    ->warning()
+                                    ->title('تم تخطي بعض السجلات')
+                                    ->body("لم يتم حذف {$skippedCount} قسط لوجود مبالغ مدفوعة مرتبطة")
+                                    ->send();
+                            }
+                        }),
                 ]),
             ])
             ->emptyStateHeading('لا توجد أقساط')
@@ -319,16 +361,6 @@ class InstallmentResource extends Resource
     public static function canCreate(): bool
     {
         return false; // Installments are auto-generated
-    }
-
-    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
-    {
-        return false; // Prevent editing through UI
-    }
-
-    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
-    {
-        return $record->paid_amount == 0;
     }
 
     public static function getNavigationBadge(): ?string

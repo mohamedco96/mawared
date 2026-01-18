@@ -63,6 +63,14 @@ class ProductCategory extends Model
         return $query->whereNull('parent_id');
     }
 
+    /**
+     * Check if this category has any associated records that prevent deletion
+     */
+    public function hasAssociatedRecords(): bool
+    {
+        return $this->products()->exists() || $this->children()->exists();
+    }
+
     // Model Events
     protected static function booted(): void
     {
@@ -104,16 +112,8 @@ class ProductCategory extends Model
         });
 
         static::deleting(function (ProductCategory $category) {
-            // Check for related products
-            $hasProducts = $category->products()->exists();
-            if ($hasProducts) {
-                return false; // Prevent deletion
-            }
-
-            // Check for child categories
-            $hasChildren = $category->children()->exists();
-            if ($hasChildren) {
-                return false; // Prevent deletion
+            if ($category->hasAssociatedRecords()) {
+                throw new \Exception('لا يمكن حذف التصنيف لوجود منتجات أو تصنيفات فرعية مرتبطة به');
             }
         });
     }

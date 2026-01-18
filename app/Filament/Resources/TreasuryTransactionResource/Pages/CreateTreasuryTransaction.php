@@ -47,7 +47,49 @@ class CreateTreasuryTransaction extends CreateRecord
         // Update partner balance if partner is involved
         if ($this->record->partner_id) {
             DB::transaction(function () use ($treasuryService) {
-                $treasuryService->updatePartnerBalance($this->record->partner_id);
+                $partner = \App\Models\Partner::find($this->record->partner_id);
+
+                if ($partner && $partner->type === 'shareholder') {
+                    // For capital-related transactions, update current_capital and trigger equity recalculation
+                    if (in_array($this->record->type, ['capital_deposit', 'partner_drawing', 'asset_contribution'])) {
+                        $partner->recalculateCapital();
+
+                        // Recalculate equity percentages for all shareholders
+                        $capitalService = app(\App\Services\CapitalService::class);
+                        $capitalService->recalculateEquityPercentages();
+
+                        // Reload partner to get updated equity percentage
+                        $partner->refresh();
+
+                        // Auto-create initial period ONLY if none exists (first shareholder case)
+                        $currentPeriod = $capitalService->getCurrentPeriod();
+                        if (!$currentPeriod) {
+                            $shareholders = \App\Models\Partner::where('type', 'shareholder')->get();
+                            if ($shareholders->isNotEmpty()) {
+                                $capitalService->createInitialPeriod(now(), $shareholders->all());
+                            }
+                        } else {
+                            // If period exists, add new shareholders to it and update percentages
+                            // Check if this partner is already in the current period
+                            $partnerInPeriod = \App\Models\EquityPeriodPartner::where('equity_period_id', $currentPeriod->id)
+                                ->where('partner_id', $partner->id)
+                                ->exists();
+
+                            if (!$partnerInPeriod && in_array($this->record->type, ['capital_deposit', 'asset_contribution'])) {
+                                // New shareholder joining - add to current period with current capital
+                                \App\Models\EquityPeriodPartner::create([
+                                    'equity_period_id' => $currentPeriod->id,
+                                    'partner_id' => $partner->id,
+                                    'equity_percentage' => $partner->equity_percentage ?? 0,
+                                    'capital_at_start' => $partner->current_capital ?? 0,
+                                ]);
+                            }
+                        }
+                    }
+                } else {
+                    // For customers/suppliers, update balance as normal
+                    $treasuryService->updatePartnerBalance($this->record->partner_id);
+                }
             });
         }
 
