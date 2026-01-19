@@ -174,7 +174,13 @@ class CreatePurchaseInvoice extends CreateRecord
 
                         $record->saveQuietly();
 
-                        \Log::info('After saveQuietly', [
+                        // 4. Recalculate partner balance AFTER status is posted
+                        // This is necessary because recalculateBalance() only sums 'posted' invoices
+                        if ($record->partner_id) {
+                            app(\App\Services\TreasuryService::class)->updatePartnerBalance($record->partner_id);
+                        }
+
+                        \Log::info('After saveQuietly and balance update', [
                             'status' => $record->status,
                             'original_status' => $record->getOriginal('status'),
                             'transaction_level' => DB::transactionLevel(),

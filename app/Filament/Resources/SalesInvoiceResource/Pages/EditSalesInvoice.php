@@ -152,7 +152,13 @@ class EditSalesInvoice extends EditRecord
                     $record->status = 'posted';
                     $record->saveQuietly();
 
-                    // 4. Generate installments if plan is enabled
+                    // 4. Recalculate partner balance AFTER status is posted
+                    // This is necessary because recalculateBalance() only sums 'posted' invoices
+                    if ($record->partner_id) {
+                        app(\App\Services\TreasuryService::class)->updatePartnerBalance($record->partner_id);
+                    }
+
+                    // 5. Generate installments if plan is enabled
                     if ($record->has_installment_plan) {
                         app(\App\Services\InstallmentService::class)
                             ->generateInstallmentSchedule($record);

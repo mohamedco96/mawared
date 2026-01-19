@@ -127,6 +127,12 @@ class EditPurchaseInvoice extends EditRecord
                     // 3. Update status back to posted (using saveQuietly to bypass model events)
                     $record->status = 'posted';
                     $record->saveQuietly();
+
+                    // 4. Recalculate partner balance AFTER status is posted
+                    // This is necessary because recalculateBalance() only sums 'posted' invoices
+                    if ($record->partner_id) {
+                        app(\App\Services\TreasuryService::class)->updatePartnerBalance($record->partner_id);
+                    }
                 });
 
                 // Show success notification (outside transaction)

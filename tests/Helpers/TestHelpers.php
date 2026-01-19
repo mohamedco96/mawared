@@ -20,7 +20,9 @@ class TestHelpers
         ?Unit $largeUnit = null,
         int $factor = 12,
         string $avgCost = '50.00',
-        string $retailPrice = '100.00'
+        string $retailPrice = '100.00',
+        ?string $wholesalePrice = null,
+        ?string $largeWholesalePrice = null
     ): Product {
         $smallUnit = $smallUnit ?? Unit::factory()->create(['name' => 'قطعة', 'symbol' => 'قطعة']);
         $largeUnit = $largeUnit ?? Unit::factory()->create(['name' => 'كرتونة', 'symbol' => 'كرتونة']);
@@ -32,6 +34,8 @@ class TestHelpers
             'avg_cost' => $avgCost,
             'retail_price' => $retailPrice,
             'large_retail_price' => (string)((float)$retailPrice * $factor),
+            'wholesale_price' => $wholesalePrice ?? (string)((float)$retailPrice * 0.9),
+            'large_wholesale_price' => $largeWholesalePrice ?? (string)((float)$retailPrice * $factor * 0.9),
         ]);
     }
 

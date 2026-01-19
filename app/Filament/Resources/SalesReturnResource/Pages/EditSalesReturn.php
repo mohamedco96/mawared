@@ -161,7 +161,12 @@ class EditSalesReturn extends EditRecord
 
                     $record->saveQuietly();
 
-                    \Log::info('After saveQuietly', [
+                    // Recalculate partner balance AFTER status is posted
+                    if ($record->partner_id) {
+                        app(\App\Services\TreasuryService::class)->updatePartnerBalance($record->partner_id);
+                    }
+
+                    \Log::info('After saveQuietly and balance update', [
                         'status' => $record->status,
                         'original_status' => $record->getOriginal('status'),
                         'transaction_level' => DB::transactionLevel(),
