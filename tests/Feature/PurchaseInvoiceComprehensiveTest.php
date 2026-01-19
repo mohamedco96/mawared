@@ -104,6 +104,79 @@ test('it fails to post cash purchase when treasury balance is insufficient', fun
     expect(StockMovement::where('product_id', $product->id)->count())->toBe(0);
 });
 
+test('it handles standard cash purchase correctly', function () {
+    $partner = Partner::factory()->supplier()->create(['opening_balance' => 0]);
+    $product = TestHelpers::createDualUnitProduct($this->units['piece'], $this->units['carton'], avgCost: '100.00');
+
+    $invoice = PurchaseInvoice::factory()->create([
+        'partner_id' => $partner->id,
+        'warehouse_id' => $this->warehouse->id,
+        'status' => 'draft',
+        'payment_method' => 'cash',
+        'subtotal' => '1000.00',
+        'total' => '1000.00',
+        'paid_amount' => '1000.00',
+        'remaining_amount' => '0.00',
+    ]);
+
+    $invoice->items()->create([
+        'product_id' => $product->id,
+        'quantity' => 10,
+        'unit_type' => 'small',
+        'unit_cost' => '100.00',
+        'total' => '1000.00',
+    ]);
+
+    fullPostPurchaseInvoice($invoice, $this->treasury->id);
+
+    // 1. Treasury Check
+    $transaction = TreasuryTransaction::where('reference_id', $invoice->id)->first();
+    expect((float)$transaction->amount)->toBe(-1000.00);
+
+    // 2. Partner Balance Check (Cash purchase should not increase debt)
+    $partner->refresh();
+    expect((float)$partner->current_balance)->toBe(0.00);
+
+    // 3. Stock Check
+    $movement = StockMovement::where('reference_id', $invoice->id)->first();
+    expect($movement->quantity)->toBe(10);
+});
+
+test('it handles credit purchase with partial payment correctly', function () {
+    $partner = Partner::factory()->supplier()->create(['opening_balance' => 0]);
+    $product = TestHelpers::createDualUnitProduct($this->units['piece'], $this->units['carton'], avgCost: '100.00');
+
+    $invoice = PurchaseInvoice::factory()->create([
+        'partner_id' => $partner->id,
+        'warehouse_id' => $this->warehouse->id,
+        'status' => 'draft',
+        'payment_method' => 'credit',
+        'subtotal' => '1000.00',
+        'total' => '1000.00',
+        'paid_amount' => '300.00',
+        'remaining_amount' => '700.00',
+    ]);
+
+    $invoice->items()->create([
+        'product_id' => $product->id,
+        'quantity' => 10,
+        'unit_type' => 'small',
+        'unit_cost' => '100.00',
+        'total' => '1000.00',
+    ]);
+
+    fullPostPurchaseInvoice($invoice, $this->treasury->id);
+
+    // 1. Treasury Check (Transaction for paid amount only)
+    $transaction = TreasuryTransaction::where('reference_id', $invoice->id)->first();
+    expect((float)$transaction->amount)->toBe(-300.00);
+
+    // 2. Partner Balance Check (Debt increases by remaining amount)
+    $partner->refresh();
+    expect((float)$partner->current_balance)->toBe(700.00);
+});
+
+
 test('it handles purchase invoice with discount correctly', function () {
     $partner = Partner::factory()->supplier()->create();
     $product = TestHelpers::createDualUnitProduct($this->units['piece'], $this->units['carton'], avgCost: '100.00');
