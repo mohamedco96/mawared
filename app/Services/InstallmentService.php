@@ -6,6 +6,7 @@ use App\Models\Installment;
 use App\Models\InvoicePayment;
 use App\Models\SalesInvoice;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class InstallmentService
 {
@@ -13,18 +14,16 @@ class InstallmentService
      * Generate installment schedule for an invoice
      * Called after invoice is posted
      *
-     * @param  SalesInvoice  $invoice
-     * @return void
      * @throws \Exception
      */
     public function generateInstallmentSchedule(SalesInvoice $invoice): void
     {
         // Validation
-        if (!$invoice->has_installment_plan) {
+        if (! $invoice->has_installment_plan) {
             return; // No plan defined
         }
 
-        if (!$invoice->isPosted()) {
+        if (! $invoice->isPosted()) {
             throw new \Exception('الفاتورة يجب أن تكون مرحّلة لتوليد الأقساط');
         }
 
@@ -87,61 +86,59 @@ class InstallmentService
 
     /**
      * Apply payment to installments (FIFO - oldest first)
-     *
-     * @param  SalesInvoice  $invoice
-     * @param  InvoicePayment  $payment
-     * @return void
      */
     public function applyPaymentToInstallments(
         SalesInvoice $invoice,
         InvoicePayment $payment
     ): void {
-        $remainingPayment = (string) $payment->amount;
+        DB::transaction(function () use ($invoice, $payment) {
+            $remainingPayment = (string) $payment->amount;
 
-        // CRITICAL: Lock installments to prevent race conditions
-        $installments = $invoice->installments()
-            ->where('status', '!=', 'paid')
-            ->orderBy('due_date')
-            ->lockForUpdate() // Prevents concurrent payment processing
-            ->get();
+            // CRITICAL: Lock installments to prevent race conditions
+            $installments = $invoice->installments()
+                ->where('status', '!=', 'paid')
+                ->orderBy('due_date')
+                ->lockForUpdate() // Prevents concurrent payment processing
+                ->get();
 
-        foreach ($installments as $installment) {
-            if (bccomp($remainingPayment, '0', 4) <= 0) {
-                break;
+            foreach ($installments as $installment) {
+                if (bccomp($remainingPayment, '0', 4) <= 0) {
+                    break;
+                }
+
+                $amountDue = bcsub((string) $installment->amount, (string) $installment->paid_amount, 4);
+
+                // Apply only what's needed (prevent overpayment of individual installment)
+                $amountToApply = bccomp($remainingPayment, $amountDue, 4) === 1
+                    ? $amountDue
+                    : $remainingPayment;
+
+                $installment->paid_amount = bcadd((string) $installment->paid_amount, $amountToApply, 4);
+
+                // STRICT equality check (not >=)
+                if (bccomp((string) $installment->paid_amount, (string) $installment->amount, 4) === 0) {
+                    $installment->status = 'paid';
+                    $installment->paid_at = now();
+                    $installment->paid_by = auth()->id();
+                    $installment->invoice_payment_id = $payment->id;
+                }
+
+                $installment->save();
+
+                $remainingPayment = bcsub($remainingPayment, $amountToApply, 4);
             }
 
-            $amountDue = bcsub((string) $installment->amount, (string) $installment->paid_amount, 4);
-
-            // Apply only what's needed (prevent overpayment of individual installment)
-            $amountToApply = bccomp($remainingPayment, $amountDue, 4) === 1
-                ? $amountDue
-                : $remainingPayment;
-
-            $installment->paid_amount = bcadd((string) $installment->paid_amount, $amountToApply, 4);
-
-            // STRICT equality check (not >=)
-            if (bccomp((string) $installment->paid_amount, (string) $installment->amount, 4) === 0) {
-                $installment->status = 'paid';
-                $installment->paid_at = now();
-                $installment->paid_by = auth()->id();
-                $installment->invoice_payment_id = $payment->id;
+            // Track unapplied payment (overpayment scenario)
+            if (bccomp($remainingPayment, '0', 4) === 1) {
+                activity()
+                    ->performedOn($invoice)
+                    ->withProperties([
+                        'payment_id' => $payment->id,
+                        'overpayment_amount' => $remainingPayment,
+                    ])
+                    ->log('تحذير: دفعة تزيد عن إجمالي الأقساط المتبقية');
             }
-
-            $installment->save();
-
-            $remainingPayment = bcsub($remainingPayment, $amountToApply, 4);
-        }
-
-        // Track unapplied payment (overpayment scenario)
-        if (bccomp($remainingPayment, '0', 4) === 1) {
-            activity()
-                ->performedOn($invoice)
-                ->withProperties([
-                    'payment_id' => $payment->id,
-                    'overpayment_amount' => $remainingPayment,
-                ])
-                ->log('تحذير: دفعة تزيد عن إجمالي الأقساط المتبقية');
-        }
+        });
     }
 
     /**

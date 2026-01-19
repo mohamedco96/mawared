@@ -97,18 +97,8 @@ class TreasuryService
             return $transaction;
         };
 
-        // Only wrap in transaction if not already in one
-        $transactionLevel = DB::transactionLevel();
-        \Log::info('Checking transaction level before recordTransaction', [
-            'transaction_level' => $transactionLevel,
-            'will_create_nested' => $transactionLevel === 0,
-        ]);
-
-        if ($transactionLevel === 0) {
-            return DB::transaction($execute);
-        } else {
-            return $execute();
-        }
+        // Always wrap in transaction to ensure atomicity
+        return DB::transaction($execute);
     }
 
     /**
@@ -122,12 +112,8 @@ class TreasuryService
             $partner->recalculateBalance();
         };
 
-        // Only wrap in transaction if not already in one
-        if (DB::transactionLevel() === 0) {
-            DB::transaction($execute);
-        } else {
-            $execute();
-        }
+        // Always wrap in transaction to ensure atomicity
+        DB::transaction($execute);
     }
 
     /**
@@ -301,12 +287,8 @@ class TreasuryService
             }
         };
 
-        // Only wrap in transaction if not already in one
-        if (DB::transactionLevel() === 0) {
-            DB::transaction($execute);
-        } else {
-            $execute();
-        }
+        // Always wrap in transaction to ensure atomicity
+        DB::transaction($execute);
     }
 
     /**
@@ -384,18 +366,8 @@ class TreasuryService
             }
         };
 
-        // Only wrap in transaction if not already in one
-        $transactionLevel = DB::transactionLevel();
-        \Log::info('Checking transaction level before postPurchaseInvoice', [
-            'transaction_level' => $transactionLevel,
-            'will_create_nested' => $transactionLevel === 0,
-        ]);
-
-        if ($transactionLevel === 0) {
-            DB::transaction($execute);
-        } else {
-            $execute();
-        }
+        // Always wrap in transaction to ensure atomicity
+        DB::transaction($execute);
 
         \Log::info('TreasuryService::postPurchaseInvoice completed', [
             'invoice_id' => $invoice->id,
@@ -547,7 +519,7 @@ class TreasuryService
                     'treasury_id' => $treasuryId,
                     'type' => 'discount',
                     'amount' => $discountAmount,
-                    'description' => $description . ' - خصم تسوية',
+                    'description' => $description.' - خصم تسوية',
                     'partner_id' => $partnerId,
                     'reference_type' => 'financial_transaction',
                     'reference_id' => null,
@@ -576,6 +548,7 @@ class TreasuryService
 
             if ($existingTransaction) {
                 \Log::warning("Expense {$expense->id} already has treasury transaction {$existingTransaction->id}. Skipping duplicate.");
+
                 return;
             }
 
@@ -621,7 +594,7 @@ class TreasuryService
             'purchase_amount' => $asset->purchase_amount,
         ]);
 
-        if (!$asset->isDraft()) {
+        if (! $asset->isDraft()) {
             throw new \Exception('الأصل الثابت ليس في حالة مسودة');
         }
 
@@ -629,9 +602,9 @@ class TreasuryService
             // The Fixed Asset record itself represents the DEBIT (Asset Account)
             // Now we need to record the CREDIT (Funding Source)
 
-            $description = 'شراء أصل ثابت: ' . $asset->name;
+            $description = 'شراء أصل ثابت: '.$asset->name;
             if ($asset->description) {
-                $description .= ' - ' . $asset->description;
+                $description .= ' - '.$asset->description;
             }
 
             switch ($asset->funding_method) {
@@ -643,7 +616,7 @@ class TreasuryService
                         $asset->treasury_id,
                         'expense', // Reuse existing expense type
                         -abs($asset->purchase_amount), // Negative for expense (Credit Treasury)
-                        $description . ' - مدفوع نقداً',
+                        $description.' - مدفوع نقداً',
                         null,
                         'fixed_asset',
                         $asset->id
@@ -658,7 +631,7 @@ class TreasuryService
 
                     // Get or create supplier partner
                     $supplierId = $asset->supplier_id;
-                    if (!$supplierId && $asset->supplier_name) {
+                    if (! $supplierId && $asset->supplier_name) {
                         // Create a supplier partner if only name was provided
                         $supplier = \App\Models\Partner::create([
                             'name' => $asset->supplier_name,
@@ -689,7 +662,7 @@ class TreasuryService
                     // Credit: Partner's Equity (increase capital contribution)
                     // Debit: Fixed Asset (recorded in fixed_assets table)
 
-                    if (!$asset->partner_id) {
+                    if (! $asset->partner_id) {
                         throw new \Exception('يجب تحديد الشريك عند اختيار طريقة التمويل: مساهمة رأسمالية');
                     }
 
@@ -708,7 +681,7 @@ class TreasuryService
                         floatval($asset->purchase_amount),
                         'asset', // Type is 'asset' not 'cash' - no treasury transaction will be created
                         [
-                            'description' => $description . ' - مساهمة رأسمالية',
+                            'description' => $description.' - مساهمة رأسمالية',
                             'reference_type' => 'fixed_asset',
                             'reference_id' => $asset->id,
                         ]
