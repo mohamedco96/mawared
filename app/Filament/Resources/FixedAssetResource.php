@@ -20,11 +20,11 @@ class FixedAssetResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-building-office-2';
 
-    protected static ?string $navigationLabel = 'الأصول الثابتة';
+    protected static ?string $navigationLabel = 'الأصول الثابتة (ممتلكات الشركة)';
 
     protected static ?string $modelLabel = 'أصل ثابت';
 
-    protected static ?string $pluralModelLabel = 'الأصول الثابتة';
+    protected static ?string $pluralModelLabel = 'الأصول الثابتة (ممتلكات الشركة)';
 
     protected static ?string $navigationGroup = 'الإدارة المالية';
 
@@ -89,15 +89,15 @@ class FixedAssetResource extends Resource
                     ])
                     ->columns(2),
 
-                Forms\Components\Section::make('مصدر التمويل')
-                    ->description('حدد كيف تم تمويل شراء هذا الأصل (محاسبة القيد المزدوج)')
+                Forms\Components\Section::make('مصدر التمويل (منين جبنا الفلوس)')
+                    ->description('حدد كيف تم تمويل شراء هذا الأصل')
                     ->schema([
                         Forms\Components\Select::make('funding_method')
                             ->label('طريقة التمويل')
                             ->options([
-                                'payable' => 'شراء بالآجل (دائن / ذمم)',
-                                'cash' => 'مدفوع فوراً من الخزينة',
-                                'equity' => 'مساهمة رأسمالية من شريك',
+                                'payable' => 'آجل (فلوس علينا للمورد)',
+                                'cash' => 'نقدي من الخزينة (خروج فلوس)',
+                                'equity' => 'مساهمة من شريك (فلوس من صاحب الشغل)',
                             ])
                             ->default('payable')
                             ->required()
@@ -150,12 +150,12 @@ class FixedAssetResource extends Resource
 
                         // Equity: Show Partner Selector
                         Forms\Components\Select::make('partner_id')
-                            ->label('الشريك المساهم')
+                            ->label('الشريك المساهم (صاحب الشغل)')
                             ->relationship('partner', 'name', fn ($query) => $query->where('type', 'shareholder'))
                             ->searchable()
                             ->preload()
                             ->required(fn (Forms\Get $get) => $get('funding_method') === 'equity')
-                            ->helperText('اختر الشريك الذي قام بالمساهمة الرأسمالية')
+                            ->helperText('اختر الشريك الذي قام بالمساهمة')
                             ->visible(fn (Forms\Get $get) => $get('funding_method') === 'equity'),
                     ])
                     ->columns(2),
@@ -174,7 +174,7 @@ class FixedAssetResource extends Resource
                             ->live(onBlur: true),
 
                         Forms\Components\TextInput::make('salvage_value')
-                            ->label('قيمة الخردة')
+                            ->label('قيمة الخردة (لو اتباع)')
                             ->numeric()
                             ->default(0)
                             ->minValue(0)
@@ -231,7 +231,7 @@ class FixedAssetResource extends Resource
                             ->visible(fn ($record) => $record !== null),
 
                         Forms\Components\Placeholder::make('book_value_info')
-                            ->label('القيمة الدفترية')
+                            ->label('القيمة الدفترية (قيمته دلوقتي)')
                             ->content(function ($record, Get $get) {
                                 if ($record && method_exists($record, 'getBookValue')) {
                                     return number_format($record->getBookValue(), 2) . ' ج.م';
@@ -308,7 +308,7 @@ class FixedAssetResource extends Resource
                     ->date()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('book_value')
-                    ->label('القيمة الدفترية')
+                    ->label('القيمة الدفترية (قيمته دلوقتي)')
                     ->getStateUsing(fn ($record) => method_exists($record, 'getBookValue') ? $record->getBookValue() : $record->purchase_amount)
                     ->numeric(decimalPlaces: 2)
                     ->badge()
@@ -323,11 +323,11 @@ class FixedAssetResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\IconColumn::make('is_contributed_asset')
-                    ->label('مساهمة شريك')
+                    ->label('من شريك؟')
                     ->boolean()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('contributingPartner.name')
-                    ->label('الشريك المساهم')
+                    ->label('الشريك المساهم (صاحب الشغل)')
                     ->default('—')
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')

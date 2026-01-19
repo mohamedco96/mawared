@@ -17,11 +17,11 @@ class RevenueResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-arrow-trending-up';
 
-    protected static ?string $navigationLabel = 'الإيرادات';
+    protected static ?string $navigationLabel = 'الإيرادات (دخول فلوس)';
 
     protected static ?string $modelLabel = 'إيراد';
 
-    protected static ?string $pluralModelLabel = 'الإيرادات';
+    protected static ?string $pluralModelLabel = 'الإيرادات (دخول فلوس)';
 
     protected static ?string $navigationGroup = 'المبيعات';
 

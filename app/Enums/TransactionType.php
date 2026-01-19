@@ -48,21 +48,21 @@ enum TransactionType: string
     public function getLabel(): string
     {
         return match($this) {
-            self::COLLECTION => 'تحصيل من عميل',
-            self::PAYMENT => 'دفع لمورد',
+            self::COLLECTION => 'تحصيل من عميل (دخول فلوس)',
+            self::PAYMENT => 'سداد لمورد (خروج فلوس)',
             self::REFUND => 'مرتجع',
-            self::CAPITAL_DEPOSIT => 'إيداع رأس المال',
-            self::PARTNER_DRAWING => 'سحب شريك',
-            self::PARTNER_LOAN_RECEIPT => 'استلام قرض من شريك',
-            self::PARTNER_LOAN_REPAYMENT => 'سداد قرض لشريك',
-            self::EMPLOYEE_ADVANCE => 'سلفة موظف',
-            self::SALARY_PAYMENT => 'راتب موظف',
-            self::INCOME => 'إيراد آخر',
-            self::EXPENSE => 'مصروف تشغيلي',
+            self::CAPITAL_DEPOSIT => 'إيداع رأس مال (فلوس من شريك)',
+            self::PARTNER_DRAWING => 'سحب شريك (خروج فلوس)',
+            self::PARTNER_LOAN_RECEIPT => 'قرض من شريك (دخول فلوس)',
+            self::PARTNER_LOAN_REPAYMENT => 'سداد قرض لشريك (خروج فلوس)',
+            self::EMPLOYEE_ADVANCE => 'سلفة موظف (خروج فلوس)',
+            self::SALARY_PAYMENT => 'راتب موظف (خروج فلوس)',
+            self::INCOME => 'إيراد آخر (دخول فلوس)',
+            self::EXPENSE => 'مصروف تشغيلي (خروج فلوس)',
             self::PROFIT_ALLOCATION => 'توزيع أرباح',
             self::ASSET_CONTRIBUTION => 'مساهمة بأصل ثابت',
             self::DEPRECIATION_EXPENSE => 'استهلاك أصول',
-            self::COMMISSION_PAYOUT => 'دفع عمولة مبيعات',
+            self::COMMISSION_PAYOUT => 'دفع عمولة مبيعات (خروج)',
             self::COMMISSION_REVERSAL => 'عكس عمولة (مرتجع)',
         };
     }
@@ -132,8 +132,8 @@ enum TransactionType: string
     public static function getCategoryLabel(string $category): string
     {
         return match($category) {
-            'commercial' => 'عمليات تجارية',
-            'partners' => 'عمليات الشركاء والموظفين',
+            'commercial' => 'عمليات تجارية (قبض وصرف)',
+            'partners' => 'عمليات الشركاء والموظفين (أصحاب الشغل)',
             default => $category,
         };
     }

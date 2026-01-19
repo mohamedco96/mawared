@@ -44,6 +44,7 @@ class SalesInvoiceResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         $count = static::getModel()::where('status', 'draft')->count();
+
         return $count > 0 ? (string) $count : null;
     }
 
@@ -120,7 +121,7 @@ class SalesInvoiceResource extends Resource
                             ->default(fn () => Warehouse::where('is_active', true)->first()?->id ?? Warehouse::first()?->id)
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Select::make('partner_id')
-                            ->label('العميل')
+                            ->label('العميل (فلوس لينا عنده)')
                             ->relationship('partner', 'name', fn ($query) => $query->where('type', 'customer'))
                             ->required()
                             ->searchable()
@@ -224,11 +225,11 @@ class SalesInvoiceResource extends Resource
 
                                         $query = Product::query();
 
-                                        if (!empty($search)) {
+                                        if (! empty($search)) {
                                             $query->where(function ($q) use ($search) {
                                                 $q->where('name', 'like', "%{$search}%")
-                                                  ->orWhere('sku', 'like', "%{$search}%")
-                                                  ->orWhere('barcode', 'like', "%{$search}%");
+                                                    ->orWhere('sku', 'like', "%{$search}%")
+                                                    ->orWhere('barcode', 'like', "%{$search}%");
                                             });
                                         } else {
                                             // Load latest products when no search
@@ -237,7 +238,7 @@ class SalesInvoiceResource extends Resource
 
                                         if ($warehouseId) {
                                             $query->withSum([
-                                                'stockMovements' => fn($q) => $q->where('warehouse_id', $warehouseId)
+                                                'stockMovements' => fn ($q) => $q->where('warehouse_id', $warehouseId),
                                             ], 'quantity');
                                         }
 
@@ -247,15 +248,15 @@ class SalesInvoiceResource extends Resource
                                                 $stock = $warehouseId ? ($product->stock_movements_sum_quantity ?? 0) : 0;
 
                                                 // Color indicators based on stock level
-                                                $emoji = match(true) {
-                                                    !$warehouseId => '⚠️',
+                                                $emoji = match (true) {
+                                                    ! $warehouseId => '⚠️',
                                                     $stock <= 0 => '🔴',
                                                     $stock <= ($product->min_stock ?? 0) => '🟡',
                                                     default => '🟢'
                                                 };
 
                                                 $label = $warehouseId
-                                                    ? "{$product->name} {$emoji} (متوفر: " . number_format($stock, 2) . ")"
+                                                    ? "{$product->name} {$emoji} (متوفر: ".number_format($stock, 2).')'
                                                     : "{$product->name} {$emoji}";
 
                                                 return [$product->id => $label];
@@ -264,6 +265,7 @@ class SalesInvoiceResource extends Resource
                                     })
                                     ->getOptionLabelUsing(function ($value): string {
                                         $product = Product::find($value);
+
                                         return $product ? $product->name : '';
                                     })
                                     ->loadingMessage('جاري التحميل...')
@@ -296,17 +298,17 @@ class SalesInvoiceResource extends Resource
                                     ->hint(function (Get $get) {
                                         $productId = $get('product_id');
 
-                                        if (!$productId) {
+                                        if (! $productId) {
                                             return null;
                                         }
 
                                         $warehouseId = $get('../../warehouse_id');
-                                        if (!$warehouseId) {
+                                        if (! $warehouseId) {
                                             return '⚠️ اختر المخزن أولاً';
                                         }
 
                                         $product = Product::find($productId);
-                                        if (!$product) {
+                                        if (! $product) {
                                             return null;
                                         }
 
@@ -328,23 +330,23 @@ class SalesInvoiceResource extends Resource
                                         $productId = $get('product_id');
                                         $warehouseId = $get('../../warehouse_id');
 
-                                        if (!$productId) {
+                                        if (! $productId) {
                                             return null;
                                         }
 
-                                        if (!$warehouseId) {
+                                        if (! $warehouseId) {
                                             return 'warning';
                                         }
 
                                         $product = Product::find($productId);
-                                        if (!$product) {
+                                        if (! $product) {
                                             return null;
                                         }
 
                                         $stockService = app(\App\Services\StockService::class);
                                         $stock = $stockService->getCurrentStock($warehouseId, $productId);
 
-                                        return match(true) {
+                                        return match (true) {
                                             $stock <= 0 => 'danger',
                                             $stock <= ($product->min_stock ?? 0) => 'warning',
                                             default => 'success'
@@ -403,7 +405,7 @@ class SalesInvoiceResource extends Resource
                                         $warehouseId = $get('../../warehouse_id');
                                         $unitType = $get('unit_type') ?? 'small';
 
-                                        if (!$productId || !$warehouseId) {
+                                        if (! $productId || ! $warehouseId) {
                                             return 'أدخل الكمية';
                                         }
 
@@ -430,6 +432,7 @@ class SalesInvoiceResource extends Resource
                                             // Validate positive quantity
                                             if ($value !== null && intval($value) <= 0) {
                                                 $fail('الكمية يجب أن تكون أكبر من صفر.');
+
                                                 return;
                                             }
 
@@ -437,12 +440,12 @@ class SalesInvoiceResource extends Resource
                                             $warehouseId = $get('../../warehouse_id');
                                             $unitType = $get('unit_type') ?? 'small';
 
-                                            if (!$productId || !$warehouseId || !$value) {
+                                            if (! $productId || ! $warehouseId || ! $value) {
                                                 return;
                                             }
 
                                             $product = \App\Models\Product::find($productId);
-                                            if (!$product) {
+                                            if (! $product) {
                                                 return;
                                             }
 
@@ -456,7 +459,7 @@ class SalesInvoiceResource extends Resource
                                                 $unitType
                                             );
 
-                                            if (!$validation['is_available']) {
+                                            if (! $validation['is_available']) {
                                                 $fail($validation['message']);
                                             }
                                         },
@@ -477,12 +480,12 @@ class SalesInvoiceResource extends Resource
                                     })
                                     ->helperText(function (Get $get) {
                                         // Security: Check permission
-                                        if (!auth()->user()->can('view_cost_price')) {
+                                        if (! auth()->user()->can('view_cost_price')) {
                                             return null;
                                         }
 
                                         $productId = $get('product_id');
-                                        if (!$productId) {
+                                        if (! $productId) {
                                             return null;
                                         }
 
@@ -495,7 +498,7 @@ class SalesInvoiceResource extends Resource
                                             ->latest('created_at')
                                             ->first();
 
-                                        if (!$lastPurchase) {
+                                        if (! $lastPurchase) {
                                             return 'لا توجد سجلات شراء';
                                         }
 
@@ -512,16 +515,16 @@ class SalesInvoiceResource extends Resource
                                             ->modalWidth('3xl')
                                             ->modalContent(function (Get $get) {
                                                 $productId = $get('product_id');
-                                                if (!$productId) {
+                                                if (! $productId) {
                                                     return view('filament.components.empty-state', [
-                                                        'message' => 'يرجى اختيار منتج أولاً'
+                                                        'message' => 'يرجى اختيار منتج أولاً',
                                                     ]);
                                                 }
 
                                                 $product = \App\Models\Product::find($productId);
-                                                if (!$product) {
+                                                if (! $product) {
                                                     return view('filament.components.empty-state', [
-                                                        'message' => 'المنتج غير موجود'
+                                                        'message' => 'المنتج غير موجود',
                                                     ]);
                                                 }
 
@@ -591,7 +594,8 @@ class SalesInvoiceResource extends Resource
                             ->label('عدد الأصناف')
                             ->content(function (Get $get) {
                                 $items = $get('items') ?? [];
-                                return count($items) . ' صنف';
+
+                                return count($items).' صنف';
                             }),
                         Forms\Components\Placeholder::make('calculated_subtotal')
                             ->label('المجموع الفرعي')
@@ -652,7 +656,7 @@ class SalesInvoiceResource extends Resource
                                     } else {
                                         // Fixed discount
                                         if (floatval($value) > $subtotal) {
-                                            $fail('قيمة الخصم (' . number_format($value, 2) . ') لا يمكن أن تتجاوز المجموع الفرعي (' . number_format($subtotal, 2) . ').');
+                                            $fail('قيمة الخصم ('.number_format($value, 2).') لا يمكن أن تتجاوز المجموع الفرعي ('.number_format($subtotal, 2).').');
                                         }
                                     }
                                 },
@@ -692,13 +696,14 @@ class SalesInvoiceResource extends Resource
                         Forms\Components\Placeholder::make('calculated_commission')
                             ->label('قيمة العمولة')
                             ->content(function (Get $get) {
-                                if (!$get('sales_person_id')) {
+                                if (! $get('sales_person_id')) {
                                     return '—';
                                 }
                                 $total = floatval($get('total') ?? 0);
                                 $rate = floatval($get('commission_rate') ?? 0) / 100;
                                 $commission = $total * $rate;
-                                return number_format($commission, 2) . ' ج.م';
+
+                                return number_format($commission, 2).' ج.م';
                             })
                             ->visible(fn (Get $get) => $get('sales_person_id') !== null)
                             ->extraAttributes(['style' => 'color: #f59e0b; font-weight: bold;']),
@@ -721,6 +726,7 @@ class SalesInvoiceResource extends Resource
                                 if ($get('payment_method') === 'cash') {
                                     return floatval($get('total'));
                                 }
+
                                 return floatval($state);
                             })
                             // C. REACTIVITY: Only needed for updating remaining_amount in Credit mode
@@ -744,7 +750,7 @@ class SalesInvoiceResource extends Resource
                             ])
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\TextInput::make('remaining_amount')
-                            ->label('المبلغ المتبقي')
+                            ->label('المبلغ المتبقي (فلوس لينا عنده)')
                             ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->default(0)
@@ -910,8 +916,8 @@ class SalesInvoiceResource extends Resource
                                 // Check if selling below cost
                                 if ($warnBelowCost && $totalProfit < 0) {
                                     return new \Illuminate\Support\HtmlString(
-                                        '<span style="color: #ef4444; font-weight: bold;">⚠️ تحذير: البيع بأقل من التكلفة!</span> ' .
-                                        '<br><span style="color: #ef4444;">(خسارة: ' . number_format(abs($marginPct), 1) . '%)</span>'
+                                        '<span style="color: #ef4444; font-weight: bold;">⚠️ تحذير: البيع بأقل من التكلفة!</span> '.
+                                        '<br><span style="color: #ef4444;">(خسارة: '.number_format(abs($marginPct), 1).'%)</span>'
                                     );
                                 }
 
@@ -944,7 +950,7 @@ class SalesInvoiceResource extends Resource
                             ->helperText('تفعيل نظام الأقساط للمبلغ المتبقي بعد الدفعة الأولى')
                             ->reactive()
                             ->afterStateUpdated(function ($state, Set $set) {
-                                if (!$state) {
+                                if (! $state) {
                                     $set('installment_months', null);
                                     $set('installment_start_date', null);
                                     $set('installment_notes', null);
@@ -982,7 +988,7 @@ class SalesInvoiceResource extends Resource
                                 $startDate = $get('installment_start_date');
                                 $remainingAmount = floatval($get('remaining_amount') ?? 0);
 
-                                if (!$hasInstallment || !$startDate || $remainingAmount <= 0) {
+                                if (! $hasInstallment || ! $startDate || $remainingAmount <= 0) {
                                     return '—';
                                 }
 
@@ -1000,14 +1006,14 @@ class SalesInvoiceResource extends Resource
                                     $html .= '<tr class="border-t">';
                                     $html .= "<td class='p-2 text-center border border-gray-300 dark:border-gray-600'>القسط {$i}</td>";
                                     $html .= "<td class='p-2 text-center border border-gray-300 dark:border-gray-600'>{$currentDate->format('Y-m-d')}</td>";
-                                    $html .= "<td class='p-2 text-center border border-gray-300 dark:border-gray-600'>" . number_format($installmentAmount, 2) . " ج.م</td>";
+                                    $html .= "<td class='p-2 text-center border border-gray-300 dark:border-gray-600'>".number_format($installmentAmount, 2).' ج.م</td>';
                                     $html .= '</tr>';
                                     $currentDate->addMonth();
                                 }
 
                                 $html .= '</tbody><tfoot><tr class="bg-gray-100 dark:bg-gray-800 font-bold">';
                                 $html .= '<td colspan="2" class="p-2 text-center border border-gray-300 dark:border-gray-600">الإجمالي</td>';
-                                $html .= '<td class="p-2 text-center border border-gray-300 dark:border-gray-600">' . number_format($remainingAmount, 2) . ' ج.م</td>';
+                                $html .= '<td class="p-2 text-center border border-gray-300 dark:border-gray-600">'.number_format($remainingAmount, 2).' ج.م</td>';
                                 $html .= '</tr></tfoot></table>';
                                 $html .= '</div>';
 
@@ -1143,14 +1149,16 @@ class SalesInvoiceResource extends Resource
                 Tables\Columns\TextColumn::make('profit_margin')
                     ->label('هامش الربح')
                     ->state(function ($record) {
-                        if (!auth()->user()->can('view_profit')) {
+                        if (! auth()->user()->can('view_profit')) {
                             return null;
                         }
 
                         $totalProfit = 0;
                         foreach ($record->items as $item) {
                             $product = $item->product;
-                            if (!$product) continue;
+                            if (! $product) {
+                                continue;
+                            }
 
                             $baseQty = $item->unit_type === 'large' && $product->factor
                                 ? $item->quantity * $product->factor
@@ -1161,17 +1169,20 @@ class SalesInvoiceResource extends Resource
                         }
 
                         $marginPct = $record->total > 0 ? ($totalProfit / $record->total) * 100 : 0;
+
                         return $marginPct;
                     })
-                    ->formatStateUsing(fn ($state) => $state !== null ? number_format($state, 1) . '%' : '—')
+                    ->formatStateUsing(fn ($state) => $state !== null ? number_format($state, 1).'%' : '—')
                     ->badge()
                     ->color(function ($state) {
-                        if ($state === null) return 'gray';
+                        if ($state === null) {
+                            return 'gray';
+                        }
 
                         $excellent = floatval(\App\Models\GeneralSetting::getValue('profit_margin_excellent', 25));
                         $good = floatval(\App\Models\GeneralSetting::getValue('profit_margin_good', 15));
 
-                        return match(true) {
+                        return match (true) {
                             $state < 0 => 'danger',
                             $state >= $excellent => 'success',
                             $state >= $good => 'warning',
@@ -1190,11 +1201,12 @@ class SalesInvoiceResource extends Resource
                     ->badge()
                     ->color(fn ($record) => $record->commission_paid ? 'success' : 'warning')
                     ->formatStateUsing(function ($record) {
-                        if (!$record->sales_person_id || $record->commission_amount <= 0) {
+                        if (! $record->sales_person_id || $record->commission_amount <= 0) {
                             return '—';
                         }
                         $amount = number_format($record->commission_amount, 2);
                         $status = $record->commission_paid ? '✓' : '✗';
+
                         return "{$amount} {$status}";
                     })
                     ->toggleable(),
@@ -1349,7 +1361,7 @@ class SalesInvoiceResource extends Resource
                                             ->dehydrated(false)
                                             ->numeric()
                                             ->extraAttributes(fn (Get $get) => [
-                                                'style' => ($get('change') ?? 0) < 0 ? 'color: #ef4444; font-weight: bold;' : ''
+                                                'style' => ($get('change') ?? 0) < 0 ? 'color: #ef4444; font-weight: bold;' : '',
                                             ]),
                                         Forms\Components\TextInput::make('new_stock')
                                             ->label('المخزون الجديد')
@@ -1357,7 +1369,7 @@ class SalesInvoiceResource extends Resource
                                             ->dehydrated(false)
                                             ->numeric()
                                             ->extraAttributes(fn (Get $get) => [
-                                                'style' => ($get('new_stock') ?? 0) < 0 ? 'color: #ef4444; font-weight: bold;' : ''
+                                                'style' => ($get('new_stock') ?? 0) < 0 ? 'color: #ef4444; font-weight: bold;' : '',
                                             ]),
                                     ])
                                     ->columns(4)
@@ -1373,11 +1385,11 @@ class SalesInvoiceResource extends Resource
                             ->schema([
                                 Forms\Components\Placeholder::make('treasury_impact')
                                     ->label('الدخول إلى الخزينة')
-                                    ->content(fn ($state) => number_format($state ?? 0, 2) . ' ج.م')
+                                    ->content(fn ($state) => number_format($state ?? 0, 2).' ج.م')
                                     ->extraAttributes(['style' => 'color: #10b981; font-size: 1.25rem; font-weight: bold;']),
                                 Forms\Components\Placeholder::make('partner_balance_change')
                                     ->label('رصيد العميل (المبلغ المتبقي)')
-                                    ->content(fn ($state) => number_format($state ?? 0, 2) . ' ج.م')
+                                    ->content(fn ($state) => number_format($state ?? 0, 2).' ج.م')
                                     ->visible(fn (Get $get) => ($get('partner_balance_change') ?? 0) > 0)
                                     ->extraAttributes(['style' => 'color: #f59e0b; font-size: 1.25rem; font-weight: bold;']),
                             ]),
@@ -1390,6 +1402,7 @@ class SalesInvoiceResource extends Resource
                                 ->title('لا يمكن تأكيد الفاتورة')
                                 ->body('الفاتورة لا تحتوي على أي أصناف')
                                 ->send();
+
                             return;
                         }
 
@@ -1445,7 +1458,7 @@ class SalesInvoiceResource extends Resource
                                         fn (SalesInvoice $record): \Closure => function (string $attribute, $value, \Closure $fail) use ($record) {
                                             $remainingAmount = floatval($record->current_remaining);
                                             if (floatval($value) > $remainingAmount) {
-                                                $fail('لا يمكن دفع مبلغ (' . number_format($value, 2) . ') أكبر من المبلغ المتبقي (' . number_format($remainingAmount, 2) . ').');
+                                                $fail('لا يمكن دفع مبلغ ('.number_format($value, 2).') أكبر من المبلغ المتبقي ('.number_format($remainingAmount, 2).').');
                                             }
                                         },
                                     ]),
@@ -1494,9 +1507,8 @@ class SalesInvoiceResource extends Resource
                             ->body('تم إضافة الدفعة وتحديث رصيد العميل والخزينة')
                             ->send();
                     })
-                    ->visible(fn (SalesInvoice $record) =>
-                        $record->isPosted() &&
-                        !$record->isFullyPaid()
+                    ->visible(fn (SalesInvoice $record) => $record->isPosted() &&
+                        ! $record->isFullyPaid()
                     ),
 
                 Tables\Actions\Action::make('pay_commission')
@@ -1511,7 +1523,7 @@ class SalesInvoiceResource extends Resource
 
                         Forms\Components\Placeholder::make('commission_amount_display')
                             ->label('قيمة العمولة')
-                            ->content(fn (SalesInvoice $record) => number_format($record->commission_amount, 2) . ' ج.م'),
+                            ->content(fn (SalesInvoice $record) => number_format($record->commission_amount, 2).' ج.م'),
 
                         Forms\Components\Select::make('treasury_id')
                             ->label('الخزينة')
@@ -1537,10 +1549,9 @@ class SalesInvoiceResource extends Resource
                                 ->send();
                         }
                     })
-                    ->visible(fn (SalesInvoice $record) =>
-                        $record->isPosted() &&
+                    ->visible(fn (SalesInvoice $record) => $record->isPosted() &&
                         $record->sales_person_id &&
-                        !$record->commission_paid &&
+                        ! $record->commission_paid &&
                         $record->commission_amount > 0
                     ),
 
@@ -1598,13 +1609,14 @@ class SalesInvoiceResource extends Resource
                             $records->load('items.product');
 
                             foreach ($records as $record) {
-                                if (!$record->isDraft()) {
+                                if (! $record->isDraft()) {
                                     continue;
                                 }
 
                                 // Validate invoice has items
                                 if ($record->items()->count() === 0) {
                                     $errors[] = "فاتورة {$record->invoice_number}: الفاتورة لا تحتوي على أي أصناف";
+
                                     continue;
                                 }
 
@@ -1627,7 +1639,7 @@ class SalesInvoiceResource extends Resource
                                     ->send();
                             }
 
-                            if (!empty($errors)) {
+                            if (! empty($errors)) {
                                 Notification::make()
                                     ->danger()
                                     ->title('بعض الفواتير فشلت')

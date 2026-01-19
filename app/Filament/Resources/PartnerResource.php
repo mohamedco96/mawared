@@ -19,11 +19,11 @@ class PartnerResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-users';
 
-    protected static ?string $navigationLabel = 'العملاء والموردين';
+    protected static ?string $navigationLabel = 'العملاء والموردين (الحسابات الجارية)';
 
-    protected static ?string $modelLabel = 'شريك';
+    protected static ?string $modelLabel = 'عميل / مورد';
 
-    protected static ?string $pluralModelLabel = 'العملاء والموردين';
+    protected static ?string $pluralModelLabel = 'العملاء والموردين (الحسابات الجارية)';
 
     protected static ?string $navigationGroup = 'الإدارة المالية';
 
@@ -44,9 +44,9 @@ class PartnerResource extends Resource
                         Forms\Components\Select::make('type')
                             ->label('النوع')
                             ->options([
-                                'customer' => 'عميل',
-                                'supplier' => 'مورد',
-                                'shareholder' => 'شريك (مساهم)',
+                                'customer' => 'عميل (فلوس لينا)',
+                                'supplier' => 'مورد (فلوس علينا)',
+                                'shareholder' => 'شريك (صاحب شغل)',
                             ])
                             ->required()
                             ->native(false),
@@ -69,7 +69,7 @@ class PartnerResource extends Resource
                             ->label('محظور')
                             ->default(false),
                         Forms\Components\TextInput::make('current_balance')
-                            ->label('الرصيد الحالي')
+                            ->label('الرصيد الحالي (الموقف المالي)')
                             ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->disabled()
@@ -79,10 +79,10 @@ class PartnerResource extends Resource
                     ])
                     ->columns(2),
 
-                Forms\Components\Section::make('معلومات رأس المال')
+                Forms\Components\Section::make('معلومات رأس المال (حصة الشريك)')
                     ->schema([
                         Forms\Components\TextInput::make('current_capital')
-                            ->label('رأس المال الحالي')
+                            ->label('رأس المال الحالي (الفلوس اللي حاططها)')
                             ->numeric()
                             ->disabled()
                             ->dehydrated(false)
@@ -90,7 +90,7 @@ class PartnerResource extends Resource
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal']),
 
                         Forms\Components\TextInput::make('equity_percentage')
-                            ->label('نسبة الملكية')
+                            ->label('نسبة الملكية (حصته في الشركة)')
                             ->numeric()
                             ->disabled()
                             ->dehydrated(false)
@@ -128,9 +128,9 @@ class PartnerResource extends Resource
                     ->label('النوع')
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => match($state) {
-                        'customer' => 'عميل',
-                        'supplier' => 'مورد',
-                        'shareholder' => 'شريك (مساهم)',
+                        'customer' => 'عميل (لينا)',
+                        'supplier' => 'مورد (علينا)',
+                        'shareholder' => 'شريك (صاحب شغل)',
                         default => $state,
                     })
                     ->color(fn (string $state): string => match($state) {
@@ -151,13 +151,13 @@ class PartnerResource extends Resource
                     ->searchable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('current_balance')
-                    ->label('الرصيد الجاري')
+                    ->label('الرصيد الجاري (الموقف المالي)')
                     ->numeric(decimalPlaces: 2)
                     ->sortable()
                     ->color(fn ($state) => $state < 0 ? 'danger' : ($state > 0 ? 'success' : 'gray'))
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('current_capital')
-                    ->label('رأس المال')
+                    ->label('رأس المال (الفلوس اللي حاططها)')
                     ->numeric(decimalPlaces: 2)
                     ->sortable()
                     ->badge()
@@ -165,7 +165,7 @@ class PartnerResource extends Resource
                     ->formatStateUsing(fn ($state) => $state > 0 ? number_format($state, 2) : '—')
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('equity_percentage')
-                    ->label('نسبة الملكية')
+                    ->label('نسبة الملكية (حصته)')
                     ->formatStateUsing(fn ($state) => $state ? number_format($state, 2) . '%' : '—')
                     ->badge()
                     ->color('info')
@@ -188,9 +188,9 @@ class PartnerResource extends Resource
                 Tables\Filters\SelectFilter::make('type')
                     ->label('النوع')
                     ->options([
-                        'customer' => 'عميل',
-                        'supplier' => 'مورد',
-                        'shareholder' => 'شريك (مساهم)',
+                        'customer' => 'عميل (فلوس لينا)',
+                        'supplier' => 'مورد (فلوس علينا)',
+                        'shareholder' => 'شريك (صاحب شغل)',
                     ])
                     ->native(false),
                 Tables\Filters\TernaryFilter::make('is_banned')
@@ -230,8 +230,8 @@ class PartnerResource extends Resource
                         Forms\Components\Select::make('status')
                             ->label('الحالة')
                             ->options([
-                                'debit' => 'مدين (رصيد موجب)',
-                                'credit' => 'دائن (رصيد سالب)',
+                                'debit' => 'لينا فلوس عنده (رصيد موجب)',
+                                'credit' => 'علينا فلوس ليه (رصيد سالب)',
                                 'zero' => 'متوازن (صفر)',
                             ])
                             ->native(false),

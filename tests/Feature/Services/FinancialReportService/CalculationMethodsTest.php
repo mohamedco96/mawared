@@ -76,49 +76,61 @@ test('it calculates inventory value at date', function () {
 });
 
 test('it calculates total debtors correctly', function () {
-    // Customer with positive balance (owes us)
-    $customer1 = Partner::factory()->customer()->create([
+    // Customer with positive balance (owes us - normal receivable)
+    Partner::factory()->customer()->create([
         'current_balance' => '5000.0000',
     ]);
 
-    $customer2 = Partner::factory()->customer()->create([
+    Partner::factory()->customer()->create([
         'current_balance' => '3000.0000',
     ]);
 
-    // Supplier with positive balance (should be excluded from debtors)
-    $supplier = Partner::factory()->supplier()->create([
-        'current_balance' => '2000.0000',
-    ]);
-
-    $fromDate = now()->subMonths(1)->format('Y-m-d');
-    $toDate = now()->format('Y-m-d');
-    $report = $this->reportService->generateReport($fromDate, $toDate);
-
-    // Should only count customers with positive balances
-    expect((float)$report['total_debtors'])->toBe(8000.0); // 5000 + 3000
-});
-
-test('it calculates total creditors correctly', function () {
-    // Supplier with negative balance (we owe them)
-    $supplier1 = Partner::factory()->supplier()->create([
-        'current_balance' => '-5000.0000',
-    ]);
-
-    $supplier2 = Partner::factory()->supplier()->create([
-        'current_balance' => '-3000.0000',
-    ]);
-
-    // Customer with negative balance (should be excluded from creditors)
-    $customer = Partner::factory()->customer()->create([
+    // Supplier with NEGATIVE balance (advance payment we made - reclassified as debtor)
+    Partner::factory()->supplier()->create([
         'current_balance' => '-2000.0000',
     ]);
 
+    // Supplier with POSITIVE balance (we owe them - should NOT be in debtors)
+    Partner::factory()->supplier()->create([
+        'current_balance' => '1500.0000',
+    ]);
+
     $fromDate = now()->subMonths(1)->format('Y-m-d');
     $toDate = now()->format('Y-m-d');
     $report = $this->reportService->generateReport($fromDate, $toDate);
 
-    // Should only count suppliers with negative balances (absolute value)
-    expect((float)$report['total_creditors'])->toBe(8000.0); // abs(-5000) + abs(-3000)
+    // Debtors = Customers(+) + abs(Suppliers(-))
+    // = (5000 + 3000) + abs(-2000) = 8000 + 2000 = 10000
+    expect((float)$report['total_debtors'])->toBe(10000.0);
+});
+
+test('it calculates total creditors correctly', function () {
+    // Supplier with POSITIVE balance (we owe them - normal payable)
+    Partner::factory()->supplier()->create([
+        'current_balance' => '5000.0000',
+    ]);
+
+    Partner::factory()->supplier()->create([
+        'current_balance' => '3000.0000',
+    ]);
+
+    // Customer with NEGATIVE balance (advance payment received - reclassified as creditor)
+    Partner::factory()->customer()->create([
+        'current_balance' => '-2000.0000',
+    ]);
+
+    // Customer with POSITIVE balance (they owe us - should NOT be in creditors)
+    Partner::factory()->customer()->create([
+        'current_balance' => '1500.0000',
+    ]);
+
+    $fromDate = now()->subMonths(1)->format('Y-m-d');
+    $toDate = now()->format('Y-m-d');
+    $report = $this->reportService->generateReport($fromDate, $toDate);
+
+    // Creditors = Suppliers(+) + abs(Customers(-))
+    // = (5000 + 3000) + abs(-2000) = 8000 + 2000 = 10000
+    expect((float)$report['total_creditors'])->toBe(10000.0);
 });
 
 test('it calculates total cash from all treasuries', function () {
@@ -213,24 +225,33 @@ test('it calculates settlement discounts correctly', function () {
 });
 
 test('it excludes shareholders from debtors and creditors', function () {
-    $customer = Partner::factory()->customer()->create([
+    // Customer with positive balance (debtor)
+    Partner::factory()->customer()->create([
         'current_balance' => '5000.0000',
     ]);
 
-    $supplier = Partner::factory()->supplier()->create([
-        'current_balance' => '-3000.0000',
+    // Supplier with positive balance (creditor - we owe them)
+    Partner::factory()->supplier()->create([
+        'current_balance' => '3000.0000',
     ]);
 
-    $shareholder = Partner::factory()->create([
+    // Shareholder with positive balance (should NOT be included in either)
+    Partner::factory()->create([
         'type' => 'shareholder',
         'current_balance' => '10000.0000',
+    ]);
+
+    // Shareholder with negative balance (should NOT be included in either)
+    Partner::factory()->create([
+        'type' => 'shareholder',
+        'current_balance' => '-5000.0000',
     ]);
 
     $fromDate = now()->subMonths(1)->format('Y-m-d');
     $toDate = now()->format('Y-m-d');
     $report = $this->reportService->generateReport($fromDate, $toDate);
 
-    // Shareholder should not be included
+    // Shareholders should not be included in either calculation
     expect((float)$report['total_debtors'])->toBe(5000.0);
     expect((float)$report['total_creditors'])->toBe(3000.0);
 });

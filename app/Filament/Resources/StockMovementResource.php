@@ -17,11 +17,11 @@ class StockMovementResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-arrow-path';
     
-    protected static ?string $navigationLabel = 'حركات المخزون';
-    
+    protected static ?string $navigationLabel = 'حركات المخزون (دخول وخروج البضاعة)';
+
     protected static ?string $modelLabel = 'حركة مخزون';
-    
-    protected static ?string $pluralModelLabel = 'حركات المخزون';
+
+    protected static ?string $pluralModelLabel = 'حركات المخزون (دخول وخروج البضاعة)';
     
     protected static bool $shouldRegisterNavigation = false; // Hide from navigation, use as report
 
@@ -69,13 +69,13 @@ class StockMovementResource extends Resource
                 Forms\Components\Select::make('type')
                     ->label('النوع')
                     ->options([
-                        'sale' => 'بيع',
-                        'purchase' => 'شراء',
-                        'sale_return' => 'مرتجع بيع',
-                        'purchase_return' => 'مرتجع شراء',
-                        'adjustment_in' => 'إضافة',
-                        'adjustment_out' => 'خصم',
-                        'transfer' => 'نقل',
+                        'sale' => 'بيع (خروج بضاعة)',
+                        'purchase' => 'شراء (دخول بضاعة)',
+                        'sale_return' => 'مرتجع بيع (دخول)',
+                        'purchase_return' => 'مرتجع شراء (خروج)',
+                        'adjustment_in' => 'إضافة للمخزن',
+                        'adjustment_out' => 'خصم من المخزن',
+                        'transfer' => 'نقل بين مخازن',
                     ])
                     ->required()
                     ->native(false),
@@ -116,8 +116,8 @@ class StockMovementResource extends Resource
                 Tables\Columns\TextColumn::make('type')
                     ->label('النوع')
                     ->formatStateUsing(fn (string $state): string => match($state) {
-                        'sale' => 'بيع',
-                        'purchase' => 'شراء',
+                        'sale' => 'بيع (خروج)',
+                        'purchase' => 'شراء (دخول)',
                         'sale_return' => 'مرتجع بيع',
                         'purchase_return' => 'مرتجع شراء',
                         'adjustment_in' => 'إضافة',
@@ -173,8 +173,8 @@ class StockMovementResource extends Resource
                 Tables\Filters\SelectFilter::make('type')
                     ->label('النوع')
                     ->options([
-                        'sale' => 'بيع',
-                        'purchase' => 'شراء',
+                        'sale' => 'بيع (خروج)',
+                        'purchase' => 'شراء (دخول)',
                         'sale_return' => 'مرتجع بيع',
                         'purchase_return' => 'مرتجع شراء',
                         'adjustment_in' => 'إضافة',
@@ -218,8 +218,8 @@ class StockMovementResource extends Resource
                         Forms\Components\Select::make('direction')
                             ->label('الاتجاه')
                             ->options([
-                                'positive' => 'إضافة (موجب)',
-                                'negative' => 'خصم (سالب)',
+                                'positive' => 'دخول (موجب)',
+                                'negative' => 'خروج (سالب)',
                             ])
                             ->native(false),
                     ])

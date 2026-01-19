@@ -26,11 +26,11 @@ class WarehouseTransferResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-truck';
 
-    protected static ?string $navigationLabel = 'نقل المخزون';
+    protected static ?string $navigationLabel = 'نقل المخزون (بين المخازن)';
 
     protected static ?string $modelLabel = 'نقل مخزون';
 
-    protected static ?string $pluralModelLabel = 'نقل المخزون';
+    protected static ?string $pluralModelLabel = 'نقل المخزون (بين المخازن)';
 
     protected static ?int $navigationSort = 4;
 
