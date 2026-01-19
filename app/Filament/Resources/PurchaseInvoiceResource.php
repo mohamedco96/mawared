@@ -42,7 +42,6 @@ class PurchaseInvoiceResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         $count = static::getModel()::where('status', 'draft')->count();
-
         return $count > 0 ? (string) $count : null;
     }
 
@@ -94,7 +93,7 @@ class PurchaseInvoiceResource extends Resource
                             ->default(fn () => Warehouse::where('is_active', true)->first()?->id ?? Warehouse::first()?->id)
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\Select::make('partner_id')
-                            ->label('المورد (فلوس علينا ليه)')
+                            ->label('المورد')
                             ->relationship('partner', 'name', fn ($query) => $query->where('type', 'supplier'))
                             ->required()
                             ->searchable()
@@ -170,11 +169,11 @@ class PurchaseInvoiceResource extends Resource
                                     ->getSearchResultsUsing(function (?string $search): array {
                                         $query = Product::query();
 
-                                        if (! empty($search)) {
+                                        if (!empty($search)) {
                                             $query->where(function ($q) use ($search) {
                                                 $q->where('name', 'like', "%{$search}%")
-                                                    ->orWhere('sku', 'like', "%{$search}%")
-                                                    ->orWhere('barcode', 'like', "%{$search}%");
+                                                  ->orWhere('sku', 'like', "%{$search}%")
+                                                  ->orWhere('barcode', 'like', "%{$search}%");
                                             });
                                         } else {
                                             // Load latest products when no search
@@ -185,7 +184,6 @@ class PurchaseInvoiceResource extends Resource
                                     })
                                     ->getOptionLabelUsing(function ($value): string {
                                         $product = Product::find($value);
-
                                         return $product ? $product->name : '';
                                     })
                                     ->loadingMessage('جاري التحميل...')
@@ -245,7 +243,7 @@ class PurchaseInvoiceResource extends Resource
                                     ->label('الوحدة')
                                     ->options(function (Get $get) {
                                         $productId = $get('product_id');
-                                        if (! $productId) {
+                                        if (!$productId) {
                                             return ['small' => 'صغيرة'];
                                         }
                                         $product = Product::find($productId);
@@ -253,7 +251,6 @@ class PurchaseInvoiceResource extends Resource
                                         if ($product && $product->large_unit_id) {
                                             $options['large'] = 'كبيرة';
                                         }
-
                                         return $options;
                                     })
                                     ->default('small')
@@ -343,11 +340,8 @@ class PurchaseInvoiceResource extends Resource
                                     ->nullable()
                                     ->visible(function (Get $get) {
                                         $productId = $get('product_id');
-                                        if (! $productId) {
-                                            return false;
-                                        }
+                                        if (!$productId) return false;
                                         $product = Product::find($productId);
-
                                         return $product && $product->large_unit_id;
                                     })
                                     ->columnSpan(2),
@@ -379,11 +373,8 @@ class PurchaseInvoiceResource extends Resource
                                     ->nullable()
                                     ->visible(function (Get $get) {
                                         $productId = $get('product_id');
-                                        if (! $productId) {
-                                            return false;
-                                        }
+                                        if (!$productId) return false;
                                         $product = Product::find($productId);
-
                                         return $product && $product->large_unit_id;
                                     })
                                     ->columnSpan(2),
@@ -405,8 +396,7 @@ class PurchaseInvoiceResource extends Resource
                             ->label('عدد الأصناف')
                             ->content(function (Get $get) {
                                 $items = $get('items') ?? [];
-
-                                return count($items).' صنف';
+                                return count($items) . ' صنف';
                             }),
                         Forms\Components\Placeholder::make('calculated_subtotal')
                             ->label('المجموع الفرعي')
@@ -474,7 +464,7 @@ class PurchaseInvoiceResource extends Resource
                                     } else {
                                         // Fixed discount - validate against calculated subtotal
                                         if (floatval($value) > $subtotal) {
-                                            $fail('قيمة الخصم ('.number_format($value, 2).') لا يمكن أن تتجاوز المجموع الفرعي ('.number_format($subtotal, 2).').');
+                                            $fail('قيمة الخصم (' . number_format($value, 2) . ') لا يمكن أن تتجاوز المجموع الفرعي (' . number_format($subtotal, 2) . ').');
                                         }
                                     }
                                 },
@@ -567,13 +557,13 @@ class PurchaseInvoiceResource extends Resource
                                     $paidAmount = floatval($value);
 
                                     if ($paidAmount > $netTotal) {
-                                        $fail('لا يمكن دفع مبلغ ('.number_format($paidAmount, 2).') أكبر من إجمالي الفاتورة ('.number_format($netTotal, 2).').');
+                                        $fail('لا يمكن دفع مبلغ (' . number_format($paidAmount, 2) . ') أكبر من إجمالي الفاتورة (' . number_format($netTotal, 2) . ').');
                                     }
 
                                     if ($paidAmount < 0) {
                                         $fail('المبلغ المدفوع يجب أن لا يكون سالباً.');
                                     }
-
+                                    
                                     // Check treasury balance for purchase invoices (money leaving treasury)
                                     if ($paidAmount > 0 && $get('payment_method') === 'cash') {
                                         // Get the default treasury or first available
@@ -581,9 +571,9 @@ class PurchaseInvoiceResource extends Resource
                                         if ($treasury) {
                                             $treasuryService = app(\App\Services\TreasuryService::class);
                                             $currentBalance = (float) $treasuryService->getTreasuryBalance($treasury->id);
-
+                                            
                                             if ($currentBalance < $paidAmount) {
-                                                $fail('المبلغ المطلوب يتجاوز الرصيد المتاح في الخزينة. الرصيد الحالي: '.number_format($currentBalance, 2).' ج.م');
+                                                $fail("المبلغ المطلوب يتجاوز الرصيد المتاح في الخزينة. الرصيد الحالي: " . number_format($currentBalance, 2) . " ج.م");
                                             }
                                         }
                                     }
@@ -594,7 +584,7 @@ class PurchaseInvoiceResource extends Resource
                             ->visible(fn (Get $get) => $get('payment_method') !== 'cash')
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                         Forms\Components\TextInput::make('remaining_amount')
-                            ->label('المبلغ المتبقي (فلوس علينا ليه)')
+                            ->label('المبلغ المتبقي')
                             ->numeric()
                             ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                             ->default(0)
@@ -675,7 +665,7 @@ class PurchaseInvoiceResource extends Resource
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('partner.name')
-                    ->label('المورد (علينا ليه)')
+                    ->label('المورد')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('warehouse.name')
@@ -822,7 +812,6 @@ class PurchaseInvoiceResource extends Resource
                                 ->title('لا يمكن تأكيد الفاتورة')
                                 ->body('الفاتورة لا تحتوي على أي أصناف')
                                 ->send();
-
                             return;
                         }
 
@@ -884,7 +873,7 @@ class PurchaseInvoiceResource extends Resource
                                     ->numeric()
                                     ->required()
                                     ->minValue(0.01)
-
+                                    
                                     ->step(0.01)
                                     ->default(fn (PurchaseInvoice $record) => floatval($record->current_remaining))
                                     ->rules([
@@ -894,7 +883,7 @@ class PurchaseInvoiceResource extends Resource
                                         fn (PurchaseInvoice $record): \Closure => function (string $attribute, $value, \Closure $fail) use ($record) {
                                             $remainingAmount = floatval($record->current_remaining);
                                             if (floatval($value) > $remainingAmount) {
-                                                $fail('لا يمكن دفع مبلغ ('.number_format($value, 2).') أكبر من المبلغ المتبقي ('.number_format($remainingAmount, 2).').');
+                                                $fail('لا يمكن دفع مبلغ (' . number_format($value, 2) . ') أكبر من المبلغ المتبقي (' . number_format($remainingAmount, 2) . ').');
                                             }
                                         },
                                     ]),
@@ -910,7 +899,7 @@ class PurchaseInvoiceResource extends Resource
                                     ->numeric()
                                     ->default(0)
                                     ->minValue(0)
-
+                                    
                                     ->step(0.01),
 
                                 Forms\Components\Select::make('treasury_id')
@@ -944,8 +933,9 @@ class PurchaseInvoiceResource extends Resource
                             ->body('تم إضافة الدفعة وتحديث رصيد المورد والخزينة')
                             ->send();
                     })
-                    ->visible(fn (PurchaseInvoice $record) => $record->isPosted() &&
-                        ! $record->isFullyPaid()
+                    ->visible(fn (PurchaseInvoice $record) =>
+                        $record->isPosted() &&
+                        !$record->isFullyPaid()
                     ),
 
                 Tables\Actions\EditAction::make()

@@ -19,13 +19,13 @@ class EquityPeriodResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-chart-pie';
 
-    protected static ?string $navigationLabel = 'فترات رأس المال (توزيع الأرباح)';
+    protected static ?string $navigationLabel = 'فترات رأس المال';
 
     protected static ?string $modelLabel = 'فترة';
 
-    protected static ?string $pluralModelLabel = 'فترات رأس المال (توزيع الأرباح)';
+    protected static ?string $pluralModelLabel = 'فترات رأس المال';
 
-    protected static ?string $navigationGroup = 'إدارة رأس المال (الشركاء)';
+    protected static ?string $navigationGroup = 'إدارة رأس المال';
 
     protected static ?int $navigationSort = 1;
 
@@ -58,11 +58,11 @@ class EquityPeriodResource extends Resource
                     ])
                     ->columns(2),
 
-                Forms\Components\Section::make('الملخص المالي (الربح والخسارة)')
+                Forms\Components\Section::make('الملخص المالي')
                     ->description(fn ($record) => $record && $record->status === 'open' ? 'يتم حساب القيم تلقائياً من البيانات الحالية' : null)
                     ->schema([
                         Forms\Components\Placeholder::make('total_revenue')
-                            ->label('إجمالي الإيرادات (الفلوس اللي دخلت)')
+                            ->label('إجمالي الإيرادات')
                             ->content(function ($record) {
                                 if (! $record) {
                                     return '—';
@@ -75,7 +75,7 @@ class EquityPeriodResource extends Resource
                             }),
 
                         Forms\Components\Placeholder::make('total_expenses')
-                            ->label('إجمالي المصروفات (الفلوس اللي خرجت)')
+                            ->label('إجمالي المصروفات')
                             ->content(function ($record) {
                                 if (! $record) {
                                     return '—';
@@ -88,7 +88,7 @@ class EquityPeriodResource extends Resource
                             }),
 
                         Forms\Components\Placeholder::make('net_profit')
-                            ->label('صافي الربح (المكسب الصافي)')
+                            ->label('صافي الربح')
                             ->content(function ($record) {
                                 if (! $record) {
                                     return '—';
@@ -132,7 +132,7 @@ class EquityPeriodResource extends Resource
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('net_profit')
-                    ->label('صافي الربح (المكسب الصافي)')
+                    ->label('صافي الربح')
                     ->state(function (EquityPeriod $record): float {
                         if ($record->status === 'open') {
                             return app(CapitalService::class)->getFinancialSummary($record)['net_profit'];

@@ -22,11 +22,11 @@ class TreasuryTransactionResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
 
-    protected static ?string $navigationLabel = 'حركة الخزنة (قبض وصرف)';
+    protected static ?string $navigationLabel = 'المعاملات المالية';
 
-    protected static ?string $modelLabel = 'حركة مالية';
+    protected static ?string $modelLabel = 'معاملة مالية';
 
-    protected static ?string $pluralModelLabel = 'حركة الخزنة (قبض وصرف)';
+    protected static ?string $pluralModelLabel = 'المعاملات المالية';
 
     protected static ?string $navigationGroup = 'الإدارة المالية';
 
@@ -36,11 +36,11 @@ class TreasuryTransactionResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('معلومات الحركة المالية')
+                Forms\Components\Section::make('معلومات المعاملة')
                     ->schema([
                         // Virtual category field (not saved to DB)
                         Forms\Components\Select::make('transaction_category')
-                            ->label('نوع العملية (قبض ولا صرف)')
+                            ->label('تصنيف المعاملة')
                             ->options(TransactionType::getCategoryOptions())
                             ->native(false)
                             ->live()
@@ -63,7 +63,7 @@ class TreasuryTransactionResource extends Resource
                             ->dehydrated(false), // Don't save to database
 
                         Forms\Components\Select::make('type')
-                            ->label('نوع الحركة')
+                            ->label('نوع المعاملة')
                             ->options(function (Get $get) {
                                 $category = $get('transaction_category');
                                 if (!$category) {
@@ -145,7 +145,7 @@ class TreasuryTransactionResource extends Resource
                             ])),
 
                         Forms\Components\Placeholder::make('current_balance_display')
-                            ->label('الرصيد الحالي (الموقف المالي)')
+                            ->label('الرصيد الحالي')
                             ->content(function (Get $get) {
                                 $partnerId = $get('partner_id');
                                 if ($partnerId) {
@@ -186,7 +186,7 @@ class TreasuryTransactionResource extends Resource
                             }),
 
                         Forms\Components\Placeholder::make('employee_advance_balance_display')
-                            ->label('رصيد السلف (فلوس عليه)')
+                            ->label('رصيد السلف الحالي')
                             ->content(function (Get $get) {
                                 $employeeId = $get('employee_id');
                                 if ($employeeId) {

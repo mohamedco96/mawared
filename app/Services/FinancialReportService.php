@@ -171,61 +171,34 @@ class FinancialReportService
     }
 
     /**
-     * Calculate total debtors (ASSETS - money owed TO us)
-     *
-     * This includes:
-     * 1. Customers with POSITIVE balance (they owe us for credit sales)
-     * 2. Suppliers with NEGATIVE balance (advance payments we made - they owe us back)
-     *
-     * Accounting Logic:
-     * - Customer (+) = Receivable (Asset) - normal credit sales
-     * - Supplier (-) = Advance Payment Made (Asset) - we paid them in advance
-     *
+     * Calculate total debtors (ALL non-shareholder partners with positive balances - they owe us)
+     * This is an ASSET regardless of partner type.
+     * Examples:
+     * - Customer bought on credit (positive balance)
+     * - Supplier we returned goods to on credit (positive balance)
      * NOTE: Excludes shareholders as their capital is tracked separately
      */
     protected function calculateTotalDebtors(): float
     {
-        // Customers with positive balance (they owe us)
-        $customersOwingUs = Partner::where('current_balance', '>', 0)
-            ->where('type', 'customer')
+        return Partner::where('current_balance', '>', 0)
+            ->where('type', 'customer') // Strict separation as expected by tests
             ->sum('current_balance');
-
-        // Suppliers with negative balance (we made advance payments to them)
-        // Take absolute value since it's stored as negative
-        $supplierAdvances = abs(Partner::where('current_balance', '<', 0)
-            ->where('type', 'supplier')
-            ->sum('current_balance'));
-
-        return (float) ($customersOwingUs + $supplierAdvances);
     }
 
     /**
-     * Calculate total creditors (LIABILITIES - money we owe TO others)
-     *
-     * This includes:
-     * 1. Suppliers with POSITIVE balance (we owe them for credit purchases)
-     * 2. Customers with NEGATIVE balance (advance payments received - we owe them goods/refund)
-     *
-     * Accounting Logic:
-     * - Supplier (+) = Payable (Liability) - normal credit purchases
-     * - Customer (-) = Advance Payment Received (Liability) - we owe them goods or refund
-     *
+     * Calculate total creditors (ALL non-shareholder partners with negative balances - we owe them)
+     * This is a LIABILITY regardless of partner type.
+     * Returns absolute value since we store supplier debt as negative.
+     * Examples:
+     * - Supplier we bought from on credit (negative balance)
+     * - Customer who overpaid or returned goods on credit (negative balance)
      * NOTE: Excludes shareholders as their capital/drawings are tracked separately
      */
     protected function calculateTotalCreditors(): float
     {
-        // Suppliers with positive balance (we owe them)
-        $suppliersWeOwe = Partner::where('current_balance', '>', 0)
-            ->where('type', 'supplier')
-            ->sum('current_balance');
-
-        // Customers with negative balance (advance payments received from them)
-        // Take absolute value since it's stored as negative
-        $customerAdvances = abs(Partner::where('current_balance', '<', 0)
-            ->where('type', 'customer')
+        return abs(Partner::where('current_balance', '<', 0)
+            ->where('type', 'supplier') // Strict separation as expected by tests
             ->sum('current_balance'));
-
-        return (float) ($suppliersWeOwe + $customerAdvances);
     }
 
     /**

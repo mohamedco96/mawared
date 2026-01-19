@@ -23,11 +23,11 @@ class StockAdjustmentResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-adjustments-horizontal';
 
-    protected static ?string $navigationLabel = 'تسويات المخزون (جرد)';
+    protected static ?string $navigationLabel = 'تسويات المخزون';
 
     protected static ?string $modelLabel = 'تسوية مخزون';
 
-    protected static ?string $pluralModelLabel = 'تسويات المخزون (جرد)';
+    protected static ?string $pluralModelLabel = 'تسويات المخزون';
 
     protected static ?int $navigationSort = 5;
 

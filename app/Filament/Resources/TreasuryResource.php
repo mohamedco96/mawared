@@ -17,11 +17,11 @@ class TreasuryResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
 
-    protected static ?string $navigationLabel = 'الخزائن (الصناديق والبنوك)';
+    protected static ?string $navigationLabel = 'الخزائن';
 
     protected static ?string $modelLabel = 'خزينة';
 
-    protected static ?string $pluralModelLabel = 'الخزائن (الصناديق والبنوك)';
+    protected static ?string $pluralModelLabel = 'الخزائن';
 
     protected static ?string $navigationGroup = 'الإدارة المالية';
 
@@ -82,7 +82,7 @@ class TreasuryResource extends Resource
                     }),
 
                 Tables\Columns\TextColumn::make('current_balance')
-                    ->label('الرصيد الحالي (الفلوس الموجودة)')
+                    ->label('الرصيد الحالي')
                     ->getStateUsing(function (Treasury $record) {
                         return DB::table('treasury_transactions')
                             ->where('treasury_id', $record->id)
