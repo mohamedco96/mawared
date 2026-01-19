@@ -39,180 +39,216 @@ class SalesReturnResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('معلومات المرتجع')
+                Forms\Components\Group::make()
                     ->schema([
-                        Forms\Components\TextInput::make('return_number')
-                            ->label('رقم المرتجع')
-                            ->default(fn () => 'RET-SALE-'.now()->format('Ymd').'-'.Str::random(6))
-                            ->required()
-                            ->unique(ignoreRecord: true)
-                            ->maxLength(255)
-                            ->disabled()
-                            ->dehydrated(),
-                        Forms\Components\Select::make('status')
-                            ->label('الحالة')
-                            ->options([
-                                'draft' => 'مسودة',
-                                'posted' => 'مؤكدة',
-                            ])
-                            ->default('draft')
-                            ->required()
-                            ->native(false)
-                            ->rules([
-                                fn (Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
-                                    if ($value === 'posted') {
-                                        $items = $get('items');
-                                        if (empty($items)) {
-                                            $fail('لا يمكن تأكيد المرتجع بدون أصناف.');
-                                        }
-                                    }
-                                },
-                            ])
-                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
-                        Forms\Components\Select::make('warehouse_id')
-                            ->label('المخزن')
-                            ->relationship('warehouse', 'name', fn ($query) => $query->where('is_active', true))
-                            ->required()
-                            ->searchable()
-                            ->preload()
-                            ->default(fn () => Warehouse::where('is_active', true)->first()?->id ?? Warehouse::first()?->id)
-                            ->reactive()
-                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
-                        Forms\Components\Select::make('partner_id')
-                            ->label('العميل')
-                            ->relationship('partner', 'name', fn ($query) => $query->where('type', 'customer'))
-                            ->required()
-                            ->searchable()
-                            ->preload()
-                            ->reactive()
-                            ->afterStateUpdated(function ($state, Set $set) {
-                                $set('sales_invoice_id', null);
-                                $set('items', []);
-                            })
-                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
-                        Forms\Components\Select::make('sales_invoice_id')
-                            ->label('فاتورة البيع')
-                            ->relationship('salesInvoice', 'invoice_number',
-                                fn ($query, Get $get) => $query
-                                    ->where('partner_id', $get('partner_id'))
-                                    ->where('status', 'posted')
-                            )
-                            ->searchable()
-                            ->preload()
-                            ->reactive()
-                            ->afterStateUpdated(function ($state, Set $set) {
-                                if ($state) {
-                                    $invoice = \App\Models\SalesInvoice::with('items.product')->find($state);
-                                    if ($invoice) {
-                                        // Check if invoice is fully returned
-                                        if ($invoice->isFullyReturned()) {
-                                            Notification::make()
-                                                ->danger()
-                                                ->title('لا يمكن إنشاء مرتجع')
-                                                ->body('هذه الفاتورة تم إرجاعها بالكامل')
-                                                ->send();
-                                            $set('sales_invoice_id', null);
+                        Forms\Components\Section::make('معلومات المرتجع')
+                            ->schema([
+                                Forms\Components\TextInput::make('return_number')
+                                    ->label('رقم المرتجع')
+                                    ->default(fn () => 'RET-SALE-'.now()->format('Ymd').'-'.Str::random(6))
+                                    ->required()
+                                    ->unique(ignoreRecord: true)
+                                    ->maxLength(255)
+                                    ->disabled()
+                                    ->dehydrated(),
+                                Forms\Components\Select::make('status')
+                                    ->label('الحالة')
+                                    ->options([
+                                        'draft' => 'مسودة',
+                                        'posted' => 'مؤكدة',
+                                    ])
+                                    ->default('draft')
+                                    ->required()
+                                    ->native(false)
+                                    ->live()
+                                    ->rules([
+                                        fn (Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                            if ($value === 'posted') {
+                                                $items = $get('items');
+                                                if (empty($items)) {
+                                                    $fail('لا يمكن تأكيد المرتجع بدون أصناف.');
+                                                }
+                                            }
+                                        },
+                                    ])
+                                    ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                                Forms\Components\Select::make('warehouse_id')
+                                    ->label('المخزن')
+                                    ->relationship('warehouse', 'name', fn ($query) => $query->where('is_active', true))
+                                    ->required()
+                                    ->searchable()
+                                    ->preload()
+                                    ->default(fn () => Warehouse::where('is_active', true)->first()?->id ?? Warehouse::first()?->id)
+                                    ->reactive()
+                                    ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                                Forms\Components\Select::make('partner_id')
+                                    ->label('العميل')
+                                    ->relationship('partner', 'name', fn ($query) => $query->where('type', 'customer'))
+                                    ->required()
+                                    ->searchable()
+                                    ->preload()
+                                    ->live()
+                                    ->afterStateUpdated(function ($state, Set $set) {
+                                        $set('sales_invoice_id', null);
+                                        $set('items', []);
+                                    })
+                                    ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                                Forms\Components\Select::make('sales_invoice_id')
+                                    ->label('فاتورة البيع')
+                                    ->relationship('salesInvoice', 'invoice_number',
+                                        fn ($query, Get $get) => $query
+                                            ->where('partner_id', $get('partner_id'))
+                                            ->where('status', 'posted')
+                                    )
+                                    ->searchable()
+                                    ->preload()
+                                    ->live()
+                                    ->afterStateUpdated(function ($state, Set $set) {
+                                        if ($state) {
+                                            $invoice = \App\Models\SalesInvoice::with('items.product')->find($state);
+                                            if ($invoice) {
+                                                if ($invoice->isFullyReturned()) {
+                                                    Notification::make()
+                                                        ->danger()
+                                                        ->title('لا يمكن إنشاء مرتجع')
+                                                        ->body('هذه الفاتورة تم إرجاعها بالكامل')
+                                                        ->send();
+                                                    $set('sales_invoice_id', null);
+                                                    $set('items', []);
+
+                                                    return;
+                                                }
+                                                $items = $invoice->items->map(function ($item) use ($invoice) {
+                                                    $availableQty = $invoice->getAvailableReturnQuantity($item->product_id, $item->unit_type);
+
+                                                    return [
+                                                        'product_id' => $item->product_id,
+                                                        'unit_type' => $item->unit_type,
+                                                        'quantity' => min(1, $availableQty),
+                                                        'unit_price' => $item->net_unit_price,
+                                                        'discount' => 0,
+                                                        'total' => $item->net_unit_price * min(1, $availableQty),
+                                                        'max_quantity' => $availableQty,
+                                                        'original_quantity' => $item->quantity,
+                                                    ];
+                                                })->filter(fn ($item) => $item['max_quantity'] > 0)->toArray();
+
+                                                if (empty($items)) {
+                                                    Notification::make()
+                                                        ->warning()
+                                                        ->title('تحذير')
+                                                        ->body('جميع أصناف هذه الفاتورة تم إرجاعها بالكامل')
+                                                        ->send();
+                                                    $set('sales_invoice_id', null);
+                                                }
+                                                $set('items', $items);
+                                                self::calculateTotals($items, $set, $get('discount') ?? 0);
+                                            }
+                                        } else {
                                             $set('items', []);
-
-                                            return;
+                                            self::calculateTotals([], $set, 0);
                                         }
+                                    })
+                                    ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord)
+                                    ->visible(fn (Get $get) => $get('partner_id') !== null)
+                                    ->helperText('اختياري: اختر فاتورة لتحميل أصنافها تلقائياً'),
+                                Forms\Components\Hidden::make('payment_method')
+                                    ->default('cash')
+                                    ->dehydrated(),
+                            ])
+                            ->columns(2)
+                            ->columnSpan(2),
 
-                                        $items = $invoice->items->map(function ($item) use ($invoice) {
-                                            $availableQty = $invoice->getAvailableReturnQuantity($item->product_id, $item->unit_type);
-
-                                            return [
-                                                'product_id' => $item->product_id,
-                                                'unit_type' => $item->unit_type,
-                                                'quantity' => min(1, $availableQty),
-                                                'unit_price' => $item->net_unit_price,
-                                                'discount' => 0,
-                                                'total' => $item->net_unit_price * min(1, $availableQty),
-                                                'max_quantity' => $availableQty,
-                                                'original_quantity' => $item->quantity,
-                                            ];
-                                        })->filter(fn ($item) => $item['max_quantity'] > 0)->toArray();
-
-                                        if (empty($items)) {
-                                            Notification::make()
-                                                ->warning()
-                                                ->title('تحذير')
-                                                ->body('جميع أصناف هذه الفاتورة تم إرجاعها بالكامل')
-                                                ->send();
-                                            $set('sales_invoice_id', null);
+                        Forms\Components\Section::make('بيانات العميل')
+                            ->schema([
+                                Forms\Components\Placeholder::make('partner_card')
+                                    ->label('')
+                                    ->content(function (Get $get) {
+                                        $partnerId = $get('partner_id');
+                                        if (! $partnerId) {
+                                            return new \Illuminate\Support\HtmlString('<div class="text-gray-500">اختر عميلاً لعرض بياناته</div>');
                                         }
+                                        $partner = \App\Models\Partner::find($partnerId);
 
-                                        $set('items', $items);
-                                    }
-                                } else {
-                                    $set('items', []);
-                                }
-                            })
-                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord)
-                            ->visible(fn (Get $get) => $get('partner_id') !== null)
-                            ->helperText('اختياري: اختر فاتورة لتحميل أصنافها تلقائياً'),
-                        Forms\Components\Hidden::make('payment_method')
-                            ->default('cash')
-                            ->dehydrated(),
+                                        return view('filament.components.partner-card', ['partner' => $partner]);
+                                    }),
+                            ])
+                            ->columnSpan(1),
                     ])
-                    ->columns(3),
+                    ->columns(3)
+                    ->columnSpanFull(),
+
+                Forms\Components\Section::make('إضافة منتج')
+                    ->schema([
+                        Forms\Components\Select::make('product_scanner')
+                            ->label('مسح الباركود أو البحث عن منتج')
+                            ->searchable(['name', 'barcode', 'sku'])
+                            ->options(function () {
+                                return Product::latest()->limit(20)->pluck('name', 'id');
+                            })
+                            ->getSearchResultsUsing(function (string $search) {
+                                return Product::query()
+                                    ->where('name', 'like', "%{$search}%")
+                                    ->orWhere('sku', 'like', "%{$search}%")
+                                    ->orWhere('barcode', 'like', "%{$search}%")
+                                    ->limit(50)
+                                    ->pluck('name', 'id');
+                            })
+                            ->getOptionLabelUsing(fn ($value) => Product::find($value)?->name)
+                            ->preload()
+                            ->live()
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                if (! $state) {
+                                    return;
+                                }
+                                $product = Product::find($state);
+                                if (! $product) {
+                                    return;
+                                }
+
+                                $items = $get('items') ?? [];
+                                $found = false;
+
+                                foreach ($items as &$item) {
+                                    if ($item['product_id'] == $product->id && ($item['unit_type'] ?? 'small') == 'small') {
+                                        $item['quantity']++;
+                                        $item['total'] = $item['quantity'] * $item['unit_price'];
+                                        $found = true;
+                                        break;
+                                    }
+                                }
+
+                                if (! $found) {
+                                    $items[] = [
+                                        'product_id' => $product->id,
+                                        'unit_type' => 'small',
+                                        'quantity' => 1,
+                                        'unit_price' => $product->retail_price,
+                                        'discount' => 0,
+                                        'total' => $product->retail_price,
+                                        'max_quantity' => null,
+                                    ];
+                                }
+
+                                $set('items', $items);
+                                $set('product_scanner', null);
+                                self::calculateTotals($items, $set, $get('discount') ?? 0);
+                            })
+                            ->columnSpanFull(),
+                    ])
+                    ->visible(fn (Get $get) => ! $get('sales_invoice_id')),
 
                 Forms\Components\Section::make('أصناف المرتجع')
                     ->schema([
                         Forms\Components\Repeater::make('items')
                             ->relationship('items')
-                            ->addActionLabel('إضافة صنف')
-                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord)
+                            ->addable(false)
                             ->schema([
                                 Forms\Components\Select::make('product_id')
                                     ->label('المنتج')
                                     ->relationship('product', 'name')
                                     ->required()
-                                    ->searchable(['name', 'barcode', 'sku'])
-                                    ->getSearchResultsUsing(function (?string $search): array {
-                                        $query = Product::query();
-
-                                        if (! empty($search)) {
-                                            $query->where(function ($q) use ($search) {
-                                                $q->where('name', 'like', "%{$search}%")
-                                                    ->orWhere('sku', 'like', "%{$search}%")
-                                                    ->orWhere('barcode', 'like', "%{$search}%");
-                                            });
-                                        } else {
-                                            // Load latest products when no search
-                                            $query->latest();
-                                        }
-
-                                        return $query->limit(10)->pluck('name', 'id')->toArray();
-                                    })
-                                    ->getOptionLabelUsing(function ($value): string {
-                                        $product = Product::find($value);
-
-                                        return $product ? $product->name : '';
-                                    })
-                                    ->loadingMessage('جاري التحميل...')
-                                    ->searchPrompt('ابحث عن منتج بالاسم أو الباركود أو SKU')
-                                    ->noSearchResultsMessage('لم يتم العثور على منتجات')
-                                    ->searchingMessage('جاري البحث...')
-                                    ->preload()
-                                    ->reactive()
-                                    ->afterStateUpdated(function ($state, Set $set, Get $get, $record) {
-                                        if ($state && ! $get('../../sales_invoice_id')) {
-                                            $product = Product::find($state);
-                                            if ($product) {
-                                                $unitType = $get('unit_type') ?? 'small';
-                                                $price = $unitType === 'large' && $product->large_retail_price
-                                                    ? $product->large_retail_price
-                                                    : $product->retail_price;
-                                                $set('unit_price', $price);
-                                                $set('quantity', 1);
-                                                $set('discount', 0);
-                                                $set('total', $price);
-                                            }
-                                        }
-                                    })
-                                    ->disabled(fn ($record, Get $get, $livewire) => ($record && $record->salesReturn && $record->salesReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord) ||
-                                        $get('../../sales_invoice_id') !== null
-                                    )
+                                    ->disabled()
                                     ->dehydrated()
                                     ->columnSpan(4),
                                 Forms\Components\Select::make('unit_type')
@@ -232,7 +268,7 @@ class SalesReturnResource extends Resource
                                     })
                                     ->default('small')
                                     ->required()
-                                    ->reactive()
+                                    ->live()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $productId = $get('product_id');
                                         if ($productId && $state) {
@@ -251,11 +287,10 @@ class SalesReturnResource extends Resource
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية')
                                     ->integer()
-                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'numeric'])
                                     ->required()
                                     ->default(1)
                                     ->minValue(1)
-                                    ->reactive()
+                                    ->live()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $unitPrice = $get('unit_price') ?? 0;
                                         $set('total', $unitPrice * $state);
@@ -268,132 +303,104 @@ class SalesReturnResource extends Resource
                                             if ($value !== null && intval($value) <= 0) {
                                                 $fail('الكمية يجب أن تكون أكبر من صفر.');
                                             }
-
-                                            // Validate against max_quantity if sales_invoice_id is set
-                                            $salesInvoiceId = $get('../../sales_invoice_id');
-                                            if ($salesInvoiceId && $value !== null) {
-                                                $productId = $get('product_id');
-                                                $unitType = $get('unit_type');
-
-                                                if ($productId && $unitType) {
-                                                    $invoice = \App\Models\SalesInvoice::find($salesInvoiceId);
-                                                    if ($invoice) {
-                                                        $availableQty = $invoice->getAvailableReturnQuantity($productId, $unitType);
-                                                        if (intval($value) > $availableQty) {
-                                                            $fail("الكمية المتاحة للإرجاع هي {$availableQty} فقط.");
-                                                        }
-                                                    }
-                                                }
+                                            $maxQty = $get('max_quantity');
+                                            if ($maxQty !== null && intval($value) > $maxQty) {
+                                                $fail("الكمية المتاحة للإرجاع هي {$maxQty} فقط.");
                                             }
                                         },
                                     ])
-                                    ->validationAttribute('الكمية')
                                     ->helperText(fn (Get $get) => $get('max_quantity') ? "الكمية المتاحة: {$get('max_quantity')}" : null)
                                     ->columnSpan(2),
                                 Forms\Components\TextInput::make('unit_price')
                                     ->label('سعر الوحدة')
                                     ->numeric()
-                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->required()
-                                    ->step(0.0001)
-                                    ->minValue(0)
-                                    ->reactive()
+                                    ->live()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         $quantity = $get('quantity') ?? 1;
                                         $set('total', $state * $quantity);
                                     })
-                                    ->rules([
-                                        'required',
-                                        'numeric',
-                                        'min:0',
-                                        fn (): \Closure => function (string $attribute, $value, \Closure $fail) {
-                                            if ($value !== null && floatval($value) < 0) {
-                                                $fail('سعر الوحدة يجب أن لا يكون سالباً.');
-                                            }
-                                        },
-                                    ])
-                                    ->validationAttribute('سعر الوحدة')
-                                    ->disabled(fn ($record, Get $get, $livewire) => ($record && $record->salesReturn && $record->salesReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord) ||
-                                        $get('../../sales_invoice_id') !== null
-                                    )
+                                    ->disabled(fn (Get $get) => $get('../../sales_invoice_id') !== null)
                                     ->dehydrated()
                                     ->columnSpan(2),
-                                Forms\Components\Hidden::make('discount')
-                                    ->default(0)
-                                    ->dehydrated(),
                                 Forms\Components\TextInput::make('total')
                                     ->label('الإجمالي')
                                     ->numeric()
-                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->disabled()
                                     ->dehydrated()
                                     ->columnSpan(2),
                             ])
                             ->columns(12)
                             ->defaultItems(1)
-                            ->collapsible()
-                            ->itemLabel(fn (array $state): ?string => $state['product_id'] ? Product::find($state['product_id'])?->name : null)
+                            ->live()
+                            ->afterStateUpdated(function (Get $get, Set $set) {
+                                self::calculateTotals($get('items') ?? [], $set, $get('discount') ?? 0);
+                            })
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
                     ]),
 
-                Forms\Components\Section::make('الإجماليات')
+                Forms\Components\Section::make('ملخص المرتجع')
                     ->schema([
-                        Forms\Components\Placeholder::make('calculated_subtotal')
-                            ->label('المجموع الفرعي')
-                            ->content(function (Get $get) {
-                                $items = $get('items') ?? [];
-                                $subtotal = 0;
-                                foreach ($items as $item) {
-                                    $subtotal += $item['total'] ?? 0;
-                                }
+                        Forms\Components\Grid::make(12)
+                            ->schema([
+                                // Summary Section (Full Width or Right Aligned)
+                                Forms\Components\Group::make()
+                                    ->columnSpan(12)
+                                    ->schema([
+                                        Forms\Components\Section::make()
+                                            ->columns(4)
+                                            ->schema([
+                                                Forms\Components\TextInput::make('subtotal')
+                                                    ->label('المجموع الفرعي')
+                                                    ->numeric()
+                                                    ->readOnly()
+                                                    ->prefix('ج.م')
+                                                    ->columnSpan(1),
 
-                                return number_format($subtotal, 2);
-                            }),
-                        Forms\Components\TextInput::make('discount')
-                            ->label('إجمالي الخصم')
-                            ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                            ->default(0)
-                            ->step(0.01)
-                            ->reactive()
-                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                $items = $get('items') ?? [];
-                                $subtotal = 0;
-                                foreach ($items as $item) {
-                                    $subtotal += $item['total'] ?? 0;
-                                }
-                                $set('subtotal', $subtotal);
-                                $set('total', $subtotal - ($state ?? 0));
-                            })
-                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
-                        Forms\Components\Placeholder::make('calculated_total')
-                            ->label('الإجمالي النهائي')
-                            ->content(function (Get $get) {
-                                $items = $get('items') ?? [];
-                                $subtotal = 0;
-                                foreach ($items as $item) {
-                                    $subtotal += $item['total'] ?? 0;
-                                }
-                                $discount = floatval($get('discount') ?? 0);
-                                $total = $subtotal - $discount;
+                                                Forms\Components\TextInput::make('discount')
+                                                    ->label('إجمالي الخصم')
+                                                    ->numeric()
+                                                    ->default(0)
+                                                    ->live(onBlur: true)
+                                                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                                        self::calculateTotals($get('items') ?? [], $set, floatval($state));
+                                                    })
+                                                    ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord)
+                                                    ->columnSpan(1),
 
-                                return number_format($total, 2);
-                            }),
-                        Forms\Components\Hidden::make('subtotal')
-                            ->default(0)
-                            ->dehydrated(),
-                        Forms\Components\Hidden::make('total')
-                            ->default(0)
-                            ->dehydrated(),
-                    ])
-                    ->columns(3),
+                                                Forms\Components\TextInput::make('total')
+                                                    ->label('الإجمالي النهائي')
+                                                    ->numeric()
+                                                    ->readOnly()
+                                                    ->prefix('ج.م')
+                                                    ->extraInputAttributes(['style' => 'font-size: 1.5rem; font-weight: bold; color: #16a34a; text-align: center'])
+                                                    ->columnSpan(2),
+                                            ]),
+                                    ]),
 
-                Forms\Components\Textarea::make('notes')
-                    ->label('ملاحظات')
-                    ->columnSpanFull()
-                    ->rows(3)
-                    ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                                // Notes Section (Bottom)
+                                Forms\Components\Section::make('ملاحظات إضافية')
+                                    ->columnSpan(12)
+                                    ->schema([
+                                        Forms\Components\Textarea::make('notes')
+                                            ->hiddenLabel()
+                                            ->placeholder('أدخل أي ملاحظات إضافية هنا...')
+                                            ->rows(3)
+                                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                                    ]),
+                            ]),
+                    ]),
             ]);
+    }
+
+    public static function calculateTotals(array $items, Set $set, float $discount = 0): void
+    {
+        $subtotal = 0;
+        foreach ($items as $item) {
+            $subtotal += floatval($item['total'] ?? 0);
+        }
+        $set('subtotal', $subtotal);
+        $set('total', $subtotal - $discount);
     }
 
     public static function table(Table $table): Table
@@ -506,7 +513,6 @@ class SalesReturnResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->action(function (SalesReturn $record) {
-                        // Validate return has items
                         if ($record->items()->count() === 0) {
                             Notification::make()
                                 ->danger()
@@ -522,13 +528,8 @@ class SalesReturnResource extends Resource
                             $treasuryService = app(TreasuryService::class);
 
                             DB::transaction(function () use ($record, $stockService, $treasuryService) {
-                                // Post stock movements
                                 $stockService->postSalesReturn($record);
-
-                                // Post treasury transactions
                                 $treasuryService->postSalesReturn($record);
-
-                                // Update return status
                                 $record->update(['status' => 'posted']);
                             });
 

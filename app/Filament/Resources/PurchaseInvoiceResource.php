@@ -5,8 +5,10 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\PurchaseInvoiceResource\Pages;
 use App\Filament\Resources\PurchaseInvoiceResource\RelationManagers;
 use App\Models\Product;
+use App\Models\ProductCategory;
 use App\Models\PurchaseInvoice;
 use App\Models\Treasury;
+use App\Models\Unit;
 use App\Models\Warehouse;
 use App\Services\StockService;
 use App\Services\TreasuryService;
@@ -42,6 +44,7 @@ class PurchaseInvoiceResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         $count = static::getModel()::where('status', 'draft')->count();
+
         return $count > 0 ? (string) $count : null;
     }
 
@@ -54,560 +57,538 @@ class PurchaseInvoiceResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('معلومات الفاتورة')
+                // Header Section: Invoice Info & Partner Details
+                Forms\Components\Group::make()
                     ->schema([
-                        Forms\Components\TextInput::make('invoice_number')
-                            ->label('رقم الفاتورة')
-                            ->default(fn () => 'PI-'.now()->format('Ymd').'-'.Str::random(6))
-                            ->required()
-                            ->unique(ignoreRecord: true)
-                            ->maxLength(255)
-                            ->disabled()
-                            ->dehydrated(),
-                        Forms\Components\Select::make('status')
-                            ->label('الحالة')
-                            ->options([
-                                'draft' => 'مسودة',
-                                'posted' => 'مؤكدة',
-                            ])
-                            ->default('draft')
-                            ->required()
-                            ->native(false)
-                            ->rules([
-                                fn (Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
-                                    if ($value === 'posted') {
-                                        $items = $get('items');
-                                        if (empty($items)) {
-                                            $fail('لا يمكن تأكيد الفاتورة بدون أصناف.');
-                                        }
-                                    }
-                                },
-                            ])
-                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
-                        Forms\Components\Select::make('warehouse_id')
-                            ->label('المخزن')
-                            ->relationship('warehouse', 'name', fn ($query) => $query->where('is_active', true))
-                            ->required()
-                            ->searchable()
-                            ->preload()
-                            ->default(fn () => Warehouse::where('is_active', true)->first()?->id ?? Warehouse::first()?->id)
-                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
-                        Forms\Components\Select::make('partner_id')
-                            ->label('المورد')
-                            ->relationship('partner', 'name', fn ($query) => $query->where('type', 'supplier'))
-                            ->required()
-                            ->searchable()
-                            ->preload()
-                            ->createOptionForm([
-                                Forms\Components\TextInput::make('name')
-                                    ->label('الاسم')
-                                    ->required()
-                                    ->maxLength(255),
-                                Forms\Components\Hidden::make('type')
-                                    ->default('supplier'),
-                                Forms\Components\TextInput::make('phone')
-                                    ->label('الهاتف')
-                                    ->tel()
-                                    ->maxLength(255),
-                                Forms\Components\TextInput::make('gov_id')
-                                    ->label('الهوية الوطنية')
-                                    ->maxLength(255),
-                                Forms\Components\TextInput::make('region')
-                                    ->label('المنطقة')
-                                    ->maxLength(255),
-                            ])
-                            ->createOptionModalHeading('إضافة مورد جديد')
-                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
-                        Forms\Components\Select::make('payment_method')
-                            ->label('طريقة الدفع')
-                            ->options([
-                                'cash' => 'نقدي',
-                                'credit' => 'آجل',
-                            ])
-                            ->default('cash')
-                            ->required()
-                            ->reactive()
-                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                // Auto-fill paid_amount based on payment method
-                                $items = $get('items') ?? [];
-                                $subtotal = collect($items)->sum('total');
-                                $discountType = $get('discount_type') ?? 'fixed';
-                                $discountValue = $get('discount_value') ?? 0;
-
-                                // Calculate discount
-                                $totalDiscount = $discountType === 'percentage'
-                                    ? $subtotal * ($discountValue / 100)
-                                    : $discountValue;
-
-                                $netTotal = $subtotal - $totalDiscount;
-
-                                if ($state === 'cash') {
-                                    $set('paid_amount', $netTotal);
-                                    $set('remaining_amount', 0);
-                                } else {
-                                    $set('paid_amount', 0);
-                                    $set('remaining_amount', $netTotal);
-                                }
-                            })
-                            ->native(false)
-                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
-                    ])
-                    ->columns(3),
-
-                Forms\Components\Section::make('أصناف الفاتورة')
-                    ->schema([
-                        Forms\Components\Repeater::make('items')
-                            ->label('الأصناف')
-                            ->relationship('items')
-                            ->addActionLabel('إضافة صنف')
-                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord)
+                        // Left Column: Invoice Details
+                        Forms\Components\Section::make('معلومات الفاتورة')
                             ->schema([
-                                Forms\Components\Select::make('product_id')
-                                    ->label('المنتج')
-                                    ->required()
-                                    ->searchable()
-                                    ->getSearchResultsUsing(function (?string $search): array {
-                                        $query = Product::query();
-
-                                        if (!empty($search)) {
-                                            $query->where(function ($q) use ($search) {
-                                                $q->where('name', 'like', "%{$search}%")
-                                                  ->orWhere('sku', 'like', "%{$search}%")
-                                                  ->orWhere('barcode', 'like', "%{$search}%");
-                                            });
-                                        } else {
-                                            // Load latest products when no search
-                                            $query->latest();
-                                        }
-
-                                        return $query->limit(10)->pluck('name', 'id')->toArray();
-                                    })
-                                    ->getOptionLabelUsing(function ($value): string {
-                                        $product = Product::find($value);
-                                        return $product ? $product->name : '';
-                                    })
-                                    ->loadingMessage('جاري التحميل...')
-                                    ->searchPrompt('ابحث عن منتج بالاسم أو الباركود أو SKU')
-                                    ->noSearchResultsMessage('لم يتم العثور على منتجات')
-                                    ->searchingMessage('جاري البحث...')
-                                    ->preload()
-                                    ->reactive()
-                                    ->afterStateUpdated(function ($state, Set $set, Get $get, $record) {
-                                        if ($state) {
-                                            $product = Product::find($state);
-                                            if ($product) {
-                                                $set('unit_cost', $product->avg_cost ?: 0);
-                                                $set('quantity', 1);
-                                                $set('total', $product->avg_cost ?: 0);
-                                            }
-                                        }
-                                    })
-                                    ->createOptionForm([
-                                        Forms\Components\TextInput::make('name')
-                                            ->label('اسم المنتج')
+                                Forms\Components\Grid::make(2)
+                                    ->schema([
+                                        Forms\Components\TextInput::make('invoice_number')
+                                            ->label('رقم الفاتورة')
+                                            ->default(fn () => 'PI-'.now()->format('Ymd').'-'.Str::random(6))
                                             ->required()
-                                            ->maxLength(255)
-                                            ->columnSpanFull(),
-                                        Forms\Components\TextInput::make('barcode')
-                                            ->label('الباركود')
-                                            ->helperText('سيتم توليده تلقائياً إذا ترك فارغاً')
-                                            ->unique()
-                                            ->maxLength(255),
-                                        Forms\Components\TextInput::make('sku')
-                                            ->label('رمز المنتج')
-                                            ->helperText('سيتم توليده تلقائياً إذا ترك فارغاً')
-                                            ->unique()
-                                            ->maxLength(255),
-                                        Forms\Components\Select::make('small_unit_id')
-                                            ->label('الوحدة الصغيرة (الأساسية)')
-                                            ->options(\App\Models\Unit::pluck('name', 'id'))
+                                            ->unique(ignoreRecord: true)
+                                            ->readOnly()
+                                            ->dehydrated(),
+
+                                        Forms\Components\DatePicker::make('invoice_date')
+                                            ->label('تاريخ الفاتورة')
+                                            ->default(now())
+                                            ->required(),
+
+                                        Forms\Components\Select::make('warehouse_id')
+                                            ->label('المخزن')
+                                            ->relationship('warehouse', 'name', fn ($query) => $query->where('is_active', true))
                                             ->required()
                                             ->searchable()
-                                            ->preload(),
-                                        Forms\Components\TextInput::make('retail_price')
-                                            ->label('سعر قطاعي')
-                                            ->numeric()
-                                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                            ->preload()
+                                            ->default(fn () => Warehouse::where('is_active', true)->first()?->id ?? Warehouse::first()?->id)
+                                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
+
+                                        Forms\Components\Select::make('payment_method')
+                                            ->label('طريقة الدفع')
+                                            ->options([
+                                                'cash' => 'نقدي',
+                                                'credit' => 'آجل',
+                                            ])
+                                            ->default('cash')
                                             ->required()
-                                            ->step(0.01),
-                                        Forms\Components\TextInput::make('min_stock')
-                                            ->label('الحد الأدنى للمخزون')
+                                            ->live()
+                                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                                static::recalculateTotals($set, $get);
+                                            })
+                                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
+
+                                        Forms\Components\Select::make('status')
+                                            ->label('الحالة')
+                                            ->options([
+                                                'draft' => 'مسودة',
+                                                'posted' => 'مؤكدة',
+                                            ])
+                                            ->default('draft')
+                                            ->required()
+                                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                                    ]),
+                            ])->columnSpan(2),
+
+                        // Right Column: Partner Details (Supplier)
+                        Forms\Components\Section::make('بيانات المورد')
+                            ->schema([
+                                Forms\Components\Select::make('partner_id')
+                                    ->label('المورد')
+                                    ->relationship('partner', 'name', fn ($query) => $query->where('type', 'supplier'))
+                                    ->required()
+                                    ->searchable()
+                                    ->preload()
+                                    ->live()
+                                    ->createOptionForm([
+                                        Forms\Components\TextInput::make('name')->required(),
+                                        Forms\Components\TextInput::make('phone'),
+                                        Forms\Components\TextInput::make('address'),
+                                        Forms\Components\Hidden::make('type')->default('supplier'),
+                                    ])
+                                    ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
+
+                                // Dynamic Partner Card Component
+                                Forms\Components\Placeholder::make('partner_card')
+                                    ->label('')
+                                    ->content(function (Get $get) {
+                                        $partnerId = $get('partner_id');
+
+                                        return $partnerId
+                                            ? view('filament.components.partner-card', [
+                                                'partner' => \App\Models\Partner::find($partnerId),
+                                            ])
+                                            : null;
+                                    })
+                                    ->hidden(fn (Get $get) => ! $get('partner_id')),
+                            ])->columnSpan(1),
+                    ])->columns(3)->columnSpanFull(),
+
+                // Items Section
+                Forms\Components\Section::make('أصناف الفاتورة')
+                    ->headerActions([
+                        Forms\Components\Actions\Action::make('create_product')
+                            ->label('تعريف منتج جديد')
+                            ->icon('heroicon-o-plus')
+                            ->color('success')
+                            ->form([
+                                Forms\Components\TextInput::make('name')
+                                    ->label('اسم المنتج')
+                                    ->required(),
+                                Forms\Components\Select::make('category_id')
+                                    ->label('القسم')
+                                    ->options(ProductCategory::pluck('name', 'id'))
+                                    ->required()
+                                    ->createOptionForm([
+                                        Forms\Components\TextInput::make('name')
+                                            ->required()
+                                            ->label('اسم القسم'),
+                                    ])
+                                    ->createOptionUsing(function (array $data) {
+                                        return ProductCategory::create($data)->id;
+                                    }),
+                                Forms\Components\Select::make('small_unit_id')
+                                    ->label('الوحدة الأساسية')
+                                    ->options(Unit::pluck('name', 'id'))
+                                    ->required()
+                                    ->createOptionForm([
+                                        Forms\Components\TextInput::make('name')
+                                            ->required()
+                                            ->label('اسم الوحدة'),
+                                    ])
+                                    ->createOptionUsing(function (array $data) {
+                                        return Unit::create($data)->id;
+                                    }),
+                                Forms\Components\Grid::make(2)
+                                    ->schema([
+                                        Forms\Components\TextInput::make('avg_cost')
+                                            ->label('سعر التكلفة')
                                             ->numeric()
-                                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                             ->default(0)
                                             ->required(),
-                                    ])
-                                    ->createOptionModalHeading('إضافة منتج جديد')
-                                    ->columnSpan(4),
-                                Forms\Components\Select::make('unit_type')
-                                    ->label('الوحدة')
-                                    ->options(function (Get $get) {
-                                        $productId = $get('product_id');
-                                        if (!$productId) {
-                                            return ['small' => 'صغيرة'];
-                                        }
-                                        $product = Product::find($productId);
-                                        $options = ['small' => 'صغيرة'];
-                                        if ($product && $product->large_unit_id) {
-                                            $options['large'] = 'كبيرة';
-                                        }
-                                        return $options;
-                                    })
-                                    ->default('small')
-                                    ->required()
-                                    ->reactive()
-                                    ->columnSpan(2),
-                                Forms\Components\TextInput::make('quantity')
-                                    ->label('الكمية')
-                                    ->integer()
-                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'numeric'])
-                                    ->required()
-                                    ->default(1)
-                                    ->minValue(1)
-                                    ->live(onBlur: true)
-                                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                        $unitCost = $get('unit_cost') ?? 0;
-                                        $set('total', $unitCost * $state);
-                                    })
-                                    ->rules([
-                                        'required',
-                                        'integer',
-                                        'min:1',
-                                        fn (): \Closure => function (string $attribute, $value, \Closure $fail) {
-                                            if ($value !== null && intval($value) <= 0) {
-                                                $fail('الكمية يجب أن تكون أكبر من صفر.');
-                                            }
-                                        },
-                                    ])
-                                    ->validationAttribute('الكمية')
-                                    ->columnSpan(2),
-                                Forms\Components\TextInput::make('unit_cost')
-                                    ->label('السعر')
-                                    ->numeric()
-                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                                    ->required()
-                                    ->step(0.0001)
-                                    ->minValue(0)
-                                    ->live(onBlur: true)
-                                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                        $quantity = $get('quantity') ?? 1;
-                                        $set('total', $state * $quantity);
-                                    })
-                                    ->rules([
-                                        'required',
-                                        'numeric',
-                                        'min:0',
-                                        fn (): \Closure => function (string $attribute, $value, \Closure $fail) {
-                                            if ($value !== null && floatval($value) < 0) {
-                                                $fail('سعر الوحدة يجب أن لا يكون سالباً.');
-                                            }
-                                        },
-                                    ])
-                                    ->validationAttribute('سعر الوحدة')
-                                    ->columnSpan(2),
-                                Forms\Components\TextInput::make('total')
-                                    ->label('الإجمالي')
-                                    ->numeric()
-                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                                    ->disabled()
-                                    ->dehydrated()
-                                    ->columnSpan(2),
-                                Forms\Components\TextInput::make('new_selling_price')
-                                    ->label('سعر البيع الجديد (صغير)')
-                                    ->helperText('إذا تم تحديده، سيتم تحديث سعر المنتج تلقائياً')
-                                    ->numeric()
-                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                                    ->step(0.01)
-                                    ->nullable()
-                                    ->live(onBlur: true)
-                                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                        $productId = $get('product_id');
-                                        if ($productId && $state !== null && $state !== '') {
-                                            $product = Product::find($productId);
-                                            if ($product && $product->large_unit_id && $product->factor > 0) {
-                                                $calculatedPrice = floatval($state) * intval($product->factor);
-                                                $set('new_large_selling_price', number_format($calculatedPrice, 2, '.', ''));
-                                            }
-                                        }
-                                    })
-                                    ->columnSpan(2),
-                                Forms\Components\TextInput::make('new_large_selling_price')
-                                    ->label('سعر البيع الجديد (كبير)')
-                                    ->helperText('يتم حسابه تلقائياً (سعر الوحدة الصغيرة × معامل التحويل)، يمكن تعديله يدوياً')
-                                    ->numeric()
-                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                                    ->step(0.01)
-                                    ->nullable()
-                                    ->visible(function (Get $get) {
-                                        $productId = $get('product_id');
-                                        if (!$productId) return false;
-                                        $product = Product::find($productId);
-                                        return $product && $product->large_unit_id;
-                                    })
-                                    ->columnSpan(2),
-                                Forms\Components\TextInput::make('wholesale_price')
-                                    ->label('سعر الجملة الجديد (صغير)')
-                                    ->helperText('إذا تم تحديده، سيتم تحديث سعر الجملة للمنتج تلقائياً')
-                                    ->numeric()
-                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                                    ->step(0.01)
-                                    ->nullable()
-                                    ->live(onBlur: true)
-                                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                        $productId = $get('product_id');
-                                        if ($productId && $state !== null && $state !== '') {
-                                            $product = Product::find($productId);
-                                            if ($product && $product->large_unit_id && $product->factor > 0) {
-                                                $calculatedPrice = floatval($state) * intval($product->factor);
-                                                $set('large_wholesale_price', number_format($calculatedPrice, 2, '.', ''));
-                                            }
-                                        }
-                                    })
-                                    ->columnSpan(2),
-                                Forms\Components\TextInput::make('large_wholesale_price')
-                                    ->label('سعر الجملة الجديد (كبير)')
-                                    ->helperText('يتم حسابه تلقائياً (سعر الوحدة الصغيرة × معامل التحويل)، يمكن تعديله يدوياً')
-                                    ->numeric()
-                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                                    ->step(0.01)
-                                    ->nullable()
-                                    ->visible(function (Get $get) {
-                                        $productId = $get('product_id');
-                                        if (!$productId) return false;
-                                        $product = Product::find($productId);
-                                        return $product && $product->large_unit_id;
-                                    })
-                                    ->columnSpan(2),
+                                        Forms\Components\TextInput::make('retail_price')
+                                            ->label('سعر البيع')
+                                            ->numeric()
+                                            ->default(0)
+                                            ->required(),
+                                    ]),
+                                Forms\Components\TextInput::make('barcode')
+                                    ->label('الباركود')
+                                    ->placeholder('اتركه فارغاً للتوليد التلقائي'),
                             ])
-                            ->columns(12)
-                            ->defaultItems(1)
-                            ->collapsible()
-                            ->itemLabel(fn (array $state): ?string => $state['product_id'] ? Product::find($state['product_id'])?->name : null)
-                            ->reactive()
-                            ->afterStateUpdated(function (Set $set, Get $get) {
+                            ->action(function (array $data, Set $set, Get $get) {
+                                $product = Product::create([
+                                    'name' => $data['name'],
+                                    'category_id' => $data['category_id'],
+                                    'small_unit_id' => $data['small_unit_id'],
+                                    'avg_cost' => $data['avg_cost'],
+                                    'retail_price' => $data['retail_price'],
+                                    'barcode' => $data['barcode'] ?? null,
+                                    'sku' => Str::random(8), // Or generate properly
+                                    'is_active' => true,
+                                ]);
+
+                                Notification::make()
+                                    ->title('تم إضافة المنتج بنجاح')
+                                    ->success()
+                                    ->send();
+
+                                // Add to items repeater
+                                $items = $get('items') ?? [];
+                                $uuid = (string) Str::uuid();
+
+                                $items[$uuid] = [
+                                    'product_id' => $product->id,
+                                    'unit_type' => 'small',
+                                    'quantity' => 1,
+                                    'unit_cost' => $product->avg_cost ?: 0,
+                                    'total' => ($product->avg_cost ?: 0) * 1,
+                                    'discount' => 0,
+                                ];
+
+                                $set('items', $items);
                                 static::recalculateTotals($set, $get);
+                            }),
+                    ])
+                    ->schema([
+                        // 1. Product Search / Scanner Bar
+                        Forms\Components\Select::make('product_scanner')
+                            ->label('بحث سريع / باركود (إضافة صنف)')
+                            ->searchable()
+                            ->preload()
+                            ->options(function () {
+                                return Product::latest()->limit(20)->get()->mapWithKeys(function ($product) {
+                                    return [$product->id => "{$product->name} - (تكلفة: {$product->avg_cost})"];
+                                })->toArray();
                             })
+                            ->placeholder('ابحث عن منتج بالاسم أو الباركود...')
+                            ->getSearchResultsUsing(function (?string $search): array {
+                                $query = Product::query();
+                                if (! empty($search)) {
+                                    $query->where(function ($q) use ($search) {
+                                        $q->where('name', 'like', "%{$search}%")
+                                            ->orWhere('sku', 'like', "%{$search}%")
+                                            ->orWhere('barcode', 'like', "%{$search}%");
+                                    });
+                                } else {
+                                    $query->latest()->limit(10);
+                                }
+
+                                return $query->limit(20)->get()->mapWithKeys(function ($product) {
+                                    return [$product->id => "{$product->name} - (تكلفة: {$product->avg_cost})"];
+                                })->toArray();
+                            })
+                            ->getOptionLabelUsing(fn ($value) => Product::find($value)?->name)
+                            ->live()
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                if (! $state) {
+                                    return;
+                                }
+                                $product = Product::find($state);
+                                if (! $product) {
+                                    return;
+                                }
+
+                                // Add item to repeater
+                                $items = $get('items') ?? [];
+                                $uuid = (string) Str::uuid();
+
+                                $items[$uuid] = [
+                                    'product_id' => $product->id,
+                                    'unit_type' => 'small',
+                                    'quantity' => 1,
+                                    'unit_cost' => $product->avg_cost ?: 0,
+                                    'total' => ($product->avg_cost ?: 0) * 1,
+                                    'discount' => 0,
+                                ];
+
+                                $set('items', $items);
+                                $set('product_scanner', null);
+                                static::recalculateTotals($set, $get);
+                                Notification::make()->title('تم إضافة الصنف')->success()->send();
+                            })
+                            ->dehydrated(false)
+                            ->columnSpanFull()
                             ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
+
+                        // 2. Items Repeater
+                        Forms\Components\Repeater::make('items')
+                            ->label('قائمة الأصناف')
+                            ->relationship('items')
+                            ->addable(false)
+                            ->addActionLabel('إضافة صنف يدوياً')
+                            ->addAction(fn ($action) => $action->color('success'))
+                            ->schema([
+                                Forms\Components\Grid::make(12)
+                                    ->schema([
+                                        // Row 1: Basic Item Info
+                                        Forms\Components\Select::make('product_id')
+                                            ->label('المنتج')
+                                            ->relationship('product', 'name')
+                                            ->searchable()
+                                            ->preload()
+                                            ->live(onBlur: true)
+                                            ->createOptionForm([
+                                                Forms\Components\TextInput::make('name')
+                                                    ->label('اسم المنتج')
+                                                    ->required(),
+                                                Forms\Components\Select::make('category_id')
+                                                    ->label('القسم')
+                                                    ->options(ProductCategory::pluck('name', 'id'))
+                                                    ->required()
+                                                    ->createOptionForm([
+                                                        Forms\Components\TextInput::make('name')
+                                                            ->required()
+                                                            ->label('اسم القسم'),
+                                                    ]),
+                                                Forms\Components\Select::make('small_unit_id')
+                                                    ->label('الوحدة الأساسية')
+                                                    ->options(Unit::pluck('name', 'id'))
+                                                    ->required()
+                                                    ->createOptionForm([
+                                                        Forms\Components\TextInput::make('name')
+                                                            ->required()
+                                                            ->label('اسم الوحدة'),
+                                                    ]),
+                                                Forms\Components\Grid::make(2)
+                                                    ->schema([
+                                                        Forms\Components\TextInput::make('avg_cost')
+                                                            ->label('سعر التكلفة')
+                                                            ->numeric()
+                                                            ->default(0)
+                                                            ->required(),
+                                                        Forms\Components\TextInput::make('retail_price')
+                                                            ->label('سعر البيع')
+                                                            ->numeric()
+                                                            ->default(0)
+                                                            ->required(),
+                                                    ]),
+                                                Forms\Components\TextInput::make('barcode')
+                                                    ->label('الباركود')
+                                                    ->placeholder('اتركه فارغاً للتوليد التلقائي'),
+                                            ])
+                                            ->createOptionAction(function (Forms\Components\Actions\Action $action) {
+                                                return $action->modalHeading('إضافة منتج جديد')
+                                                    ->modalWidth('lg');
+                                            })
+                                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                                if ($state) {
+                                                    $product = Product::find($state);
+                                                    if ($product) {
+                                                        $set('unit_cost', $product->avg_cost ?: 0);
+                                                        // Trigger total recalculation
+                                                        $quantity = $get('quantity') ?? 1;
+                                                        $set('total', ($product->avg_cost ?: 0) * $quantity);
+                                                        static::recalculateTotals($set, $get);
+                                                    }
+                                                }
+                                            })
+                                            ->columnSpan(4)
+                                            ->required(),
+
+                                        Forms\Components\Select::make('unit_type')
+                                            ->label('الوحدة')
+                                            ->options(function (Get $get) {
+                                                $productId = $get('product_id');
+                                                if (! $productId) {
+                                                    return ['small' => 'صغيرة'];
+                                                }
+                                                $product = Product::find($productId);
+                                                $options = ['small' => 'صغيرة'];
+                                                if ($product && $product->large_unit_id) {
+                                                    $options['large'] = 'كبيرة';
+                                                }
+
+                                                return $options;
+                                            })
+                                            ->default('small')
+                                            ->required()
+                                            ->live()
+                                            ->afterStateUpdated(fn (Set $set, Get $get) => static::recalculateTotals($set, $get))
+                                            ->columnSpan(2),
+
+                                        Forms\Components\TextInput::make('quantity')
+                                            ->label('الكمية')
+                                            ->integer()
+                                            ->default(1)
+                                            ->minValue(1)
+                                            ->required()
+                                            ->live(onBlur: true)
+                                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                                $unitCost = $get('unit_cost') ?? 0;
+                                                $set('total', $unitCost * $state);
+                                                static::recalculateTotals($set, $get);
+                                            })
+                                            ->columnSpan(2),
+
+                                        Forms\Components\TextInput::make('unit_cost')
+                                            ->label('التكلفة')
+                                            ->numeric()
+                                            ->required()
+                                            ->step(0.0001)
+                                            ->minValue(0)
+                                            ->live(onBlur: true)
+                                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                                $quantity = $get('quantity') ?? 1;
+                                                $set('total', $state * $quantity);
+                                                static::recalculateTotals($set, $get);
+                                            })
+                                            ->columnSpan(2),
+
+                                        Forms\Components\TextInput::make('total')
+                                            ->label('الإجمالي')
+                                            ->numeric()
+                                            ->disabled()
+                                            ->dehydrated()
+                                            ->columnSpan(2),
+
+                                        // Row 2: Price Updates (Collapsible or just below)
+                                        Forms\Components\Group::make()
+                                            ->schema([
+                                                Forms\Components\Grid::make(4)
+                                                    ->schema([
+                                                        Forms\Components\TextInput::make('new_selling_price')
+                                                            ->label('بيع (صغير)')
+                                                            ->placeholder('تحديث السعر')
+                                                            ->numeric()
+                                                            ->step(0.01)
+                                                            ->live(onBlur: true)
+                                                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                                                $productId = $get('product_id');
+                                                                if ($productId && $state) {
+                                                                    $product = Product::find($productId);
+                                                                    if ($product && $product->large_unit_id && $product->factor > 0) {
+                                                                        $set('new_large_selling_price', number_format($state * $product->factor, 2, '.', ''));
+                                                                    }
+                                                                }
+                                                            }),
+
+                                                        Forms\Components\TextInput::make('new_large_selling_price')
+                                                            ->label('بيع (كبير)')
+                                                            ->placeholder('تحديث السعر')
+                                                            ->numeric()
+                                                            ->step(0.01)
+                                                            ->visible(fn (Get $get) => Product::find($get('product_id'))?->large_unit_id),
+
+                                                        Forms\Components\TextInput::make('wholesale_price')
+                                                            ->label('جملة (صغير)')
+                                                            ->placeholder('تحديث السعر')
+                                                            ->numeric()
+                                                            ->step(0.01)
+                                                            ->live(onBlur: true)
+                                                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                                                $productId = $get('product_id');
+                                                                if ($productId && $state) {
+                                                                    $product = Product::find($productId);
+                                                                    if ($product && $product->large_unit_id && $product->factor > 0) {
+                                                                        $set('large_wholesale_price', number_format($state * $product->factor, 2, '.', ''));
+                                                                    }
+                                                                }
+                                                            }),
+
+                                                        Forms\Components\TextInput::make('large_wholesale_price')
+                                                            ->label('جملة (كبير)')
+                                                            ->placeholder('تحديث السعر')
+                                                            ->numeric()
+                                                            ->step(0.01)
+                                                            ->visible(fn (Get $get) => Product::find($get('product_id'))?->large_unit_id),
+                                                    ]),
+                                            ])
+                                            ->columnSpan(12)
+                                            ->extraAttributes(['class' => 'bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg mt-2']),
+                                    ]),
+                            ])
+                            ->defaultItems(0)
+                            ->columnSpanFull()
+                            ->reorderableWithButtons()
+                            ->collapsible()
+                            ->collapseAllAction(fn ($action) => $action->label('طي الكل'))
+                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord)
+                            ->live()
+                            ->afterStateUpdated(fn (Set $set, Get $get) => static::recalculateTotals($set, $get)),
                     ]),
 
-                Forms\Components\Section::make('الإجماليات')
+                // Summary & Totals Section
+                Forms\Components\Section::make('ملخص الفاتورة والمدفوعات')
                     ->schema([
-                        Forms\Components\Placeholder::make('total_items_count')
-                            ->label('عدد الأصناف')
-                            ->content(function (Get $get) {
-                                $items = $get('items') ?? [];
-                                return count($items) . ' صنف';
-                            }),
-                        Forms\Components\Placeholder::make('calculated_subtotal')
-                            ->label('المجموع الفرعي')
-                            ->content(function (Get $get) {
-                                $items = $get('items') ?? [];
-                                $subtotal = collect($items)->sum('total');
+                        Forms\Components\Grid::make(12)
+                            ->schema([
+                                // --- RIGHT SIDE: SUMMARY ---
+                                Forms\Components\Group::make()
+                                    ->columnSpan(fn (Get $get) => $get('payment_method') === 'credit' ? 4 : 12)
+                                    ->schema([
+                                        Forms\Components\Section::make()
+                                            ->columns(4)
+                                            ->schema([
+                                                Forms\Components\Placeholder::make('total_items_count')
+                                                    ->label('عدد الأصناف')
+                                                    ->content(function (Get $get) {
+                                                        $items = $get('items') ?? [];
 
-                                return number_format($subtotal, 2);
-                            }),
-                        Forms\Components\Select::make('discount_type')
-                            ->label('نوع الخصم')
-                            ->options([
-                                'fixed' => 'مبلغ ثابت',
-                                'percentage' => 'نسبة مئوية',
-                            ])
-                            ->default('fixed')
-                            ->required()
-                            ->reactive()
-                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                static::recalculateTotals($set, $get);
-                            })
-                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
-                        Forms\Components\TextInput::make('discount_value')
-                            ->label(function (Get $get) {
-                                return $get('discount_type') === 'percentage'
-                                    ? 'نسبة الخصم (%)'
-                                    : 'قيمة الخصم';
-                            })
-                            ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                            ->dehydrateStateUsing(fn ($state) => $state ?? 0)
-                            ->step(0.0001)
-                            ->minValue(0)
-                            ->maxValue(function (Get $get) {
-                                return $get('discount_type') === 'percentage' ? 100 : null;
-                            })
-                            ->suffix(fn (Get $get) => $get('discount_type') === 'percentage' ? '%' : '')
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                static::recalculateTotals($set, $get);
-                            })
-                            ->rules([
-                                'numeric',
-                                'min:0',
-                                fn (Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
-                                    if ($value === null || $value === '') {
-                                        return;
-                                    }
+                                                        return count($items).' صنف';
+                                                    })
+                                                    ->columnSpan(fn (Get $get) => $get('payment_method') === 'credit' ? 4 : 1),
 
-                                    $discountType = $get('discount_type') ?? 'fixed';
-                                    $items = $get('items') ?? [];
+                                                Forms\Components\TextInput::make('subtotal')
+                                                    ->label('المجموع الفرعي')
+                                                    ->numeric()
+                                                    ->readOnly()
+                                                    ->prefix('ج.م')
+                                                    ->columnSpan(fn (Get $get) => $get('payment_method') === 'credit' ? 4 : 1),
 
-                                    // Calculate subtotal from items manually
-                                    $subtotal = 0;
-                                    foreach ($items as $item) {
-                                        $quantity = floatval($item['quantity'] ?? 0);
-                                        $unitCost = floatval($item['unit_cost'] ?? 0);
-                                        $subtotal += $quantity * $unitCost;
-                                    }
+                                                Forms\Components\Grid::make(2)
+                                                    ->columnSpan(fn (Get $get) => $get('payment_method') === 'credit' ? 4 : 2)
+                                                    ->schema([
+                                                        Forms\Components\Select::make('discount_type')
+                                                            ->label('نوع الخصم')
+                                                            ->options(['fixed' => 'مبلغ', 'percentage' => 'نسبة %'])
+                                                            ->default('fixed')
+                                                            ->live()
+                                                            ->afterStateUpdated(fn (Set $set, Get $get) => static::recalculateTotals($set, $get)),
 
-                                    if ($discountType === 'percentage') {
-                                        if (floatval($value) > 100) {
-                                            $fail('نسبة الخصم لا يمكن أن تتجاوز 100%.');
-                                        }
-                                    } else {
-                                        // Fixed discount - validate against calculated subtotal
-                                        if (floatval($value) > $subtotal) {
-                                            $fail('قيمة الخصم (' . number_format($value, 2) . ') لا يمكن أن تتجاوز المجموع الفرعي (' . number_format($subtotal, 2) . ').');
-                                        }
-                                    }
-                                },
-                            ])
-                            ->validationAttribute('قيمة الخصم')
-                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
-                        Forms\Components\Placeholder::make('calculated_discount_display')
-                            ->label('الخصم المحسوب')
-                            ->content(function (Get $get) {
-                                $items = $get('items') ?? [];
-                                $subtotal = collect($items)->sum('total');
-                                $discountType = $get('discount_type') ?? 'fixed';
-                                $discountValue = floatval($get('discount_value') ?? 0);
+                                                        Forms\Components\TextInput::make('discount_value')
+                                                            ->label('قيمة الخصم')
+                                                            ->numeric()
+                                                            ->default(0)
+                                                            ->live(onBlur: true)
+                                                            ->afterStateUpdated(fn (Set $set, Get $get) => static::recalculateTotals($set, $get)),
+                                                    ]),
 
-                                $totalDiscount = $discountType === 'percentage'
-                                    ? $subtotal * ($discountValue / 100)
-                                    : $discountValue;
+                                                Forms\Components\TextInput::make('total')
+                                                    ->label('الإجمالي النهائي')
+                                                    ->numeric()
+                                                    ->readOnly()
+                                                    ->prefix('ج.م')
+                                                    ->extraInputAttributes(['style' => 'font-size: 1.5rem; font-weight: bold; color: #16a34a; text-align: center'])
+                                                    ->columnSpan(4), // Full width in the card
 
-                                return number_format($totalDiscount, 2);
-                            }),
-                        Forms\Components\Placeholder::make('calculated_total')
-                            ->label('الإجمالي النهائي')
-                            ->content(function (Get $get) {
-                                $items = $get('items') ?? [];
-                                $subtotal = collect($items)->sum('total');
-                                $discountType = $get('discount_type') ?? 'fixed';
-                                $discountValue = floatval($get('discount_value') ?? 0);
+                                                Forms\Components\TextInput::make('paid_amount')
+                                                    ->label('المدفوع مقدماً')
+                                                    ->numeric()
+                                                    ->default(0)
+                                                    ->live(onBlur: true)
+                                                    ->visible(fn (Get $get) => $get('payment_method') === 'credit')
+                                                    ->afterStateUpdated(fn (Set $set, Get $get) => static::recalculateTotals($set, $get))
+                                                    ->columnSpan(4),
 
-                                $totalDiscount = $discountType === 'percentage'
-                                    ? $subtotal * ($discountValue / 100)
-                                    : $discountValue;
+                                                Forms\Components\TextInput::make('remaining_amount')
+                                                    ->label('المتبقي')
+                                                    ->numeric()
+                                                    ->readOnly()
+                                                    ->visible(fn (Get $get) => $get('payment_method') === 'credit')
+                                                    ->extraInputAttributes(['style' => 'color: #dc2626; font-weight: bold;'])
+                                                    ->columnSpan(4),
 
-                                $total = $subtotal - $totalDiscount;
+                                                Forms\Components\Hidden::make('discount')->default(0),
+                                            ]),
+                                    ]),
 
-                                return number_format($total, 2);
-                            }),
-                        Forms\Components\TextInput::make('paid_amount')
-                            ->label('المبلغ المدفوع')
-                            ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                            ->default(0)
-                            ->step(0.0001)
-                            ->minValue(0)
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                $items = $get('items') ?? [];
-                                $subtotal = collect($items)->sum('total');
-                                $discountType = $get('discount_type') ?? 'fixed';
-                                $discountValue = $get('discount_value') ?? 0;
+                                // --- LEFT SIDE: NOTES/EXTRA (Span 8 if Credit) ---
+                                Forms\Components\Group::make()
+                                    ->columnSpan(8)
+                                    ->visible(fn (Get $get) => $get('payment_method') === 'credit')
+                                    ->schema([
+                                        Forms\Components\Section::make('ملاحظات الدفع')
+                                            ->schema([
+                                                Forms\Components\Placeholder::make('credit_note_info')
+                                                    ->content('يمكنك تسجيل الدفعات الجزئية هنا. المبلغ المتبقي سيتم تسجيله كدين على المورد.'),
+                                            ]),
+                                    ]),
 
-                                $totalDiscount = $discountType === 'percentage'
-                                    ? $subtotal * ($discountValue / 100)
-                                    : $discountValue;
-
-                                $netTotal = $subtotal - $totalDiscount;
-                                $paidAmount = floatval($state ?? 0);
-
-                                $set('remaining_amount', max(0, $netTotal - $paidAmount));
-                                $set('subtotal', $subtotal);
-                                $set('total', $netTotal);
-                            })
-                            ->rules([
-                                'numeric',
-                                'min:0',
-                                fn (Get $get): \Closure => function (string $attribute, $value, \Closure $fail) use ($get) {
-                                    if ($value === null || $value === '') {
-                                        return;
-                                    }
-
-                                    $items = $get('items') ?? [];
-
-                                    // Calculate subtotal from items manually
-                                    $subtotal = 0;
-                                    foreach ($items as $item) {
-                                        $quantity = floatval($item['quantity'] ?? 0);
-                                        $unitCost = floatval($item['unit_cost'] ?? 0);
-                                        $subtotal += $quantity * $unitCost;
-                                    }
-
-                                    $discountType = $get('discount_type') ?? 'fixed';
-                                    $discountValue = floatval($get('discount_value') ?? 0);
-
-                                    // Calculate total discount
-                                    $totalDiscount = $discountType === 'percentage'
-                                        ? $subtotal * ($discountValue / 100)
-                                        : $discountValue;
-
-                                    // Calculate final total after discount
-                                    $netTotal = $subtotal - $totalDiscount;
-                                    $paidAmount = floatval($value);
-
-                                    if ($paidAmount > $netTotal) {
-                                        $fail('لا يمكن دفع مبلغ (' . number_format($paidAmount, 2) . ') أكبر من إجمالي الفاتورة (' . number_format($netTotal, 2) . ').');
-                                    }
-
-                                    if ($paidAmount < 0) {
-                                        $fail('المبلغ المدفوع يجب أن لا يكون سالباً.');
-                                    }
-                                    
-                                    // Check treasury balance for purchase invoices (money leaving treasury)
-                                    if ($paidAmount > 0 && $get('payment_method') === 'cash') {
-                                        // Get the default treasury or first available
-                                        $treasury = \App\Models\Treasury::where('type', 'cash')->first() ?? \App\Models\Treasury::first();
-                                        if ($treasury) {
-                                            $treasuryService = app(\App\Services\TreasuryService::class);
-                                            $currentBalance = (float) $treasuryService->getTreasuryBalance($treasury->id);
-                                            
-                                            if ($currentBalance < $paidAmount) {
-                                                $fail("المبلغ المطلوب يتجاوز الرصيد المتاح في الخزينة. الرصيد الحالي: " . number_format($currentBalance, 2) . " ج.م");
-                                            }
-                                        }
-                                    }
-                                },
-                            ])
-                            ->validationAttribute('المبلغ المدفوع')
-                            ->helperText('يتم ملؤه تلقائياً حسب طريقة الدفع أو يمكن تعديله يدوياً')
-                            ->visible(fn (Get $get) => $get('payment_method') !== 'cash')
-                            ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
-                        Forms\Components\TextInput::make('remaining_amount')
-                            ->label('المبلغ المتبقي')
-                            ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                            ->default(0)
-                            ->disabled()
-                            ->dehydrated()
-                            ->visible(fn (Get $get) => $get('payment_method') !== 'cash'),
-                        Forms\Components\Hidden::make('subtotal')
-                            ->default(0)
-                            ->dehydrated(),
-                        Forms\Components\Hidden::make('total')
-                            ->default(0)
-                            ->dehydrated(),
-                        Forms\Components\Hidden::make('discount')
-                            ->default(0)
-                            ->dehydrated(),
-                    ])
-                    ->columns(3),
-
-                Forms\Components\Textarea::make('notes')
-                    ->label('ملاحظات')
-                    ->columnSpanFull()
-                    ->rows(3)
-                    ->disabled(fn ($record, $livewire) => $record && $record->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                                // --- BOTTOM: NOTES (Span 12) ---
+                                Forms\Components\Section::make('ملاحظات إضافية')
+                                    ->columnSpan(12)
+                                    ->schema([
+                                        Forms\Components\Textarea::make('notes')
+                                            ->hiddenLabel()
+                                            ->placeholder('أدخل أي ملاحظات إضافية هنا...')
+                                            ->rows(3),
+                                    ]),
+                            ]),
+                    ]),
             ]);
     }
 
@@ -812,6 +793,7 @@ class PurchaseInvoiceResource extends Resource
                                 ->title('لا يمكن تأكيد الفاتورة')
                                 ->body('الفاتورة لا تحتوي على أي أصناف')
                                 ->send();
+
                             return;
                         }
 
@@ -873,7 +855,7 @@ class PurchaseInvoiceResource extends Resource
                                     ->numeric()
                                     ->required()
                                     ->minValue(0.01)
-                                    
+
                                     ->step(0.01)
                                     ->default(fn (PurchaseInvoice $record) => floatval($record->current_remaining))
                                     ->rules([
@@ -883,7 +865,7 @@ class PurchaseInvoiceResource extends Resource
                                         fn (PurchaseInvoice $record): \Closure => function (string $attribute, $value, \Closure $fail) use ($record) {
                                             $remainingAmount = floatval($record->current_remaining);
                                             if (floatval($value) > $remainingAmount) {
-                                                $fail('لا يمكن دفع مبلغ (' . number_format($value, 2) . ') أكبر من المبلغ المتبقي (' . number_format($remainingAmount, 2) . ').');
+                                                $fail('لا يمكن دفع مبلغ ('.number_format($value, 2).') أكبر من المبلغ المتبقي ('.number_format($remainingAmount, 2).').');
                                             }
                                         },
                                     ]),
@@ -899,7 +881,7 @@ class PurchaseInvoiceResource extends Resource
                                     ->numeric()
                                     ->default(0)
                                     ->minValue(0)
-                                    
+
                                     ->step(0.01),
 
                                 Forms\Components\Select::make('treasury_id')
@@ -933,9 +915,8 @@ class PurchaseInvoiceResource extends Resource
                             ->body('تم إضافة الدفعة وتحديث رصيد المورد والخزينة')
                             ->send();
                     })
-                    ->visible(fn (PurchaseInvoice $record) =>
-                        $record->isPosted() &&
-                        !$record->isFullyPaid()
+                    ->visible(fn (PurchaseInvoice $record) => $record->isPosted() &&
+                        ! $record->isFullyPaid()
                     ),
 
                 Tables\Actions\EditAction::make()
