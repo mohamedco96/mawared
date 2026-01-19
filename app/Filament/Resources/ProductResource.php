@@ -81,249 +81,269 @@ class ProductResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('معلومات أساسية')
-                    ->schema([
-                        Forms\Components\TextInput::make('name')
-                            ->label('اسم المنتج')
-                            ->required()
-                            ->maxLength(255)
-                            ->autofocus()
-                            ->columnSpanFull(),
-                        Forms\Components\Select::make('category_id')
-                            ->label('التصنيف')
-                            ->relationship('category', 'name')
-                            ->searchable()
-                            ->preload()
-                            ->createOptionForm([
-                                Forms\Components\TextInput::make('name')
-                                    ->label('اسم التصنيف')
-                                    ->required()
-                                    ->maxLength(255),
-                            ])
-                            ->nullable(),
-                        Forms\Components\TextInput::make('barcode')
-                            ->label('الباركود (الوحدة الصغيرة)')
-                            ->helperText('سيتم توليده تلقائياً إذا ترك فارغاً')
-                            ->unique(ignoreRecord: true)
-                            ->maxLength(255),
-                        Forms\Components\TextInput::make('large_barcode')
-                            ->label('الباركود (الوحدة الكبيرة)')
-                            ->helperText('سيتم توليده تلقائياً إذا ترك فارغاً عند اختيار وحدة كبيرة')
-                            ->unique(ignoreRecord: true)
-                            ->maxLength(255)
-                            ->visible(fn (Forms\Get $get) => $get('large_unit_id') !== null),
-                        Forms\Components\TextInput::make('sku')
-                            ->label('رمز المنتج')
-                            ->helperText('سيتم توليده تلقائياً إذا ترك فارغاً')
-                            ->unique(ignoreRecord: true)
-                            ->maxLength(255),
-                        Forms\Components\TextInput::make('min_stock')
-                            ->label('الحد الأدنى للمخزون')
-                            ->numeric()
-                            ->inputMode('decimal')
-                            ->extraInputAttributes(['dir' => 'ltr'])
-                            ->default(0)
-                            ->minValue(0)
-                            ->required(),
-                        Forms\Components\Toggle::make('is_visible_in_retail_catalog')
-                            ->label('مرئي في كتالوج قطاعي')
-                            ->helperText('عند التفعيل، سيظهر المنتج في صالة العرض الرقمية للتجزئة')
-                            ->default(true)
-                            ->inline(false),
-                        Forms\Components\Toggle::make('is_visible_in_wholesale_catalog')
-                            ->label('مرئي في كتالوج الجملة')
-                            ->helperText('عند التفعيل، سيظهر المنتج في صالة العرض الرقمية للجملة')
-                            ->default(true)
-                            ->inline(false),
-                    ])
-                    ->columns(3),
-
-                Forms\Components\Section::make('الصور')
-                    ->schema([
-                        Forms\Components\FileUpload::make('image')
-                            ->label('الصورة الرئيسية')
-                            ->image()
-                            ->directory('products')
-                            ->disk('public')
-                            ->visibility('public')
-                            ->maxSize(2048)
-                            ->imageEditor()
-                            ->imageEditorAspectRatios(['16:9', '4:3', '1:1'])
-                            ->openable()
-                            ->downloadable()
-                            ->previewable()
-                            ->preserveFilenames()
-                            ->helperText('الصورة الرئيسية للمنتج (الحد الأقصى: 2 ميجابايت)')
-                            ->columnSpanFull(),
-                        Forms\Components\FileUpload::make('images')
-                            ->label('صور إضافية')
-                            ->image()
-                            ->directory('products')
-                            ->disk('public')
-                            ->visibility('public')
-                            ->multiple()
-                            ->maxFiles(10)
-                            ->maxSize(2048)
-                            ->imageEditor()
-                            ->imageEditorAspectRatios(['16:9', '4:3', '1:1'])
-                            ->openable()
-                            ->downloadable()
-                            ->previewable()
-                            ->preserveFilenames()
-                            ->helperText('يمكن إضافة حتى 10 صور إضافية (الحد الأقصى لكل صورة: 2 ميجابايت)')
-                            ->columnSpanFull(),
-                    ])
-                    ->collapsible(),
-
-                Forms\Components\Section::make('نظام الوحدات المزدوج')
-                    ->schema([
-                        Forms\Components\Select::make('small_unit_id')
-                            ->label('الوحدة الصغيرة (الأساسية)')
-                            ->relationship('smallUnit', 'name')
-                            ->required()
-                            ->searchable()
-                            ->preload()
-                            ->createOptionForm([
-                                Forms\Components\TextInput::make('name')
-                                    ->label('الاسم')
-                                    ->required(),
-                                Forms\Components\TextInput::make('symbol')
-                                    ->label('الرمز'),
-                            ])
-                            ->createOptionModalHeading('إضافة وحدة قياس جديدة')
-                            ->editOptionForm([
-                                Forms\Components\TextInput::make('name')
-                                    ->label('الاسم')
-                                    ->required(),
-                                Forms\Components\TextInput::make('symbol')
-                                    ->label('الرمز'),
+                Forms\Components\Tabs::make('Product Steps')
+                    ->contained(true)
+                    ->columnSpanFull()
+                    ->tabs([
+                        Forms\Components\Tabs\Tab::make('البيانات الأساسية')
+                            ->icon('heroicon-m-information-circle')
+                            ->schema([
+                                Forms\Components\Grid::make(2)
+                                    ->schema([
+                                        Forms\Components\TextInput::make('name')
+                                            ->label('اسم المنتج')
+                                            ->required()
+                                            ->maxLength(255)
+                                            ->autofocus(),
+                                        Forms\Components\Select::make('category_id')
+                                            ->label('التصنيف')
+                                            ->relationship('category', 'name')
+                                            ->searchable()
+                                            ->preload()
+                                            ->createOptionForm([
+                                                Forms\Components\TextInput::make('name')
+                                                    ->label('اسم التصنيف')
+                                                    ->required()
+                                                    ->maxLength(255),
+                                            ])
+                                            ->nullable(),
+                                    ]),
+                                Forms\Components\Textarea::make('description')
+                                    ->label('الوصف')
+                                    ->columnSpanFull(),
+                                Forms\Components\Grid::make(2)
+                                    ->schema([
+                                        Forms\Components\Toggle::make('is_visible_in_retail_catalog')
+                                            ->label('مرئي في كتالوج قطاعي')
+                                            ->helperText('عند التفعيل، سيظهر المنتج في صالة العرض الرقمية للتجزئة')
+                                            ->default(false)
+                                            ->inline(false),
+                                        Forms\Components\Toggle::make('is_visible_in_wholesale_catalog')
+                                            ->label('مرئي في كتالوج الجملة')
+                                            ->helperText('عند التفعيل، سيظهر المنتج في صالة العرض الرقمية للجملة')
+                                            ->default(false)
+                                            ->inline(false),
+                                    ]),
                             ]),
-                        Forms\Components\Select::make('large_unit_id')
-                            ->label('الوحدة الكبيرة (الكرتون)')
-                            ->relationship('largeUnit', 'name')
-                            ->searchable()
-                            ->preload()
-                            ->nullable()
-                            ->createOptionForm([
-                                Forms\Components\TextInput::make('name')
-                                    ->label('الاسم')
-                                    ->required(),
-                                Forms\Components\TextInput::make('symbol')
-                                    ->label('الرمز'),
-                            ])
-                            ->createOptionModalHeading('إضافة وحدة قياس جديدة')
-                            ->editOptionForm([
-                                Forms\Components\TextInput::make('name')
-                                    ->label('الاسم')
-                                    ->required(),
-                                Forms\Components\TextInput::make('symbol')
-                                    ->label('الرمز'),
+
+                        Forms\Components\Tabs\Tab::make('الصور والميديا')
+                            ->icon('heroicon-m-photo')
+                            ->schema([
+                                Forms\Components\FileUpload::make('image')
+                                    ->label('الصورة الرئيسية')
+                                    ->image()
+                                    ->directory('products')
+                                    ->disk('public')
+                                    ->visibility('public')
+                                    ->maxSize(2048)
+                                    ->imageEditor()
+                                    ->imageEditorAspectRatios(['16:9', '4:3', '1:1'])
+                                    ->openable()
+                                    ->downloadable()
+                                    ->previewable()
+                                    ->preserveFilenames()
+                                    ->helperText('الصورة الرئيسية للمنتج (الحد الأقصى: 2 ميجابايت)')
+                                    ->columnSpanFull(),
+                                Forms\Components\FileUpload::make('images')
+                                    ->label('صور إضافية')
+                                    ->image()
+                                    ->directory('products')
+                                    ->disk('public')
+                                    ->visibility('public')
+                                    ->multiple()
+                                    ->maxFiles(10)
+                                    ->maxSize(2048)
+                                    ->imageEditor()
+                                    ->imageEditorAspectRatios(['16:9', '4:3', '1:1'])
+                                    ->openable()
+                                    ->downloadable()
+                                    ->previewable()
+                                    ->preserveFilenames()
+                                    ->helperText('يمكن إضافة حتى 10 صور إضافية (الحد الأقصى لكل صورة: 2 ميجابايت)')
+                                    ->columnSpanFull(),
                             ]),
-                        Forms\Components\TextInput::make('factor')
-                            ->label('معامل التحويل')
-                            ->helperText('عدد الوحدات الصغيرة في الوحدة الكبيرة')
-                            ->numeric()
-                            ->inputMode('decimal')
-                            ->extraInputAttributes(['dir' => 'ltr'])
-                            ->default(1)
-                            ->required()
-                            ->minValue(1)
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, $state) {
-                                $largeUnitId = $get('large_unit_id');
-                                $retailPrice = $get('retail_price');
-                                $wholesalePrice = $get('wholesale_price');
 
-                                // Recalculate large unit prices when factor changes
-                                if ($largeUnitId && $state !== null && $state > 0) {
-                                    if ($retailPrice !== null && $retailPrice !== '') {
-                                        $calculatedPrice = floatval($retailPrice) * intval($state);
-                                        $set('large_retail_price', number_format($calculatedPrice, 2, '.', ''));
-                                    }
-                                    if ($wholesalePrice !== null && $wholesalePrice !== '') {
-                                        $calculatedPrice = floatval($wholesalePrice) * intval($state);
-                                        $set('large_wholesale_price', number_format($calculatedPrice, 2, '.', ''));
-                                    }
-                                }
-                            }),
-                    ])
-                    ->columns(3),
+                        Forms\Components\Tabs\Tab::make('التسعير والوحدات')
+                            ->icon('heroicon-m-currency-dollar')
+                            ->schema([
+                                Forms\Components\Section::make('نظام الوحدات')
+                                    ->schema([
+                                        Forms\Components\Select::make('small_unit_id')
+                                            ->label('الوحدة الصغيرة (الأساسية)')
+                                            ->relationship('smallUnit', 'name')
+                                            ->required()
+                                            ->searchable()
+                                            ->preload()
+                                            ->createOptionForm([
+                                                Forms\Components\TextInput::make('name')
+                                                    ->label('الاسم')
+                                                    ->required(),
+                                                Forms\Components\TextInput::make('symbol')
+                                                    ->label('الرمز'),
+                                            ])
+                                            ->createOptionModalHeading('إضافة وحدة قياس جديدة')
+                                            ->editOptionForm([
+                                                Forms\Components\TextInput::make('name')
+                                                    ->label('الاسم')
+                                                    ->required(),
+                                                Forms\Components\TextInput::make('symbol')
+                                                    ->label('الرمز'),
+                                            ]),
+                                        Forms\Components\Select::make('large_unit_id')
+                                            ->label('الوحدة الكبيرة (الكرتون)')
+                                            ->relationship('largeUnit', 'name')
+                                            ->searchable()
+                                            ->preload()
+                                            ->nullable()
+                                            ->createOptionForm([
+                                                Forms\Components\TextInput::make('name')
+                                                    ->label('الاسم')
+                                                    ->required(),
+                                                Forms\Components\TextInput::make('symbol')
+                                                    ->label('الرمز'),
+                                            ])
+                                            ->createOptionModalHeading('إضافة وحدة قياس جديدة')
+                                            ->editOptionForm([
+                                                Forms\Components\TextInput::make('name')
+                                                    ->label('الاسم')
+                                                    ->required(),
+                                                Forms\Components\TextInput::make('symbol')
+                                                    ->label('الرمز'),
+                                            ]),
+                                        Forms\Components\TextInput::make('factor')
+                                            ->label('معامل التحويل')
+                                            ->helperText('عدد الوحدات الصغيرة في الوحدة الكبيرة')
+                                            ->numeric()
+                                            ->inputMode('decimal')
+                                            ->extraInputAttributes(['dir' => 'ltr'])
+                                            ->default(1)
+                                            ->required()
+                                            ->minValue(1)
+                                            ->live(onBlur: true)
+                                            ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, $state) {
+                                                $largeUnitId = $get('large_unit_id');
+                                                $retailPrice = $get('retail_price');
+                                                $wholesalePrice = $get('wholesale_price');
 
-                Forms\Components\Section::make('الأسعار - الوحدة الصغيرة')
-                    ->schema([
-                        Forms\Components\TextInput::make('retail_price')
-                            ->label('سعر قطاعي')
-                            ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                            ->required()
-                            ->step(0.01)
-                            ->minValue(0)
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, $state) {
-                                $factor = $get('factor') ?? 1;
-                                $largeUnitId = $get('large_unit_id');
+                                                // Recalculate large unit prices when factor changes
+                                                if ($largeUnitId && $state !== null && $state > 0) {
+                                                    if ($retailPrice !== null && $retailPrice !== '') {
+                                                        $calculatedPrice = floatval($retailPrice) * intval($state);
+                                                        $set('large_retail_price', number_format($calculatedPrice, 2, '.', ''));
+                                                    }
+                                                    if ($wholesalePrice !== null && $wholesalePrice !== '') {
+                                                        $calculatedPrice = floatval($wholesalePrice) * intval($state);
+                                                        $set('large_wholesale_price', number_format($calculatedPrice, 2, '.', ''));
+                                                    }
+                                                }
+                                            }),
+                                    ])
+                                    ->columns(3),
 
-                                // Auto-calculate large retail price if large unit exists
-                                if ($largeUnitId && $state !== null && $state !== '') {
-                                    $calculatedPrice = floatval($state) * intval($factor);
-                                    $set('large_retail_price', number_format($calculatedPrice, 2, '.', ''));
-                                }
-                            }),
-                        Forms\Components\TextInput::make('wholesale_price')
-                            ->label('سعر الجملة')
-                            ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                            ->required()
-                            ->step(0.01)
-                            ->minValue(0)
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, $state) {
-                                $factor = $get('factor') ?? 1;
-                                $largeUnitId = $get('large_unit_id');
+                                Forms\Components\Section::make('الأسعار - الوحدة الصغيرة')
+                                    ->schema([
+                                        Forms\Components\TextInput::make('retail_price')
+                                            ->label('سعر قطاعي')
+                                            ->numeric()
+                                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                            ->required()
+                                            ->step(0.01)
+                                            ->minValue(0)
+                                            ->live(onBlur: true)
+                                            ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, $state) {
+                                                $factor = $get('factor') ?? 1;
+                                                $largeUnitId = $get('large_unit_id');
 
-                                // Auto-calculate large wholesale price if large unit exists
-                                if ($largeUnitId && $state !== null && $state !== '') {
-                                    $calculatedPrice = floatval($state) * intval($factor);
-                                    $set('large_wholesale_price', number_format($calculatedPrice, 2, '.', ''));
-                                }
-                            }),
-                    ])
-                    ->columns(2),
+                                                // Auto-calculate large retail price if large unit exists
+                                                if ($largeUnitId && $state !== null && $state !== '') {
+                                                    $calculatedPrice = floatval($state) * intval($factor);
+                                                    $set('large_retail_price', number_format($calculatedPrice, 2, '.', ''));
+                                                }
+                                            }),
+                                        Forms\Components\TextInput::make('wholesale_price')
+                                            ->label('سعر الجملة')
+                                            ->numeric()
+                                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                            ->required()
+                                            ->step(0.01)
+                                            ->minValue(0)
+                                            ->live(onBlur: true)
+                                            ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, $state) {
+                                                $factor = $get('factor') ?? 1;
+                                                $largeUnitId = $get('large_unit_id');
 
-                Forms\Components\Section::make('الأسعار - الوحدة الكبيرة')
-                    ->schema([
-                        Forms\Components\TextInput::make('large_retail_price')
-                            ->label('سعر قطاعي')
-                            ->helperText('يتم حسابه تلقائياً (سعر الوحدة الصغيرة × معامل التحويل)، يمكن تعديله يدوياً')
-                            ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                            ->step(0.01)
-                            ->minValue(0)
-                            ->nullable(),
-                        Forms\Components\TextInput::make('large_wholesale_price')
-                            ->label('سعر الجملة')
-                            ->helperText('يتم حسابه تلقائياً (سعر الوحدة الصغيرة × معامل التحويل)، يمكن تعديله يدوياً')
-                            ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                            ->step(0.01)
-                            ->minValue(0)
-                            ->nullable(),
-                    ])
-                    ->columns(2)
-                    ->visible(fn (Forms\Get $get) => $get('large_unit_id') !== null),
+                                                // Auto-calculate large wholesale price if large unit exists
+                                                if ($largeUnitId && $state !== null && $state !== '') {
+                                                    $calculatedPrice = floatval($state) * intval($factor);
+                                                    $set('large_wholesale_price', number_format($calculatedPrice, 2, '.', ''));
+                                                }
+                                            }),
+                                        Forms\Components\TextInput::make('avg_cost')
+                                            ->label('متوسط التكلفة')
+                                            ->helperText('يتم حسابه تلقائياً من المتوسط المرجح لتكاليف المشتريات (للوحدة الصغيرة)')
+                                            ->numeric()
+                                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                            ->default(0)
+                                            ->disabled()
+                                            ->dehydrated(),
+                                    ])
+                                    ->columns(3),
 
-                Forms\Components\Section::make('معلومات إضافية')
-                    ->schema([
-                        Forms\Components\TextInput::make('avg_cost')
-                            ->label('متوسط التكلفة')
-                            ->helperText('يتم حسابه تلقائياً من المتوسط المرجح لتكاليف المشتريات (للوحدة الصغيرة)')
-                            ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                            ->default(0)
-                            ->disabled()
-                            ->dehydrated(),
-                    ])
-                    ->collapsible(),
+                                Forms\Components\Section::make('الأسعار - الوحدة الكبيرة')
+                                    ->schema([
+                                        Forms\Components\TextInput::make('large_retail_price')
+                                            ->label('سعر قطاعي')
+                                            ->helperText('يتم حسابه تلقائياً (سعر الوحدة الصغيرة × معامل التحويل)، يمكن تعديله يدوياً')
+                                            ->numeric()
+                                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                            ->step(0.01)
+                                            ->minValue(0)
+                                            ->nullable(),
+                                        Forms\Components\TextInput::make('large_wholesale_price')
+                                            ->label('سعر الجملة')
+                                            ->helperText('يتم حسابه تلقائياً (سعر الوحدة الصغيرة × معامل التحويل)، يمكن تعديله يدوياً')
+                                            ->numeric()
+                                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                            ->step(0.01)
+                                            ->minValue(0)
+                                            ->nullable(),
+                                    ])
+                                    ->columns(2)
+                                    ->visible(fn (Forms\Get $get) => $get('large_unit_id') !== null),
+                            ]),
+
+                        Forms\Components\Tabs\Tab::make('المخزون')
+                            ->icon('heroicon-m-cube')
+                            ->schema([
+                                Forms\Components\Grid::make(2)
+                                    ->schema([
+                                        Forms\Components\TextInput::make('sku')
+                                            ->label('رمز المنتج')
+                                            ->helperText('سيتم توليده تلقائياً إذا ترك فارغاً')
+                                            ->unique(ignoreRecord: true)
+                                            ->maxLength(255),
+                                        Forms\Components\TextInput::make('barcode')
+                                            ->label('الباركود (الوحدة الصغيرة)')
+                                            ->helperText('سيتم توليده تلقائياً إذا ترك فارغاً')
+                                            ->unique(ignoreRecord: true)
+                                            ->maxLength(255),
+                                        Forms\Components\TextInput::make('large_barcode')
+                                            ->label('الباركود (الوحدة الكبيرة)')
+                                            ->helperText('سيتم توليده تلقائياً إذا ترك فارغاً عند اختيار وحدة كبيرة')
+                                            ->unique(ignoreRecord: true)
+                                            ->maxLength(255)
+                                            ->visible(fn (Forms\Get $get) => $get('large_unit_id') !== null),
+                                        Forms\Components\TextInput::make('min_stock')
+                                            ->label('الحد الأدنى للمخزون')
+                                            ->numeric()
+                                            ->inputMode('decimal')
+                                            ->extraInputAttributes(['dir' => 'ltr'])
+                                            ->default(0)
+                                            ->minValue(0)
+                                            ->required(),
+                                    ]),
+                            ]),
+                    ]),
             ]);
     }
 
@@ -552,7 +572,7 @@ class ProductResource extends Resource
 
                             Forms\Components\TextInput::make('value')
                                 ->label(function ($get) {
-                                    return match($get('update_type')) {
+                                    return match ($get('update_type')) {
                                         'percentage_increase', 'percentage_decrease' => 'النسبة المئوية (%)',
                                         'fixed_increase', 'fixed_decrease' => 'المبلغ (ج.م)',
                                         'set_price' => 'السعر الجديد (ج.م)',
@@ -582,7 +602,7 @@ class ProductResource extends Resource
                             foreach ($records as $product) {
                                 $currentPrice = floatval($product->{$data['price_field']} ?? 0);
 
-                                $newPrice = match($data['update_type']) {
+                                $newPrice = match ($data['update_type']) {
                                     'percentage_increase' => $currentPrice * (1 + $data['value'] / 100),
                                     'percentage_decrease' => $currentPrice * (1 - $data['value'] / 100),
                                     'fixed_increase' => $currentPrice + $data['value'],
@@ -594,7 +614,7 @@ class ProductResource extends Resource
                                 $newPrice = max(0, $newPrice);
 
                                 $product->update([
-                                    $data['price_field'] => $newPrice
+                                    $data['price_field'] => $newPrice,
                                 ]);
                                 $updated++;
                             }
