@@ -110,30 +110,23 @@ class ReportController extends Controller
      */
     public function lowStockPrint()
     {
-        // Get products where current stock <= min_stock
+        // Optimize: Use addSelect to get current_stock in the main query, avoiding N+1 in map()
         $products = Product::query()
+            ->addSelect(['*', 'current_stock' => function ($query) {
+                $query->selectRaw('COALESCE(SUM(quantity), 0)')
+                    ->from('stock_movements')
+                    ->whereColumn('product_id', 'products.id')
+                    ->whereNull('deleted_at');
+            }])
             ->whereRaw('(
                 SELECT COALESCE(SUM(quantity), 0)
                 FROM stock_movements
                 WHERE stock_movements.product_id = products.id
                 AND stock_movements.deleted_at IS NULL
             ) <= min_stock')
-            ->orderByRaw('(
-                SELECT COALESCE(SUM(quantity), 0)
-                FROM stock_movements
-                WHERE stock_movements.product_id = products.id
-                AND stock_movements.deleted_at IS NULL
-            ) ASC')
+            ->orderByRaw('current_stock ASC')
             ->with(['smallUnit', 'largeUnit'])
-            ->get()
-            ->map(function ($product) {
-                $product->current_stock = DB::table('stock_movements')
-                    ->where('product_id', $product->id)
-                    ->whereNull('deleted_at')
-                    ->sum('quantity') ?? 0;
-
-                return $product;
-            });
+            ->get();
 
         // Get settings
         $companySettings = app(CompanySettings::class);

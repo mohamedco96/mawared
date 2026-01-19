@@ -113,11 +113,13 @@ class SalesReturnResource extends Resource
                                                 ->send();
                                             $set('sales_invoice_id', null);
                                             $set('items', []);
+
                                             return;
                                         }
 
                                         $items = $invoice->items->map(function ($item) use ($invoice) {
                                             $availableQty = $invoice->getAvailableReturnQuantity($item->product_id, $item->unit_type);
+
                                             return [
                                                 'product_id' => $item->product_id,
                                                 'unit_type' => $item->unit_type,
@@ -128,7 +130,7 @@ class SalesReturnResource extends Resource
                                                 'max_quantity' => $availableQty,
                                                 'original_quantity' => $item->quantity,
                                             ];
-                                        })->filter(fn($item) => $item['max_quantity'] > 0)->toArray();
+                                        })->filter(fn ($item) => $item['max_quantity'] > 0)->toArray();
 
                                         if (empty($items)) {
                                             Notification::make()
@@ -169,11 +171,11 @@ class SalesReturnResource extends Resource
                                     ->getSearchResultsUsing(function (?string $search): array {
                                         $query = Product::query();
 
-                                        if (!empty($search)) {
+                                        if (! empty($search)) {
                                             $query->where(function ($q) use ($search) {
                                                 $q->where('name', 'like', "%{$search}%")
-                                                  ->orWhere('sku', 'like', "%{$search}%")
-                                                  ->orWhere('barcode', 'like', "%{$search}%");
+                                                    ->orWhere('sku', 'like', "%{$search}%")
+                                                    ->orWhere('barcode', 'like', "%{$search}%");
                                             });
                                         } else {
                                             // Load latest products when no search
@@ -184,6 +186,7 @@ class SalesReturnResource extends Resource
                                     })
                                     ->getOptionLabelUsing(function ($value): string {
                                         $product = Product::find($value);
+
                                         return $product ? $product->name : '';
                                     })
                                     ->loadingMessage('جاري التحميل...')
@@ -193,7 +196,7 @@ class SalesReturnResource extends Resource
                                     ->preload()
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get, $record) {
-                                        if ($state && !$get('../../sales_invoice_id')) {
+                                        if ($state && ! $get('../../sales_invoice_id')) {
                                             $product = Product::find($state);
                                             if ($product) {
                                                 $unitType = $get('unit_type') ?? 'small';
@@ -207,8 +210,7 @@ class SalesReturnResource extends Resource
                                             }
                                         }
                                     })
-                                    ->disabled(fn ($record, Get $get, $livewire) =>
-                                        ($record && $record->salesReturn && $record->salesReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord) ||
+                                    ->disabled(fn ($record, Get $get, $livewire) => ($record && $record->salesReturn && $record->salesReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord) ||
                                         $get('../../sales_invoice_id') !== null
                                     )
                                     ->dehydrated()
@@ -249,7 +251,7 @@ class SalesReturnResource extends Resource
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية')
                                     ->integer()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'numeric'])
+                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'numeric'])
                                     ->required()
                                     ->default(1)
                                     ->minValue(1)
@@ -291,7 +293,7 @@ class SalesReturnResource extends Resource
                                 Forms\Components\TextInput::make('unit_price')
                                     ->label('سعر الوحدة')
                                     ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->required()
                                     ->step(0.0001)
                                     ->minValue(0)
@@ -311,8 +313,7 @@ class SalesReturnResource extends Resource
                                         },
                                     ])
                                     ->validationAttribute('سعر الوحدة')
-                                    ->disabled(fn ($record, Get $get, $livewire) =>
-                                        ($record && $record->salesReturn && $record->salesReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord) ||
+                                    ->disabled(fn ($record, Get $get, $livewire) => ($record && $record->salesReturn && $record->salesReturn->isPosted() && $livewire instanceof \Filament\Resources\Pages\EditRecord) ||
                                         $get('../../sales_invoice_id') !== null
                                     )
                                     ->dehydrated()
@@ -323,7 +324,7 @@ class SalesReturnResource extends Resource
                                 Forms\Components\TextInput::make('total')
                                     ->label('الإجمالي')
                                     ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->disabled()
                                     ->dehydrated()
                                     ->columnSpan(2),
@@ -398,6 +399,7 @@ class SalesReturnResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->with(['partner', 'warehouse', 'salesInvoice']))
             ->columns([
                 Tables\Columns\TextColumn::make('return_number')
                     ->label('رقم المرتجع')
@@ -511,6 +513,7 @@ class SalesReturnResource extends Resource
                                 ->title('لا يمكن تأكيد المرتجع')
                                 ->body('المرتجع لا يحتوي على أي أصناف')
                                 ->send();
+
                             return;
                         }
 

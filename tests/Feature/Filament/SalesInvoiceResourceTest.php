@@ -350,7 +350,7 @@ class SalesInvoiceResourceTest extends TestCase
 
         // ACT & ASSERT
         $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('لا يمكن حذف فاتورة مؤكدة');
+        $this->expectExceptionMessage('لا يمكن حذف الفاتورة لوجود حركات مخزون أو خزينة أو مدفوعات مرتبطة بها أو لأنها مؤكدة');
         $invoice->delete();
     }
 

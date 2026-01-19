@@ -190,6 +190,7 @@ class WarehouseTransferResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->with(['fromWarehouse', 'toWarehouse']))
             ->columns([
                 Tables\Columns\TextColumn::make('transfer_number')
                     ->label('رقم النقل')

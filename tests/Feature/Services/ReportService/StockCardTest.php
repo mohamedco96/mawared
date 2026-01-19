@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Services\ReportService;
@@ -23,7 +22,7 @@ test('it generates stock card with correct opening stock', function () {
     );
 
     // Add stock before start date (should be in opening stock)
-    StockMovement::create([
+    $movement = StockMovement::create([
         'warehouse_id' => $this->warehouse->id,
         'product_id' => $product->id,
         'type' => 'purchase',
@@ -31,8 +30,10 @@ test('it generates stock card with correct opening stock', function () {
         'cost_at_time' => '50.00',
         'reference_type' => 'purchase_invoice',
         'reference_id' => 'test-purchase',
-        'created_at' => now()->subMonths(2),
     ]);
+    // Manually update created_at since it's not fillable
+    $movement->created_at = now()->subMonths(2);
+    $movement->saveQuietly();
 
     $startDate = now()->subMonths(1)->format('Y-m-d');
     $endDate = now()->format('Y-m-d');
@@ -103,7 +104,7 @@ test('it calculates running stock correctly', function () {
     );
 
     // Opening stock: 100
-    StockMovement::create([
+    $movement = StockMovement::create([
         'warehouse_id' => $this->warehouse->id,
         'product_id' => $product->id,
         'type' => 'purchase',
@@ -111,14 +112,15 @@ test('it calculates running stock correctly', function () {
         'cost_at_time' => '50.00',
         'reference_type' => 'purchase_invoice',
         'reference_id' => 'opening',
-        'created_at' => now()->subMonths(2),
     ]);
+    $movement->created_at = now()->subMonths(2);
+    $movement->saveQuietly();
 
     $startDate = now()->subMonths(1)->format('Y-m-d');
     $endDate = now()->format('Y-m-d');
 
     // Purchase: +50
-    StockMovement::create([
+    $purchase = StockMovement::create([
         'warehouse_id' => $this->warehouse->id,
         'product_id' => $product->id,
         'type' => 'purchase',
@@ -126,8 +128,9 @@ test('it calculates running stock correctly', function () {
         'cost_at_time' => '50.00',
         'reference_type' => 'purchase_invoice',
         'reference_id' => 'purchase-1',
-        'created_at' => now()->subDays(5),
     ]);
+    $purchase->created_at = now()->subDays(5);
+    $purchase->saveQuietly();
 
     // Sale: -30
     StockMovement::create([
@@ -149,13 +152,13 @@ test('it calculates running stock correctly', function () {
     );
 
     $movements = $stockCard['movements'];
-    
+
     // First movement (purchase): balance = 100 + 50 = 150
     expect($movements[0]['balance'])->toBe(150);
-    
+
     // Second movement (sale): balance = 150 - 30 = 120
     expect($movements[1]['balance'])->toBe(120);
-    
+
     // Closing stock should be 120
     expect($stockCard['closing_stock'])->toBe(120);
 });

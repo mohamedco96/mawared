@@ -4,11 +4,9 @@ use App\Models\Expense;
 use App\Models\FixedAsset;
 use App\Models\InvoicePayment;
 use App\Models\Partner;
-use App\Models\Product;
 use App\Models\PurchaseInvoice;
 use App\Models\SalesInvoice;
 use App\Models\StockMovement;
-use App\Models\Treasury;
 use App\Services\FinancialReportService;
 use App\Services\ReportService;
 use Tests\Helpers\TestHelpers;
@@ -67,12 +65,12 @@ test('it generates complete report with real data', function () {
     $report = $this->financialReportService->generateReport($fromDate, $toDate);
 
     // Verify all calculations match actual data
-    expect((float)$report['total_sales'])->toBe(10000.0);
-    expect((float)$report['total_purchases'])->toBe(5000.0);
-    expect((float)$report['fixed_assets_value'])->toBe(20000.0);
-    expect((float)$report['expenses'])->toBe(2000.0);
-    expect((float)$report['total_debtors'])->toBe(5000.0);
-    expect((float)$report['total_creditors'])->toBe(3000.0);
+    expect((float) $report['total_sales'])->toBe(10000.0);
+    expect((float) $report['total_purchases'])->toBe(5000.0);
+    expect((float) $report['fixed_assets_value'])->toBe(20000.0);
+    expect((float) $report['expenses'])->toBe(2000.0);
+    expect((float) $report['total_debtors'])->toBe(8000.0); // 5000 (Customer) + 3000 (Supplier Advance)
+    expect((float) $report['total_creditors'])->toBe(0.0);
 });
 
 test('it generates partner statement with all transactions', function () {
@@ -105,8 +103,8 @@ test('it generates partner statement with all transactions', function () {
     $statement = $this->reportService->getPartnerStatement($partner->id, $startDate, $endDate);
 
     expect($statement['transactions'])->toHaveCount(2);
-    expect((float)$statement['opening_balance'])->toBe(1000.0);
-    expect((float)$statement['closing_balance'])->toBe(4000.0); // 1000 + 5000 - 2000
+    expect((float) $statement['opening_balance'])->toBe(1000.0);
+    expect((float) $statement['closing_balance'])->toBe(4000.0); // 1000 + 5000 - 2000
 });
 
 test('it generates stock card with all movements', function () {

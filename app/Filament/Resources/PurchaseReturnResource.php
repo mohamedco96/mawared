@@ -423,6 +423,7 @@ class PurchaseReturnResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->with(['partner', 'warehouse', 'purchaseInvoice']))
             ->columns([
                 Tables\Columns\TextColumn::make('return_number')
                     ->label('رقم المرتجع')

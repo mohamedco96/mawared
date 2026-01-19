@@ -140,8 +140,8 @@ class ReportService
     {
         return InvoicePayment::where('partner_id', $partnerId)
             ->where('payable_type', 'sales_invoice')
-            ->where('payment_date', '>=', $startDate)
-            ->where('payment_date', '<=', $endDate)
+            ->whereDate('payment_date', '>=', $startDate)
+            ->whereDate('payment_date', '<=', $endDate)
             ->with('payable')
             ->get()
             ->map(function ($payment) {

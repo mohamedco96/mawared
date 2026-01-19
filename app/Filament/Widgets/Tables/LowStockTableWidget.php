@@ -23,6 +23,11 @@ class LowStockTableWidget extends BaseWidget
 
     protected static bool $isLazy = true;
 
+    protected function isTablePaginationEnabled(): bool
+    {
+        return false;
+    }
+
     public static function canView(): bool
     {
         return auth()->user()?->can('widget_LowStockTableWidget') ?? false;
@@ -31,18 +36,19 @@ class LowStockTableWidget extends BaseWidget
     protected function getTableQuery(): Builder
     {
         return Product::query()
+            ->addSelect(['*', 'current_stock' => function ($query) {
+                $query->selectRaw('COALESCE(SUM(quantity), 0)')
+                    ->from('stock_movements')
+                    ->whereColumn('product_id', 'products.id')
+                    ->whereNull('deleted_at');
+            }])
             ->whereRaw('(
                 SELECT COALESCE(SUM(quantity), 0)
                 FROM stock_movements
                 WHERE stock_movements.product_id = products.id
                 AND stock_movements.deleted_at IS NULL
             ) <= min_stock')
-            ->orderByRaw('(
-                SELECT COALESCE(SUM(quantity), 0)
-                FROM stock_movements
-                WHERE stock_movements.product_id = products.id
-                AND stock_movements.deleted_at IS NULL
-            ) ASC')
+            ->orderByRaw('current_stock ASC')
             ->limit(5);
     }
 
@@ -56,12 +62,6 @@ class LowStockTableWidget extends BaseWidget
 
             Tables\Columns\TextColumn::make('current_stock')
                 ->label('المخزون الحالي')
-                ->getStateUsing(function (Product $record): int {
-                    return DB::table('stock_movements')
-                        ->where('product_id', $record->id)
-                        ->whereNull('deleted_at')
-                        ->sum('quantity') ?? 0;
-                })
                 ->badge()
                 ->color('danger')
                 ->alignCenter(),

@@ -59,6 +59,7 @@ class EditSalesInvoice extends EditRecord
                 }),
 
             Actions\DeleteAction::make()
+                ->hidden(fn () => $this->record->isPosted())
                 ->before(function (Actions\DeleteAction $action) {
                     if ($this->getRecord()->hasAssociatedRecords()) {
                         Notification::make()

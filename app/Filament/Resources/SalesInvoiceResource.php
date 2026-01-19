@@ -768,12 +768,20 @@ class SalesInvoiceResource extends Resource
                                 $totalCost = 0;
                                 $items = $get('items') ?? [];
 
+                                // Optimize: Batch load products to avoid N+1
+                                $productIds = collect($items)->pluck('product_id')->filter()->unique()->toArray();
+                                if (empty($productIds)) {
+                                    return number_format(0, 2);
+                                }
+                                
+                                $products = \App\Models\Product::whereIn('id', $productIds)->get()->keyBy('id');
+
                                 foreach ($items as $item) {
                                     if (! isset($item['product_id'], $item['quantity'])) {
                                         continue;
                                     }
 
-                                    $product = \App\Models\Product::find($item['product_id']);
+                                    $product = $products->get($item['product_id']);
                                     if (! $product) {
                                         continue;
                                     }
@@ -815,12 +823,20 @@ class SalesInvoiceResource extends Resource
                                 $totalCost = 0;
                                 $items = $get('items') ?? [];
 
+                                // Optimize: Batch load products to avoid N+1
+                                $productIds = collect($items)->pluck('product_id')->filter()->unique()->toArray();
+                                if (empty($productIds)) {
+                                     return ['style' => 'color: rgb(239, 68, 68); font-weight: bold; font-size: 1.125rem;'];
+                                }
+                                
+                                $products = \App\Models\Product::whereIn('id', $productIds)->get()->keyBy('id');
+
                                 foreach ($items as $item) {
                                     if (! isset($item['product_id'], $item['quantity'])) {
                                         continue;
                                     }
 
-                                    $product = \App\Models\Product::find($item['product_id']);
+                                    $product = $products->get($item['product_id']);
                                     if (! $product) {
                                         continue;
                                     }
@@ -874,12 +890,20 @@ class SalesInvoiceResource extends Resource
                                 $totalCost = 0;
                                 $items = $get('items') ?? [];
 
+                                // Optimize: Batch load products to avoid N+1
+                                $productIds = collect($items)->pluck('product_id')->filter()->unique()->toArray();
+                                if (empty($productIds)) {
+                                    return new \Illuminate\Support\HtmlString('<span style="color: gray">No Data</span>');
+                                }
+                                
+                                $products = \App\Models\Product::whereIn('id', $productIds)->get()->keyBy('id');
+
                                 foreach ($items as $item) {
                                     if (! isset($item['product_id'], $item['quantity'])) {
                                         continue;
                                     }
 
-                                    $product = \App\Models\Product::find($item['product_id']);
+                                    $product = $products->get($item['product_id']);
                                     if (! $product) {
                                         continue;
                                     }

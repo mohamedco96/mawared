@@ -5,7 +5,6 @@ use App\Models\Partner;
 use App\Models\SalesInvoice;
 use App\Models\SalesReturn;
 use App\Services\ReportService;
-use Tests\Helpers\TestHelpers;
 
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
@@ -25,7 +24,7 @@ test('it generates partner statement with correct opening balance', function () 
 
     expect($statement)->toBeArray();
     expect($statement)->toHaveKey('opening_balance');
-    expect((float)$statement['opening_balance'])->toBe(1000.0);
+    expect((float) $statement['opening_balance'])->toBe(1000.0);
 });
 
 test('it includes all transactions in date range', function () {
@@ -34,14 +33,15 @@ test('it includes all transactions in date range', function () {
     ]);
 
     // Create invoice before date range (should be in opening balance)
-    SalesInvoice::factory()->create([
+    $oldInvoice = SalesInvoice::factory()->create([
         'partner_id' => $partner->id,
         'status' => 'posted',
         'total' => '5000.0000',
         'paid_amount' => '0.0000',
         'remaining_amount' => '5000.0000',
-        'created_at' => now()->subMonths(2),
     ]);
+    $oldInvoice->created_at = now()->subMonths(2);
+    $oldInvoice->saveQuietly();
 
     $startDate = now()->subMonths(1)->format('Y-m-d');
     $endDate = now()->format('Y-m-d');
@@ -71,17 +71,18 @@ test('it calculates running balance correctly', function () {
     $startDate = now()->subMonths(1)->format('Y-m-d');
     $endDate = now()->format('Y-m-d');
 
-    // Create invoice
+    // Create invoice (yesterday to ensure it comes before payment)
     $invoice = SalesInvoice::factory()->create([
         'partner_id' => $partner->id,
         'status' => 'posted',
         'total' => '5000.0000',
         'paid_amount' => '0.0000',
         'remaining_amount' => '5000.0000',
-        'created_at' => now(),
     ]);
+    $invoice->created_at = now()->subDay();
+    $invoice->saveQuietly();
 
-    // Create payment
+    // Create payment (today)
     $payment = InvoicePayment::create([
         'payable_type' => 'sales_invoice',
         'payable_id' => $invoice->id,
@@ -94,12 +95,12 @@ test('it calculates running balance correctly', function () {
     $statement = $this->reportService->getPartnerStatement($partner->id, $startDate, $endDate);
 
     $transactions = $statement['transactions'];
-    
+
     // First transaction (invoice): balance = 1000 + 5000 = 6000
-    expect((float)$transactions[0]['balance'])->toBe(6000.0);
-    
+    expect((float) $transactions[0]['balance'])->toBe(6000.0);
+
     // Second transaction (payment): balance = 6000 - 2000 = 4000
-    expect((float)$transactions[1]['balance'])->toBe(4000.0);
+    expect((float) $transactions[1]['balance'])->toBe(4000.0);
 });
 
 test('it returns correct closing balance', function () {
@@ -110,19 +111,20 @@ test('it returns correct closing balance', function () {
     $startDate = now()->subMonths(1)->format('Y-m-d');
     $endDate = now()->format('Y-m-d');
 
-    SalesInvoice::factory()->create([
+    $invoice = SalesInvoice::factory()->create([
         'partner_id' => $partner->id,
         'status' => 'posted',
         'total' => '5000.0000',
         'paid_amount' => '0.0000',
         'remaining_amount' => '5000.0000',
-        'created_at' => now(),
     ]);
+    $invoice->created_at = now();
+    $invoice->saveQuietly();
 
     $statement = $this->reportService->getPartnerStatement($partner->id, $startDate, $endDate);
 
     // Closing balance: 1000 (opening) + 5000 (invoice) = 6000
-    expect((float)$statement['closing_balance'])->toBe(6000.0);
+    expect((float) $statement['closing_balance'])->toBe(6000.0);
 });
 
 test('it handles partner with no transactions', function () {
@@ -136,8 +138,8 @@ test('it handles partner with no transactions', function () {
     $statement = $this->reportService->getPartnerStatement($partner->id, $startDate, $endDate);
 
     expect($statement['transactions'])->toHaveCount(0);
-    expect((float)$statement['opening_balance'])->toBe(0.0);
-    expect((float)$statement['closing_balance'])->toBe(0.0);
+    expect((float) $statement['opening_balance'])->toBe(0.0);
+    expect((float) $statement['closing_balance'])->toBe(0.0);
 });
 
 test('it handles date boundaries correctly', function () {

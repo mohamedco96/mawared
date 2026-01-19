@@ -1,9 +1,6 @@
 <?php
 
 use App\Models\Partner;
-use App\Models\Product;
-use App\Models\PurchaseReturn;
-use App\Models\SalesInvoice;
 use App\Models\SalesReturn;
 use App\Models\StockMovement;
 use App\Models\TreasuryTransaction;
@@ -97,14 +94,14 @@ test('it completes cash return flow', function () {
 
     // Verify treasury refund
     $finalBalance = $this->treasuryService->getTreasuryBalance($this->treasury->id);
-    expect((float)$finalBalance)->toBe((float)$initialBalance - 1000.0);
+    expect((float) $finalBalance)->toBe((float) $initialBalance - 1000.0);
 
     // Verify treasury transaction created
     $transaction = TreasuryTransaction::where('reference_type', 'sales_return')
         ->where('reference_id', $return->id)
         ->first();
     expect($transaction)->not->toBeNull();
-    expect((float)$transaction->amount)->toBe(-1000.0);
+    expect((float) $transaction->amount)->toBe(-1000.0);
 });
 
 test('it completes credit return flow', function () {
@@ -153,7 +150,7 @@ test('it completes credit return flow', function () {
 
     $this->treasuryService->updatePartnerBalance($customer->id);
     $customer->refresh();
-    $initialBalance = (float)$customer->current_balance;
+    $initialBalance = (float) $customer->current_balance;
 
     // Post credit return
     $return = SalesReturn::factory()->create([
@@ -177,6 +174,9 @@ test('it completes credit return flow', function () {
     $this->treasuryService->postSalesReturn($return, $this->treasury->id);
     $return->update(['status' => 'posted']);
 
+    // Update partner balance after posting
+    $this->treasuryService->updatePartnerBalance($customer->id);
+
     // Verify stock restored
     $stock = $this->stockService->getCurrentStock($this->warehouse->id, $product->id);
     expect($stock)->toBeGreaterThan(0);
@@ -189,5 +189,5 @@ test('it completes credit return flow', function () {
 
     // Verify partner balance updated
     $customer->refresh();
-    expect((float)$customer->current_balance)->toBe($initialBalance - 1000.0);
+    expect((float) $customer->current_balance)->toBe($initialBalance - 1000.0);
 });
