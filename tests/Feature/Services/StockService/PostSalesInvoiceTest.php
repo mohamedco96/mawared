@@ -232,7 +232,7 @@ test('it handles concurrent sales of same product', function () {
     expect($finalStock)->toBe(0); // 100 - 50 - 50 = 0
 });
 
-test('it handles zero quantity sale', function () {
+test('it throws exception for zero quantity sale', function () {
     $product = TestHelpers::createDualUnitProduct(
         $this->units['piece'],
         $this->units['carton'],
@@ -240,7 +240,7 @@ test('it handles zero quantity sale', function () {
         avgCost: '50.00'
     );
 
-    $invoice = TestHelpers::createDraftSalesInvoice(
+    expect(fn () => TestHelpers::createDraftSalesInvoice(
         warehouse: $this->warehouse,
         items: [
             [
@@ -253,14 +253,5 @@ test('it handles zero quantity sale', function () {
                 'total' => '0.00',
             ],
         ]
-    );
-
-    // Should not throw exception for zero quantity
-    $this->stockService->postSalesInvoice($invoice);
-
-    $movement = StockMovement::where('reference_type', 'sales_invoice')
-        ->where('reference_id', $invoice->id)
-        ->first();
-
-    expect($movement->quantity)->toBe(0);
+    ))->toThrow(Exception::class, 'الكمية يجب أن تكون أكبر من صفر');
 });

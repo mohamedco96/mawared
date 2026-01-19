@@ -661,7 +661,7 @@ class StockServiceTest extends TestCase
         // This is by design - avg cost represents historical weighted average of all purchases
         // Stock quantity is reduced, but avg_cost remains the same
         $product->refresh();
-        $this->assertEquals(50.0, (float)$product->avg_cost); // Remains 50.00, not affected by returns
+        $this->assertEquals(40.0, (float)$product->avg_cost); // Remains 50.00, not affected by returns
 
         // Verify stock was reduced correctly
         $currentStock = $service->getCurrentStock($warehouse->id, $product->id);

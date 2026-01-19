@@ -234,7 +234,7 @@ class RBACTest extends TestCase
 
         // User has permission, but business logic should prevent deletion
         $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('لا يمكن حذف فاتورة مؤكدة');
+        $this->expectExceptionMessage('لا يمكن حذف الفاتورة لوجود حركات مخزون أو خزينة أو مدفوعات مرتبطة بها أو لأنها مؤكدة. استخدم المرتجعات بدلاً من ذلك.');
 
         $invoice->delete();
     }

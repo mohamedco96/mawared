@@ -235,7 +235,7 @@ test('it generates installment schedule correctly', function () {
     expect((float)$installments->first()->amount)->toBe(300.00); // 1200 / 4
 });
 
-test('it handles items with zero quantity gracefully', function () {
+test('it throws exception for items with zero quantity', function () {
     $product = TestHelpers::createDualUnitProduct($this->units['piece'], $this->units['carton'], avgCost: '50.00');
     
     // Add initial stock
@@ -254,18 +254,13 @@ test('it handles items with zero quantity gracefully', function () {
         'status' => 'draft',
     ]);
 
-    $invoice->items()->create([
+    expect(fn () => $invoice->items()->create([
         'product_id' => $product->id,
         'quantity' => 0,
         'unit_type' => 'small',
         'unit_price' => '100.00',
         'total' => '0.00',
-    ]);
-
-    fullPostSalesInvoice($invoice, $this->treasury->id);
-
-    $movement = StockMovement::where('reference_type', 'sales_invoice')->first();
-    expect($movement->quantity)->toBe(0);
+    ]))->toThrow(Exception::class, 'الكمية يجب أن تكون أكبر من صفر');
 });
 
 test('it handles sales invoice with 100% discount correctly', function () {

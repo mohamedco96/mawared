@@ -67,13 +67,8 @@ class StockService
             return $movement;
         };
 
-        // Only wrap in transaction if not already in one
-        $transactionLevel = DB::transactionLevel();
-        if ($transactionLevel === 0) {
-            return DB::transaction($execute);
-        } else {
-            return $execute();
-        }
+        // Always wrap in transaction to ensure atomicity and handle nested transactions correctly
+        return DB::transaction($execute);
     }
 
     /**
@@ -182,12 +177,8 @@ class StockService
             }
         };
 
-        // Only wrap in transaction if not already in one
-        if (DB::transactionLevel() === 0) {
-            DB::transaction($execute);
-        } else {
-            $execute();
-        }
+        // Wrap in transaction to ensure atomicity
+        DB::transaction($execute);
     }
 
     /**
@@ -233,12 +224,8 @@ class StockService
             }
         };
 
-        // Only wrap in transaction if not already in one
-        if (DB::transactionLevel() === 0) {
-            DB::transaction($execute);
-        } else {
-            $execute();
-        }
+        // Always wrap in transaction to ensure atomicity and handle nested transactions correctly
+        DB::transaction($execute);
     }
 
     /**
@@ -290,12 +277,8 @@ class StockService
             $invoice->update(['cost_total' => $totalCOGS]);
         };
 
-        // Only wrap in transaction if not already in one
-        if (DB::transactionLevel() === 0) {
-            DB::transaction($execute);
-        } else {
-            $execute();
-        }
+        // Always wrap in transaction to ensure atomicity
+        DB::transaction($execute);
     }
 
     /**
@@ -415,18 +398,8 @@ class StockService
             ]);
         };
 
-        // Only wrap in transaction if not already in one
-        $transactionLevel = DB::transactionLevel();
-        \Log::info('Checking transaction level before postPurchaseInvoice', [
-            'transaction_level' => $transactionLevel,
-            'will_create_nested' => $transactionLevel === 0,
-        ]);
-
-        if ($transactionLevel === 0) {
-            DB::transaction($execute);
-        } else {
-            $execute();
-        }
+        // Always wrap in transaction to ensure atomicity and handle nested transactions correctly
+        DB::transaction($execute);
 
         \Log::info('StockService::postPurchaseInvoice completed', [
             'invoice_id' => $invoice->id,

@@ -49,16 +49,24 @@ class BusinessLogicTest extends TestCase
 
     // Service instances
     private TreasuryService $treasuryService;
+
     private StockService $stockService;
 
     // Test data entities
     private Treasury $treasury;
+
     private Warehouse $warehouse;
+
     private Partner $customer;
+
     private Partner $supplier;
+
     private Product $productA;
+
     private Product $productB;
+
     private Unit $pieceUnit;
+
     private Unit $cartonUnit;
 
     protected function setUp(): void
@@ -66,8 +74,8 @@ class BusinessLogicTest extends TestCase
         parent::setUp();
 
         // Initialize services
-        $this->treasuryService = new TreasuryService();
-        $this->stockService = new StockService();
+        $this->treasuryService = new TreasuryService;
+        $this->stockService = new StockService;
 
         // Create units (required for products)
         $this->pieceUnit = Unit::create(['name' => 'قطعة', 'symbol' => 'قطعة']);
@@ -152,7 +160,7 @@ class BusinessLogicTest extends TestCase
         $this->setupInitialStock($this->productA, 100, 50.00);
 
         $this->productA->refresh();
-        $this->assertEquals(50.00, round((float)$this->productA->avg_cost, 2));
+        $this->assertEquals(50.00, round((float) $this->productA->avg_cost, 2));
         // WHY: First purchase sets avg_cost = 50.00
 
         // ACT: Purchase 2 - 50 units at 0 EGP (free samples)
@@ -187,7 +195,7 @@ class BusinessLogicTest extends TestCase
         $this->productA->refresh();
         $expectedAvgCost = ((100 * 50.00) + (50 * 0.00)) / (100 + 50);
         // = 5000 / 150 = 33.33
-        $this->assertEquals(33.33, round((float)$this->productA->avg_cost, 2));
+        $this->assertEquals(33.33, round((float) $this->productA->avg_cost, 2));
         // WHY: Zero-cost purchases dilute the average cost
 
         // ASSERT: Total Stock
@@ -206,7 +214,7 @@ class BusinessLogicTest extends TestCase
         $this->setupInitialStock($this->productA, 50, 100.00);
 
         $this->productA->refresh();
-        $this->assertEquals(100.00, round((float)$this->productA->avg_cost, 2));
+        $this->assertEquals(100.00, round((float) $this->productA->avg_cost, 2));
 
         // ACT: Sell all 50 units
         $sale = SalesInvoice::create([
@@ -242,7 +250,7 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Average cost still 100 (sales don't affect avg_cost)
         $this->productA->refresh();
-        $this->assertEquals(100.00, round((float)$this->productA->avg_cost, 2));
+        $this->assertEquals(100.00, round((float) $this->productA->avg_cost, 2));
         // WHY: Sales don't recalculate average cost
 
         // ACT: Repurchase 30 units at 150 EGP
@@ -276,7 +284,7 @@ class BusinessLogicTest extends TestCase
         $this->productA->refresh();
         // Formula: (50*100 + 30*150) / (50 + 30) = (5000 + 4500) / 80 = 118.75
         $expectedAvgCost = ((50 * 100.00) + (30 * 150.00)) / (50 + 30);
-        $this->assertEquals(round($expectedAvgCost, 2), round((float)$this->productA->avg_cost, 2));
+        $this->assertEquals(round($expectedAvgCost, 2), round((float) $this->productA->avg_cost, 2));
         // WHY: System includes ALL purchase movements, even if stock went to zero in between
     }
 
@@ -317,7 +325,7 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Average cost per piece
         $this->productB->refresh();
-        $this->assertEquals(50.00, round((float)$this->productB->avg_cost, 2));
+        $this->assertEquals(50.00, round((float) $this->productB->avg_cost, 2));
         // WHY: 3000 total cost / 60 pieces = 50 EGP per piece
 
         // ACT: Purchase 10 more cartons at 720 EGP per carton
@@ -355,7 +363,7 @@ class BusinessLogicTest extends TestCase
         // Total pieces = 60 + 120 = 180
         // Avg cost = 10200 / 180 = 56.67 EGP per piece
         $expectedAvgCost = ((60 * 50.00) + (120 * 60.00)) / (60 + 120);
-        $this->assertEquals(round($expectedAvgCost, 2), round((float)$this->productB->avg_cost, 2));
+        $this->assertEquals(round($expectedAvgCost, 2), round((float) $this->productB->avg_cost, 2));
         // WHY: Weighted average calculated in base units (pieces), not cartons
     }
 
@@ -369,7 +377,7 @@ class BusinessLogicTest extends TestCase
         $this->setupInitialStock($this->productA, 100, 50.00);
 
         $this->productA->refresh();
-        $initialAvgCost = (float)$this->productA->avg_cost;
+        $initialAvgCost = (float) $this->productA->avg_cost;
         $this->assertEquals(50.00, round($initialAvgCost, 2));
 
         // ACT: Sell 60 units
@@ -401,7 +409,7 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Average cost unchanged
         $this->productA->refresh();
-        $this->assertEquals(50.00, round((float)$this->productA->avg_cost, 2));
+        $this->assertEquals(50.00, round((float) $this->productA->avg_cost, 2));
         // WHY: Sales do NOT recalculate average cost (only purchases do)
 
         // ASSERT: Stock reduced
@@ -472,7 +480,7 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Average cost after both purchases
         $this->productA->refresh();
-        $this->assertEquals(150.00, round((float)$this->productA->avg_cost, 2));
+        $this->assertEquals(150.00, round((float) $this->productA->avg_cost, 2));
         // WHY: (100*100 + 100*200) / 200 = 30000 / 200 = 150
 
         // ACT: Return 50 units from second purchase at 200 EGP
@@ -502,7 +510,7 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Average cost remains 150 (returns don't recalculate from purchases)
         $this->productA->refresh();
-        $this->assertEquals(133.33, round((float)$this->productA->avg_cost, 2));
+        $this->assertEquals(133.33, round((float) $this->productA->avg_cost, 2));
         // WHY: avg_cost calculation includes ALL purchase movements (including the returned batch)
         // NOTE: This is BY DESIGN - the system doesn't exclude returned items from avg_cost calculation
 
@@ -774,7 +782,7 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Average cost per piece
         $productC->refresh();
-        $this->assertEquals(2.50, round((float)$productC->avg_cost, 2));
+        $this->assertEquals(2.50, round((float) $productC->avg_cost, 2));
         // WHY: 25000 total / 10000 pieces = 2.50 per piece
 
         // ACT: Sell 3 pallets
@@ -842,7 +850,7 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Treasury has the money
         $treasuryBalance = $this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals(5000.00, round((float)$treasuryBalance, 2));
+        $this->assertEquals(5000.00, round((float) $treasuryBalance, 2));
         // WHY: We received 5000 EGP cash
 
         // ACT: Customer makes purchase for 3000 EGP (credit)
@@ -922,7 +930,7 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Treasury reduced
         $treasuryBalance = $this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals(3000.00, round((float)$treasuryBalance, 2));
+        $this->assertEquals(3000.00, round((float) $treasuryBalance, 2));
         // WHY: 10000 income - 7000 payment = 3000 remaining
 
         // ACT: Receive purchase for 5000 EGP (credit)
@@ -1001,7 +1009,7 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Customer owes 1000
         $this->customer->refresh();
-        $this->assertEquals(1000.00, round((float)$this->customer->current_balance, 2));
+        $this->assertEquals(1000.00, round((float) $this->customer->current_balance, 2));
 
         // ACT: Pay 950 with 50 settlement discount
         $payment = $this->treasuryService->recordInvoicePayment(
@@ -1013,12 +1021,12 @@ class BusinessLogicTest extends TestCase
         );
 
         // ASSERT: Payment recorded correctly
-        $this->assertEquals(950.00, (float)$payment->amount);
-        $this->assertEquals(50.00, (float)$payment->discount);
+        $this->assertEquals(950.00, (float) $payment->amount);
+        $this->assertEquals(50.00, (float) $payment->discount);
 
         // ASSERT: Treasury received 950
         $treasuryBalance = $this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals(950.00, round((float)$treasuryBalance, 2));
+        $this->assertEquals(950.00, round((float) $treasuryBalance, 2));
         // WHY: Treasury receives only the cash amount (discount is forgiven)
 
         // ASSERT: Customer balance cleared (or nearly cleared)
@@ -1040,24 +1048,24 @@ class BusinessLogicTest extends TestCase
         // Transaction 1: Credit sale 1000
         $sale1 = $this->createSalesInvoice(1000.00, 'credit', 0);
         $this->customer->refresh();
-        $this->assertEquals(1000.00, round((float)$this->customer->current_balance, 2));
+        $this->assertEquals(1000.00, round((float) $this->customer->current_balance, 2));
 
         // Transaction 2: Cash sale 500 (doesn't affect balance)
         $sale2 = $this->createSalesInvoice(500.00, 'cash', 500.00);
         $this->customer->refresh();
-        $this->assertEquals(1000.00, round((float)$this->customer->current_balance, 2));
+        $this->assertEquals(1000.00, round((float) $this->customer->current_balance, 2));
         // WHY: Cash sales don't create customer debt
 
         // Transaction 3: Partial payment 300
         $this->treasuryService->recordInvoicePayment($sale1, 300.00, 0, $this->treasury->id);
         $this->customer->refresh();
-        $this->assertEquals(700.00, round((float)$this->customer->current_balance, 2));
+        $this->assertEquals(700.00, round((float) $this->customer->current_balance, 2));
         // WHY: 1000 - 300 = 700
 
         // Transaction 4: Credit sale 2000
         $sale3 = $this->createSalesInvoice(2000.00, 'credit', 0);
         $this->customer->refresh();
-        $this->assertEquals(2700.00, round((float)$this->customer->current_balance, 2));
+        $this->assertEquals(2700.00, round((float) $this->customer->current_balance, 2));
         // WHY: 700 + 2000 = 2700
 
         // Add initial capital to treasury for refunds
@@ -1094,7 +1102,7 @@ class BusinessLogicTest extends TestCase
         // WHY: Cash refunds do NOT affect customer balance
         // Customer took 200 EGP cash, but their debt is unchanged
         $this->customer->refresh();
-        $this->assertEquals(2700.00, round((float)$this->customer->current_balance, 2));
+        $this->assertEquals(2700.00, round((float) $this->customer->current_balance, 2));
         // CALCULATION: 1000 (sale1 credit) + 2000 (sale3 credit) - 300 (payment) = 2700
         // The 200 cash return does NOT reduce this balance
 
@@ -1175,7 +1183,7 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Customer balance is 1000 (credit sale - they owe us)
         $this->customer->refresh();
-        $this->assertEquals(1000.00, round((float)$this->customer->current_balance, 2));
+        $this->assertEquals(1000.00, round((float) $this->customer->current_balance, 2));
 
         // ACT: Customer returns items worth 1500 (CREDIT return - not cash)
         // This could happen if they bought from multiple invoices or we give them extra credit
@@ -1213,7 +1221,7 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Treasury unchanged (no cash transactions)
         $treasuryBalance = $this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals(0.00, round((float)$treasuryBalance, 2));
+        $this->assertEquals(0.00, round((float) $treasuryBalance, 2));
         // WHY: Credit sale and credit return don't affect treasury
     }
 
@@ -1333,7 +1341,7 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Treasury has 900 + 10000 initial capital = 10900
         $treasuryBalance = $this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals(10900.00, round((float)$treasuryBalance, 2));
+        $this->assertEquals(10900.00, round((float) $treasuryBalance, 2));
 
         // ACT: Return with 5% discount: 1000 - 50 = 950
         $return = SalesReturn::create([
@@ -1363,7 +1371,7 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Treasury balance
         $finalTreasury = $this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals(9950.00, round((float)$finalTreasury, 2));
+        $this->assertEquals(9950.00, round((float) $finalTreasury, 2));
         // WHY: 10000 (initial) + 900 (collected) - 950 (refunded) = 9950
         // NOTE: This creates net loss because return discount differs from sale discount
     }
@@ -1408,22 +1416,22 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Customer owes 2000
         $this->customer->refresh();
-        $this->assertEquals(2000.00, round((float)$this->customer->current_balance, 2));
+        $this->assertEquals(2000.00, round((float) $this->customer->current_balance, 2));
 
         // Return 1: 5 items (500 EGP)
         $return1 = $this->createSalesReturn(500.00, 'credit', 5);
         $this->customer->refresh();
-        $this->assertEquals(1500.00, round((float)$this->customer->current_balance, 2));
+        $this->assertEquals(1500.00, round((float) $this->customer->current_balance, 2));
 
         // Return 2: 3 items (300 EGP)
         $return2 = $this->createSalesReturn(300.00, 'credit', 3);
         $this->customer->refresh();
-        $this->assertEquals(1200.00, round((float)$this->customer->current_balance, 2));
+        $this->assertEquals(1200.00, round((float) $this->customer->current_balance, 2));
 
         // Return 3: 2 items (200 EGP)
         $return3 = $this->createSalesReturn(200.00, 'credit', 2);
         $this->customer->refresh();
-        $this->assertEquals(1000.00, round((float)$this->customer->current_balance, 2));
+        $this->assertEquals(1000.00, round((float) $this->customer->current_balance, 2));
 
         // ASSERT: Final balance
         $finalBalance = $this->customer->calculateBalance();
@@ -1474,7 +1482,7 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Avg cost is 150
         $this->productA->refresh();
-        $this->assertEquals(150.00, round((float)$this->productA->avg_cost, 2));
+        $this->assertEquals(150.00, round((float) $this->productA->avg_cost, 2));
         // WHY: (50*100 + 50*200) / 100 = 150
 
         // ACT: Sell 30 items
@@ -1482,7 +1490,7 @@ class BusinessLogicTest extends TestCase
 
         // Stock movement should have cost_at_time = 150
         $saleMovement = StockMovement::where('type', 'sale')->first();
-        $this->assertEquals(150.00, round((float)$saleMovement->cost_at_time, 2));
+        $this->assertEquals(150.00, round((float) $saleMovement->cost_at_time, 2));
         // WHY: Uses current avg_cost at time of sale
 
         // ACT: Return 10 items
@@ -1512,7 +1520,7 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Return movement uses current avg_cost
         $returnMovement = StockMovement::where('type', 'sale_return')->first();
-        $this->assertEquals(150.00, round((float)$returnMovement->cost_at_time, 2));
+        $this->assertEquals(150.00, round((float) $returnMovement->cost_at_time, 2));
         // WHY: Returns use product.avg_cost at time of posting
     }
 
@@ -1586,7 +1594,7 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Treasury balance
         $treasuryBalance = $this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals(50000.00, round((float)$treasuryBalance, 2));
+        $this->assertEquals(50000.00, round((float) $treasuryBalance, 2));
         // WHY: All items paid in cash
     }
 
@@ -1629,7 +1637,7 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Treasury balance (large number)
         $treasuryBalance = $this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals(10000000.00, round((float)$treasuryBalance, 2));
+        $this->assertEquals(10000000.00, round((float) $treasuryBalance, 2));
         // WHY: System should handle millions without overflow
 
         // ASSERT: Stock reduced correctly
@@ -1673,7 +1681,7 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Average cost precision
         $this->productA->refresh();
-        $avgCost = (float)$this->productA->avg_cost;
+        $avgCost = (float) $this->productA->avg_cost;
         $this->assertEquals(0.001, round($avgCost, 3));
         // WHY: Should maintain small decimal precision (0.001 per unit)
 
@@ -1707,7 +1715,7 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Treasury balance precision
         $treasuryBalance = $this->treasuryService->getTreasuryBalance($this->treasury->id);
-        $this->assertEquals(10.00, round((float)$treasuryBalance, 2));
+        $this->assertEquals(10.00, round((float) $treasuryBalance, 2));
         // WHY: Precision maintained for small amounts
     }
 
@@ -1761,7 +1769,7 @@ class BusinessLogicTest extends TestCase
 
         // ASSERT: Customer balance reduced by return total
         $this->customer->refresh();
-        $this->assertEquals(600.00, round((float)$this->customer->current_balance, 2));
+        $this->assertEquals(600.00, round((float) $this->customer->current_balance, 2));
         // WHY: 1000 (sale) - 400 (return) = 600
     }
 
@@ -1818,11 +1826,6 @@ class BusinessLogicTest extends TestCase
         // NOTE: This test documents EXPECTED behavior
         // Current system may NOT validate this - test will reveal if validation is missing
 
-        $this->markTestIncomplete(
-            'This test documents expected validation behavior. ' .
-            'Implement validation in invoice item creation to prevent zero quantities.'
-        );
-
         // ARRANGE: Add stock
         $this->setupInitialStock($this->productA, 100, 50.00);
 
@@ -1862,10 +1865,6 @@ class BusinessLogicTest extends TestCase
         // ACCOUNTING PRINCIPLE: Negative quantities should be rejected (use returns instead)
 
         // NOTE: This test documents EXPECTED behavior
-        $this->markTestIncomplete(
-            'This test documents expected validation behavior. ' .
-            'Implement validation in invoice item creation to prevent negative quantities.'
-        );
 
         // ARRANGE: Add stock
         $this->setupInitialStock($this->productA, 100, 50.00);
@@ -1950,7 +1949,7 @@ class BusinessLogicTest extends TestCase
             if ($transaction->reference_type === 'capital_injection') {
                 continue;
             }
-            
+
             $this->assertNotNull($transaction->reference_type, 'Transaction must have reference_type');
             $this->assertNotNull($transaction->reference_id, 'Transaction must have reference_id');
             // WHY: Every treasury transaction MUST be traceable to source
@@ -1975,8 +1974,8 @@ class BusinessLogicTest extends TestCase
         $serviceBalance = $this->treasuryService->getTreasuryBalance($this->treasury->id);
 
         $this->assertEquals(
-            round((float)$manualSum, 2),
-            round((float)$serviceBalance, 2)
+            round((float) $manualSum, 2),
+            round((float) $serviceBalance, 2)
         );
         // WHY: getTreasuryBalance should return SUM of all transaction amounts
     }
@@ -2001,7 +2000,7 @@ class BusinessLogicTest extends TestCase
         // ASSERT: Calculated balance
         $this->customer->refresh();
         $calculatedBalance = $this->customer->calculateBalance();
-        $storedBalance = (float)$this->customer->current_balance;
+        $storedBalance = (float) $this->customer->current_balance;
 
         $this->assertEquals(
             round($calculatedBalance, 2),
@@ -2074,7 +2073,7 @@ class BusinessLogicTest extends TestCase
     private function setupInitialStock(Product $product, int $quantity, float $unitCost): void
     {
         $purchase = PurchaseInvoice::create([
-            'invoice_number' => 'PI-SETUP-' . uniqid(),
+            'invoice_number' => 'PI-SETUP-'.uniqid(),
             'warehouse_id' => $this->warehouse->id,
             'partner_id' => $this->supplier->id,
             'status' => 'draft',
@@ -2111,7 +2110,7 @@ class BusinessLogicTest extends TestCase
         int $quantity = 10
     ): SalesInvoice {
         $invoice = SalesInvoice::create([
-            'invoice_number' => 'SI-' . uniqid(),
+            'invoice_number' => 'SI-'.uniqid(),
             'warehouse_id' => $this->warehouse->id,
             'partner_id' => $this->customer->id,
             'status' => 'draft',
@@ -2153,7 +2152,7 @@ class BusinessLogicTest extends TestCase
         int $quantity = 5
     ): SalesReturn {
         $return = SalesReturn::create([
-            'return_number' => 'SR-' . uniqid(),
+            'return_number' => 'SR-'.uniqid(),
             'warehouse_id' => $this->warehouse->id,
             'partner_id' => $this->customer->id,
             'status' => 'draft',

@@ -174,7 +174,7 @@ test('fixed asset with equity funding increases partner equity', function () {
     expect($newBalance)->toBe($initialBalance);
 
     // Partner equity should increase
-    expect($shareholder->current_balance)->toBe('15000.0000');
+    expect($shareholder->current_capital)->toBe('15000.0000');
 
     // No treasury transaction should be created for equity (no cash movement)
     $transaction = TreasuryTransaction::where('reference_type', 'fixed_asset')
@@ -326,7 +326,7 @@ test('balance sheet is balanced after fixed asset purchase with equity', functio
     $totalAssets = $treasuryBalance + $fixedAssetsValue;
 
     // Equity = Shareholder Balance
-    $totalEquity = floatval($shareholder->current_balance);
+    $totalEquity = floatval($shareholder->current_capital);
 
     // For equity purchase: Assets increase, Equity increases => Balanced
     expect($totalAssets)->toBe(13000.0);

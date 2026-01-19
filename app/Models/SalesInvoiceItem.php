@@ -42,6 +42,19 @@ class SalesInvoiceItem extends Model
         return $this->belongsTo(Product::class);
     }
 
+    // Booted method for validation
+    protected static function booted()
+    {
+        static::saving(function ($item) {
+            if ($item->quantity === 0) {
+                throw new \Exception('الكمية يجب أن تكون أكبر من صفر');
+            }
+            if ($item->quantity < 0) {
+                throw new \Exception('الكمية يجب أن تكون موجبة');
+            }
+        });
+    }
+
     // Helper Methods
     public function getNetUnitPriceAttribute(): float
     {
