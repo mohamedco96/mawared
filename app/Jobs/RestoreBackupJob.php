@@ -24,7 +24,7 @@ class RestoreBackupJob implements ShouldQueue
         public string $disk,
         public bool $restoreDatabase = false,
         public bool $restoreStorage = true,
-        public ?int $userId = null
+        public ?string $userId = null
     ) {
     }
 

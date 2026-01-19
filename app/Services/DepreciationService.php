@@ -63,13 +63,13 @@ class DepreciationService
 
                     // Record depreciation transaction
                     $this->treasuryService->recordTransaction(
-                        treasury_id: $asset->treasury_id,
+                        treasuryId: $asset->treasury_id,
                         type: TransactionType::DEPRECIATION_EXPENSE->value,
                         amount: -floatval($monthlyDepreciation), // Negative (expense)
                         description: "استهلاك {$asset->name} - " . $forMonth->format('M Y'),
-                        partner_id: $asset->contributing_partner_id, // Track which partner's asset
-                        reference_type: FixedAsset::class,
-                        reference_id: $asset->id
+                        partnerId: $asset->contributing_partner_id, // Track which partner's asset
+                        referenceType: FixedAsset::class,
+                        referenceId: $asset->id
                     );
 
                     // Update asset

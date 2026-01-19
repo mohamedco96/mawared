@@ -85,7 +85,7 @@ test('it calculates total debtors correctly', function () {
         'current_balance' => '3000.0000',
     ]);
 
-    // Supplier with positive balance (should be excluded from debtors)
+    // Supplier with positive balance (should be included as debtor)
     $supplier = Partner::factory()->supplier()->create([
         'current_balance' => '2000.0000',
     ]);
@@ -94,8 +94,8 @@ test('it calculates total debtors correctly', function () {
     $toDate = now()->format('Y-m-d');
     $report = $this->reportService->generateReport($fromDate, $toDate);
 
-    // Should only count customers with positive balances
-    expect((float)$report['total_debtors'])->toBe(8000.0); // 5000 + 3000
+    // Should count all partners with positive balances regardless of type (except shareholders)
+    expect((float)$report['total_debtors'])->toBe(10000.0); // 5000 + 3000 + 2000
 });
 
 test('it calculates total creditors correctly', function () {
@@ -108,7 +108,7 @@ test('it calculates total creditors correctly', function () {
         'current_balance' => '-3000.0000',
     ]);
 
-    // Customer with negative balance (should be excluded from creditors)
+    // Customer with negative balance (should be included as creditor)
     $customer = Partner::factory()->customer()->create([
         'current_balance' => '-2000.0000',
     ]);
@@ -117,8 +117,8 @@ test('it calculates total creditors correctly', function () {
     $toDate = now()->format('Y-m-d');
     $report = $this->reportService->generateReport($fromDate, $toDate);
 
-    // Should only count suppliers with negative balances (absolute value)
-    expect((float)$report['total_creditors'])->toBe(8000.0); // abs(-5000) + abs(-3000)
+    // Should count all partners with negative balances (absolute value)
+    expect((float)$report['total_creditors'])->toBe(10000.0); // abs(-5000) + abs(-3000) + abs(-2000)
 });
 
 test('it calculates total cash from all treasuries', function () {

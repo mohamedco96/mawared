@@ -28,7 +28,7 @@ test('it generates complete report with real data', function () {
     ]);
 
     $supplier = Partner::factory()->supplier()->create([
-        'current_balance' => '-3000.0000',
+        'current_balance' => '3000.0000',
     ]);
 
     SalesInvoice::factory()->create([

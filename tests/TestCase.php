@@ -37,7 +37,7 @@ abstract class TestCase extends BaseTestCase
             'type' => 'income',
             'amount' => 1000000, // 1 million initial capital
             'description' => 'Initial Capital for Testing',
-            'reference_type' => 'capital_injection',
+            'reference_type' => 'initial_capital',
             'reference_id' => null,
         ]);
     }

@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Expense;
-use App\Models\GeneralSetting;
 use App\Models\Partner;
 use App\Models\Product;
 use App\Models\PurchaseInvoice;
@@ -11,7 +10,6 @@ use App\Models\PurchaseReturn;
 use App\Models\Revenue;
 use App\Models\SalesInvoice;
 use App\Models\SalesReturn;
-use App\Models\StockMovement;
 use App\Models\Treasury;
 use App\Models\TreasuryTransaction;
 use Illuminate\Support\Facades\DB;
@@ -144,8 +142,8 @@ class FinancialReportService
     /**
      * Calculate inventory value at a specific date
      *
-     * @param string $date The date to calculate inventory up to
-     * @param bool $exclusive If true, use < instead of <= for date comparison
+     * @param  string  $date  The date to calculate inventory up to
+     * @param  bool  $exclusive  If true, use < instead of <= for date comparison
      */
     protected function calculateInventoryValue(string $date, bool $exclusive = false): float
     {
@@ -157,16 +155,17 @@ class FinancialReportService
         foreach ($products as $product) {
             $qty = DB::table('stock_movements')
                 ->where('product_id', $product->id)
-                ->where('created_at', $dateOperator, $date . ($exclusive ? ' 00:00:00' : ' 23:59:59'))
+                ->where('created_at', $dateOperator, $date.($exclusive ? ' 00:00:00' : ' 23:59:59'))
                 ->whereNull('stock_movements.deleted_at')
                 ->sum('quantity');
-            
+
             if ($qty > 0) {
                 $totalValue += $product->avg_cost * $qty;
             }
         }
 
         return (float) $totalValue;
+
         return (float) $totalValue;
     }
 
@@ -180,8 +179,8 @@ class FinancialReportService
      */
     protected function calculateTotalDebtors(): float
     {
-        return Partner::where('current_balance', '>', 0)
-            ->where('type', 'customer') // Strict separation as expected by tests
+        return Partner::whereIn('type', ['customer', 'supplier'])
+            ->where('current_balance', '>', 0)
             ->sum('current_balance');
     }
 
@@ -196,8 +195,8 @@ class FinancialReportService
      */
     protected function calculateTotalCreditors(): float
     {
-        return abs(Partner::where('current_balance', '<', 0)
-            ->where('type', 'supplier') // Strict separation as expected by tests
+        return abs(Partner::whereIn('type', ['customer', 'supplier'])
+            ->where('current_balance', '<', 0)
             ->sum('current_balance'));
     }
 
@@ -401,9 +400,9 @@ class FinancialReportService
             'payable',
             [\App\Models\PurchaseInvoice::class]
         )
-        ->whereDate('payment_date', '>=', $fromDate)
-        ->whereDate('payment_date', '<=', $toDate)
-        ->sum('discount');
+            ->whereDate('payment_date', '>=', $fromDate)
+            ->whereDate('payment_date', '<=', $toDate)
+            ->sum('discount');
     }
 
     /**
@@ -416,8 +415,8 @@ class FinancialReportService
             'payable',
             [\App\Models\SalesInvoice::class]
         )
-        ->whereDate('payment_date', '>=', $fromDate)
-        ->whereDate('payment_date', '<=', $toDate)
-        ->sum('discount');
+            ->whereDate('payment_date', '>=', $fromDate)
+            ->whereDate('payment_date', '<=', $toDate)
+            ->sum('discount');
     }
 }
