@@ -4,7 +4,6 @@ namespace App\Filament\Resources\QuotationResource\Pages;
 
 use App\Filament\Resources\QuotationResource;
 use App\Models\Partner;
-use App\Models\Product;
 use App\Models\SalesInvoice;
 use App\Models\Warehouse;
 use App\Services\StockService;
@@ -44,7 +43,7 @@ class ViewQuotation extends ViewRecord
                 ->icon('heroicon-o-document-text')
                 ->url(fn () => route('quotations.public.pdf', [
                     'token' => $this->record->public_token,
-                    'format' => 'a4'
+                    'format' => 'a4',
                 ]))
                 ->openUrlInNewTab()
                 ->color('primary'),
@@ -55,7 +54,7 @@ class ViewQuotation extends ViewRecord
                 ->icon('heroicon-o-receipt-percent')
                 ->url(fn () => route('quotations.public.pdf', [
                     'token' => $this->record->public_token,
-                    'format' => 'thermal'
+                    'format' => 'thermal',
                 ]))
                 ->openUrlInNewTab()
                 ->color('success'),
@@ -76,8 +75,7 @@ class ViewQuotation extends ViewRecord
                 ->color('warning')
                 ->requiresConfirmation()
                 ->modalHeading('تحويل عرض السعر إلى فاتورة مبيعات')
-                ->modalDescription(fn () =>
-                    $this->record->partner_id
+                ->modalDescription(fn () => $this->record->partner_id
                         ? 'سيتم إنشاء فاتورة مبيعات جديدة بحالة مسودة'
                         : 'عرض السعر لعميل غير مسجل. سيتم إنشاء شريك جديد أولاً.'
                 )
@@ -100,7 +98,7 @@ class ViewQuotation extends ViewRecord
                     ];
 
                     // If guest quotation, add partner creation fields
-                    if (!$this->record->partner_id) {
+                    if (! $this->record->partner_id) {
                         return array_merge([
                             Forms\Components\Section::make('إنشاء شريك جديد')
                                 ->description('سيتم إنشاء شريك تلقائياً من بيانات العميل الضيف')
@@ -135,12 +133,47 @@ class ViewQuotation extends ViewRecord
 
                     return $baseFields;
                 })
-                ->action(function (array $data) {
+                ->action(function (array $data, Actions\Action $action) {
+                    // Validate stock availability for all items
+                    $stockService = app(StockService::class);
+
+                    $this->record->loadMissing('items.product');
+
+                    foreach ($this->record->items as $item) {
+                        $product = $item->product;
+                        if (! $product) {
+                            Notification::make()
+                                ->danger()
+                                ->title("المنتج '{$item->product_name}' غير موجود.")
+                                ->send();
+
+                            $action->halt();
+                        }
+
+                        // Check current stock
+                        $requiredStock = $stockService->convertToBaseUnit($product, $item->quantity, $item->unit_type);
+                        $validation = $stockService->getStockValidationMessage(
+                            $data['warehouse_id'],
+                            $item->product_id,
+                            $requiredStock,
+                            $item->unit_type
+                        );
+
+                        if (! $validation['is_available']) {
+                            Notification::make()
+                                ->danger()
+                                ->title($validation['message'])
+                                ->send();
+
+                            $action->halt();
+                        }
+                    }
+
                     return DB::transaction(function () use ($data) {
                         $partnerId = $this->record->partner_id;
 
                         // Create partner if guest quotation
-                        if (!$partnerId) {
+                        if (! $partnerId) {
                             $partner = Partner::create([
                                 'name' => $data['partner_name'],
                                 'phone' => $data['partner_phone'],
@@ -159,28 +192,6 @@ class ViewQuotation extends ViewRecord
                                 ->log("تم إنشاء شريك جديد: {$partner->name} من عرض السعر");
                         }
 
-                        // Validate stock availability for all items
-                        $stockService = app(StockService::class);
-                        foreach ($this->record->items as $item) {
-                            $product = $item->product;
-                            if (!$product) {
-                                throw new \Exception("المنتج '{$item->product_name}' غير موجود.");
-                            }
-
-                            // Check current stock
-                            $requiredStock = $stockService->convertToBaseUnit($product, $item->quantity, $item->unit_type);
-                            $validation = $stockService->getStockValidationMessage(
-                                $data['warehouse_id'],
-                                $item->product_id,
-                                $requiredStock,
-                                $item->unit_type
-                            );
-
-                            if (!$validation['is_available']) {
-                                throw new \Exception($validation['message']);
-                            }
-                        }
-
                         // Create sales invoice
                         $invoice = SalesInvoice::create([
                             'invoice_number' => 'SI-'.now()->format('Ymd').'-'.\Illuminate\Support\Str::random(6),
@@ -195,7 +206,7 @@ class ViewQuotation extends ViewRecord
                             'total' => $this->record->total,
                             'paid_amount' => 0,
                             'remaining_amount' => $this->record->total,
-                            'notes' => "محول من عرض السعر: {$this->record->quotation_number}\n" .
+                            'notes' => "محول من عرض السعر: {$this->record->quotation_number}\n".
                                       ($this->record->notes ?? ''),
                         ]);
 
@@ -233,9 +244,8 @@ class ViewQuotation extends ViewRecord
                         return redirect()->route('filament.admin.resources.sales-invoices.edit', $invoice);
                     });
                 })
-                ->visible(fn () =>
-                    $this->record->canBeConverted() &&
-                    !$this->record->isExpired()
+                ->visible(fn () => $this->record->canBeConverted() &&
+                    ! $this->record->isExpired()
                 ),
 
             Actions\EditAction::make()
