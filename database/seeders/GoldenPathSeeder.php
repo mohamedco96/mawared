@@ -9,7 +9,6 @@ use App\Models\ProductCategory;
 use App\Models\PurchaseInvoice;
 use App\Models\PurchaseInvoiceItem;
 use App\Models\PurchaseReturn;
-use App\Models\PurchaseReturnItem;
 use App\Models\Revenue;
 use App\Models\SalesInvoice;
 use App\Models\SalesInvoiceItem;
@@ -19,6 +18,7 @@ use App\Models\Treasury;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\CapitalService;
 use App\Services\StockService;
 use App\Services\TreasuryService;
 use Carbon\Carbon;
@@ -52,16 +52,26 @@ use Illuminate\Support\Facades\DB;
 class GoldenPathSeeder extends Seeder
 {
     private TreasuryService $treasuryService;
+
     private StockService $stockService;
+
+    private CapitalService $capitalService;
+
     private User $admin;
+
     private Warehouse $mainWarehouse;
+
     private Treasury $mainTreasury;
+
     private Treasury $bankTreasury;
 
     // Business entities
     private array $suppliers = [];
+
     private array $customers = [];
+
     private array $shareholders = [];
+
     private array $products = [];
 
     // Track inventory levels in memory for fast lookups
@@ -72,25 +82,30 @@ class GoldenPathSeeder extends Seeder
 
     // Financial tracking
     private float $expectedTreasuryBalance = 0;
+
     private array $financialLog = [];
 
     // Invoice counters for auto-numbering
     private int $purchaseInvoiceCounter = 1;
+
     private int $salesInvoiceCounter = 1;
+
     private int $salesReturnCounter = 1;
+
     private int $purchaseReturnCounter = 1;
 
     public function __construct()
     {
         $this->treasuryService = app(TreasuryService::class);
         $this->stockService = app(StockService::class);
+        $this->capitalService = app(CapitalService::class);
     }
 
     public function run(): void
     {
         DB::transaction(function () {
             $this->log("🚀 Starting Golden Path Seeder...\n");
-            $this->log(str_repeat("=", 80));
+            $this->log(str_repeat('=', 80));
 
             // Start at beginning of current month
             $this->currentDate = now()->startOfMonth();
@@ -120,7 +135,7 @@ class GoldenPathSeeder extends Seeder
             // ====================================================================
             $this->recalculateBalances();
 
-            $this->log(str_repeat("=", 80));
+            $this->log(str_repeat('=', 80));
             $this->log("✅ Golden Path Seeder Completed Successfully!\n");
             $this->printSummary();
         });
@@ -133,18 +148,18 @@ class GoldenPathSeeder extends Seeder
     private function setupFoundation(): void
     {
         $this->log("\n📦 PHASE 1: Foundation Setup");
-        $this->log(str_repeat("-", 80));
+        $this->log(str_repeat('-', 80));
 
         // Get admin user
         $this->admin = User::where('email', 'mohamed@osoolerp.com')->first() ?? User::first();
-        if (!$this->admin) {
+        if (! $this->admin) {
             throw new \Exception('No admin user found. Run AdminUserSeeder first.');
         }
         $this->log("✓ Admin user: {$this->admin->name}");
 
         // Get warehouse
         $this->mainWarehouse = Warehouse::first();
-        if (!$this->mainWarehouse) {
+        if (! $this->mainWarehouse) {
             throw new \Exception('No warehouse found. Run WarehouseSeeder first.');
         }
         $this->log("✓ Warehouse: {$this->mainWarehouse->name}");
@@ -158,7 +173,7 @@ class GoldenPathSeeder extends Seeder
             ['name' => 'البنك الأهلي المصري'],
             ['type' => 'bank', 'description' => 'الحساب البنكي للشركة']
         );
-        $this->log("✓ Treasuries created");
+        $this->log('✓ Treasuries created');
 
         // Create partners
         $this->createPartners();
@@ -171,24 +186,26 @@ class GoldenPathSeeder extends Seeder
 
     private function createPartners(): void
     {
-        // Shareholders (3)
+        // Shareholders (5)
         $shareholderNames = [
             'محمد حسن الدمياطي - الشريك المؤسس',
             'أحمد علي المنصوري - مستثمر',
-            'خالد إبراهيم سالم - شريك'
+            'خالد إبراهيم سالم - شريك',
+            'سعيد محمود - شريك عيني (أصول)',
+            'ياسر علي - شريك بدون رأس مال (جديد)',
         ];
 
         foreach ($shareholderNames as $name) {
             $this->shareholders[] = Partner::create([
                 'name' => $name,
-                'phone' => '0111' . rand(1000000, 9999999),
+                'phone' => '0111'.rand(1000000, 9999999),
                 'type' => 'shareholder',
                 'gov_id' => 'دمياط',
                 'opening_balance' => 0,
                 'current_balance' => 0,
             ]);
         }
-        $this->log("✓ Created " . count($this->shareholders) . " shareholders");
+        $this->log('✓ Created '.count($this->shareholders).' shareholders');
 
         // Suppliers (5)
         $supplierNames = [
@@ -202,14 +219,14 @@ class GoldenPathSeeder extends Seeder
         foreach ($supplierNames as $name) {
             $this->suppliers[] = Partner::create([
                 'name' => $name,
-                'phone' => '022' . rand(1000000, 9999999),
+                'phone' => '022'.rand(1000000, 9999999),
                 'type' => 'supplier',
                 'gov_id' => 'دمياط',
                 'opening_balance' => 0,
                 'current_balance' => 0,
             ]);
         }
-        $this->log("✓ Created " . count($this->suppliers) . " suppliers");
+        $this->log('✓ Created '.count($this->suppliers).' suppliers');
 
         // Customers (10)
         $customerNames = [
@@ -228,14 +245,14 @@ class GoldenPathSeeder extends Seeder
         foreach ($customerNames as $name) {
             $this->customers[] = Partner::create([
                 'name' => $name,
-                'phone' => '0100' . rand(1000000, 9999999),
+                'phone' => '0100'.rand(1000000, 9999999),
                 'type' => 'customer',
                 'gov_id' => 'دمياط',
                 'opening_balance' => 0,
                 'current_balance' => 0,
             ]);
         }
-        $this->log("✓ Created " . count($this->customers) . " customers");
+        $this->log('✓ Created '.count($this->customers).' customers');
     }
 
     private function createProducts(): void
@@ -243,12 +260,12 @@ class GoldenPathSeeder extends Seeder
         $pieceUnit = Unit::where('name', 'قطعة')->first();
         $cartonUnit = Unit::where('name', 'كرتونة')->first();
 
-        if (!$pieceUnit || !$cartonUnit) {
+        if (! $pieceUnit || ! $cartonUnit) {
             throw new \Exception('Units not found. Run UnitSeeder first.');
         }
 
         $category = ProductCategory::first();
-        if (!$category) {
+        if (! $category) {
             throw new \Exception('No product category found. Run ProductCategorySeeder first.');
         }
 
@@ -262,7 +279,7 @@ class GoldenPathSeeder extends Seeder
             ['name' => 'مقلاة تيفال', 'cost' => 80, 'margin' => 0.30],
             ['name' => 'طقم ملاعق ستانلس', 'cost' => 25, 'margin' => 0.40],
             ['name' => 'طقم شوك ستانلس', 'cost' => 25, 'margin' => 0.40],
-            ['name' => 'مصفاة استانلس', 'cost' => 12, 'margin' => 0.35],
+            ['name' => 'مصفاة ستانلس', 'cost' => 12, 'margin' => 0.35],
             ['name' => 'لوح تقطيع', 'cost' => 18, 'margin' => 0.30],
             ['name' => 'علبة حفظ بلاستيك', 'cost' => 7, 'margin' => 0.40],
             ['name' => 'علبة حفظ زجاج', 'cost' => 15, 'margin' => 0.35],
@@ -287,9 +304,10 @@ class GoldenPathSeeder extends Seeder
                 'category_id' => $category->id,
                 'name' => $productData['name'],
                 'description' => 'منتج عالي الجودة',
-                'barcode' => '6111' . str_pad($index + 1, 9, '0', STR_PAD_LEFT),
-                'large_barcode' => '6111' . str_pad($index + 1, 9, '0', STR_PAD_LEFT) . 'C',
-                'sku' => 'PRD-' . str_pad($index + 1, 4, '0', STR_PAD_LEFT),
+                'image' => 'https://images.pexels.com/photos/4112621/pexels-photo-4112621.jpeg',
+                'barcode' => '6111'.str_pad($index + 1, 9, '0', STR_PAD_LEFT),
+                'large_barcode' => '6111'.str_pad($index + 1, 9, '0', STR_PAD_LEFT).'C',
+                'sku' => 'PRD-'.str_pad($index + 1, 4, '0', STR_PAD_LEFT),
                 'min_stock' => 50,
                 'avg_cost' => $cost,
                 'small_unit_id' => $pieceUnit->id,
@@ -308,7 +326,7 @@ class GoldenPathSeeder extends Seeder
             $this->inventoryLevels[$product->id] = 0;
         }
 
-        $this->log("✓ Created " . count($this->products) . " products");
+        $this->log('✓ Created '.count($this->products).' products');
     }
 
     // ========================================================================
@@ -318,40 +336,84 @@ class GoldenPathSeeder extends Seeder
     private function depositInitialCapital(): void
     {
         $this->log("\n💰 PHASE 2: Initial Capital Investment (Day 1)");
-        $this->log(str_repeat("-", 80));
-        $this->log("Date: " . $this->currentDate->format('Y-m-d'));
+        $this->log(str_repeat('-', 80));
+        $this->log('Date: '.$this->currentDate->format('Y-m-d'));
 
-        $totalCapital = 500000; // 500,000 EGP
-
-        // Shareholder 1: 60% = 300,000
-        $this->recordTransaction(
-            $this->mainTreasury,
-            'capital_deposit',
+        // Shareholder 1: 300,000 Cash
+        $this->capitalService->injectCapital(
+            $this->shareholders[0],
             300000,
-            'رأس المال - حصة الشريك المؤسس (60%)',
-            $this->shareholders[0]
+            'cash',
+            [
+                'treasury_id' => $this->mainTreasury->id,
+                'description' => 'رأس المال - حصة الشريك المؤسس',
+            ]
         );
+        $this->logFinancial('capital_deposit', 300000, 'رأس المال - حصة الشريك المؤسس');
+        $this->expectedTreasuryBalance += 300000;
 
-        // Shareholder 2: 30% = 150,000
-        $this->recordTransaction(
-            $this->mainTreasury,
-            'capital_deposit',
+        // Shareholder 2: 150,000 Cash
+        $this->capitalService->injectCapital(
+            $this->shareholders[1],
             150000,
-            'رأس المال - حصة الشريك الثاني (30%)',
-            $this->shareholders[1]
+            'cash',
+            [
+                'treasury_id' => $this->mainTreasury->id,
+                'description' => 'رأس المال - حصة الشريك الثاني',
+            ]
         );
+        $this->logFinancial('capital_deposit', 150000, 'رأس المال - حصة الشريك الثاني');
+        $this->expectedTreasuryBalance += 150000;
 
-        // Shareholder 3: 10% = 50,000
-        $this->recordTransaction(
-            $this->mainTreasury,
-            'capital_deposit',
+        // Shareholder 3: 50,000 Cash
+        $this->capitalService->injectCapital(
+            $this->shareholders[2],
             50000,
-            'رأس المال - حصة الشريك الثالث (10%)',
-            $this->shareholders[2]
+            'cash',
+            [
+                'treasury_id' => $this->mainTreasury->id,
+                'description' => 'رأس المال - حصة الشريك الثالث',
+            ]
+        );
+        $this->logFinancial('capital_deposit', 50000, 'رأس المال - حصة الشريك الثالث');
+        $this->expectedTreasuryBalance += 50000;
+
+        // Shareholder 4: 100,000 Asset (Building/Truck)
+        // Note: We use type 'asset' so it doesn't affect treasury balance automatically
+        $this->capitalService->injectCapital(
+            $this->shareholders[3],
+            100000,
+            'asset',
+            [
+                'description' => 'رأس المال - حصة عينية (سيارة نقل)',
+            ]
         );
 
-        $this->log("✓ Total capital deposited: " . number_format($totalCapital, 2) . " EGP");
-        $this->log("✓ Main Treasury Balance: " . number_format($this->expectedTreasuryBalance, 2) . " EGP\n");
+        // Manually create the asset record
+        \App\Models\FixedAsset::create([
+            'name' => 'سيارة نقل بضائع',
+            'description' => 'مساهمة عينية من الشريك سعيد محمود',
+            'purchase_amount' => 100000,
+            'purchase_date' => $this->currentDate,
+            'funding_method' => 'equity',
+            'treasury_id' => null, // Not paid from treasury
+            'partner_id' => $this->shareholders[3]->id,
+            'is_contributed_asset' => true,
+            'contributing_partner_id' => $this->shareholders[3]->id,
+            'created_by' => $this->admin->id,
+            'status' => 'active',
+        ]);
+
+        // Shareholder 5: 0 Capital (New partner)
+        // No action needed, they exist but have 0 capital and 0% equity
+
+        $totalCashCapital = 500000; // 300k + 150k + 50k
+        $totalAssetCapital = 100000; // 100k asset
+
+        $this->log('✓ Total cash capital deposited: '.number_format($totalCashCapital, 2).' EGP');
+        $this->log('✓ Total asset capital contribution: '.number_format($totalAssetCapital, 2).' EGP');
+        $this->log('✓ Equity Period created/updated automatically');
+        $this->log('✓ Main Treasury Balance: '.number_format($this->expectedTreasuryBalance, 2)." EGP\n");
     }
 
     // ========================================================================
@@ -361,11 +423,11 @@ class GoldenPathSeeder extends Seeder
     private function simulateBusinessDays(int $days): void
     {
         $this->log("\n📅 PHASE 3: Simulating {$days} Days of Business Operations");
-        $this->log(str_repeat("-", 80));
+        $this->log(str_repeat('-', 80));
 
         for ($day = 1; $day <= $days; $day++) {
             $this->currentDate = $this->currentDate->copy()->addDay();
-            $this->log("\n--- Day {$day}: " . $this->currentDate->format('Y-m-d') . " ---");
+            $this->log("\n--- Day {$day}: ".$this->currentDate->format('Y-m-d').' ---');
 
             // Purchase cycle: Days 1-10 (Buy inventory)
             if ($day <= 10) {
@@ -416,20 +478,20 @@ class GoldenPathSeeder extends Seeder
             $paymentMethod = $day <= 3 ? 'cash' : 'credit'; // First 3 days cash, then credit
 
             $invoice = PurchaseInvoice::create([
-                'invoice_number' => 'PUR-' . str_pad($this->purchaseInvoiceCounter++, 5, '0', STR_PAD_LEFT),
+                'invoice_number' => 'PUR-'.str_pad($this->purchaseInvoiceCounter++, 5, '0', STR_PAD_LEFT),
                 'warehouse_id' => $this->mainWarehouse->id,
                 'partner_id' => $supplier->id,
                 'status' => 'draft',
                 'payment_method' => $paymentMethod,
                 'discount_type' => 'percentage',
                 'discount_value' => 0,
-                'notes' => 'فاتورة شراء - يوم ' . $day,
+                'notes' => 'فاتورة شراء - يوم '.$day,
                 'created_by' => $this->admin->id,
             ]);
 
             // Add 3-5 products to purchase
             $productsToPurchase = array_rand($this->products, rand(3, 5));
-            if (!is_array($productsToPurchase)) {
+            if (! is_array($productsToPurchase)) {
                 $productsToPurchase = [$productsToPurchase];
             }
 
@@ -498,14 +560,14 @@ class GoldenPathSeeder extends Seeder
                 // Update treasury balance
                 if ($paidAmount > 0) {
                     $this->expectedTreasuryBalance -= $paidAmount;
-                    $this->logFinancial("Purchase Payment", -$paidAmount, $invoice->invoice_number);
+                    $this->logFinancial('Purchase Payment', -$paidAmount, $invoice->invoice_number);
                 }
 
-                $this->log("  ✓ Purchase Invoice {$invoice->invoice_number}: " .
-                          number_format($total, 2) . " EGP (" .
-                          ($paymentMethod === 'cash' ? 'Cash' : 'Credit') . ")");
+                $this->log("  ✓ Purchase Invoice {$invoice->invoice_number}: ".
+                          number_format($total, 2).' EGP ('.
+                          ($paymentMethod === 'cash' ? 'Cash' : 'Credit').')');
             } catch (\Exception $e) {
-                $this->log("  ✗ Failed to post purchase invoice: " . $e->getMessage());
+                $this->log('  ✗ Failed to post purchase invoice: '.$e->getMessage());
             }
         }
     }
@@ -520,14 +582,14 @@ class GoldenPathSeeder extends Seeder
             $paymentMethod = rand(0, 100) < 40 ? 'cash' : 'credit'; // 40% cash, 60% credit
 
             $invoice = SalesInvoice::create([
-                'invoice_number' => 'SAL-' . str_pad($this->salesInvoiceCounter++, 5, '0', STR_PAD_LEFT),
+                'invoice_number' => 'SAL-'.str_pad($this->salesInvoiceCounter++, 5, '0', STR_PAD_LEFT),
                 'warehouse_id' => $this->mainWarehouse->id,
                 'partner_id' => $customer->id,
                 'status' => 'draft',
                 'payment_method' => $paymentMethod,
                 'discount_type' => 'percentage',
                 'discount_value' => 0,
-                'notes' => 'فاتورة بيع - يوم ' . $day,
+                'notes' => 'فاتورة بيع - يوم '.$day,
                 'created_by' => $this->admin->id,
             ]);
 
@@ -539,11 +601,12 @@ class GoldenPathSeeder extends Seeder
             if (empty($availableProducts)) {
                 // No stock available, skip this sale
                 $invoice->forceDelete();
+
                 continue;
             }
 
             $productsToSell = array_rand($availableProducts, min(rand(1, 4), count($availableProducts)));
-            if (!is_array($productsToSell)) {
+            if (! is_array($productsToSell)) {
                 $productsToSell = [$productsToSell];
             }
 
@@ -555,7 +618,7 @@ class GoldenPathSeeder extends Seeder
                 $availableQty = $this->inventoryLevels[$product->id];
 
                 // Sell reasonable quantity (10-30% of available stock, max 50 units)
-                $maxQty = min(50, (int)($availableQty * 0.3));
+                $maxQty = min(50, (int) ($availableQty * 0.3));
                 if ($maxQty < 1) {
                     $canFulfill = false;
                     break;
@@ -579,8 +642,9 @@ class GoldenPathSeeder extends Seeder
                 $subtotal += $total;
             }
 
-            if (!$canFulfill) {
+            if (! $canFulfill) {
                 $invoice->forceDelete();
+
                 continue;
             }
 
@@ -629,14 +693,14 @@ class GoldenPathSeeder extends Seeder
                 // Update treasury balance
                 if ($paidAmount > 0) {
                     $this->expectedTreasuryBalance += $paidAmount;
-                    $this->logFinancial("Sales Collection", $paidAmount, $invoice->invoice_number);
+                    $this->logFinancial('Sales Collection', $paidAmount, $invoice->invoice_number);
                 }
 
-                $this->log("  ✓ Sales Invoice {$invoice->invoice_number}: " .
-                          number_format($total, 2) . " EGP (" .
-                          ($paymentMethod === 'cash' ? 'Cash' : 'Credit') . ")");
+                $this->log("  ✓ Sales Invoice {$invoice->invoice_number}: ".
+                          number_format($total, 2).' EGP ('.
+                          ($paymentMethod === 'cash' ? 'Cash' : 'Credit').')');
             } catch (\Exception $e) {
-                $this->log("  ✗ Failed to post sales invoice: " . $e->getMessage());
+                $this->log('  ✗ Failed to post sales invoice: '.$e->getMessage());
                 // Restore inventory if posting failed
                 foreach ($invoice->items as $item) {
                     $qtyInSmallUnit = $item->quantity;
@@ -679,12 +743,12 @@ class GoldenPathSeeder extends Seeder
                 );
 
                 $this->expectedTreasuryBalance += $amount;
-                $this->logFinancial("Customer Payment", $amount, $invoice->invoice_number);
+                $this->logFinancial('Customer Payment', $amount, $invoice->invoice_number);
 
-                $this->log("  ✓ Collected " . number_format($amount, 2) .
+                $this->log('  ✓ Collected '.number_format($amount, 2).
                           " EGP from invoice {$invoice->invoice_number}");
             } catch (\Exception $e) {
-                $this->log("  ✗ Failed to collect payment: " . $e->getMessage());
+                $this->log('  ✗ Failed to collect payment: '.$e->getMessage());
             }
         }
     }
@@ -704,7 +768,8 @@ class GoldenPathSeeder extends Seeder
 
             // Check if we have enough cash
             if ($this->expectedTreasuryBalance < $remaining * 0.5) {
-                $this->log("  ⚠ Insufficient funds to pay supplier");
+                $this->log('  ⚠ Insufficient funds to pay supplier');
+
                 continue;
             }
 
@@ -725,12 +790,12 @@ class GoldenPathSeeder extends Seeder
                 );
 
                 $this->expectedTreasuryBalance -= $amount;
-                $this->logFinancial("Supplier Payment", -$amount, $invoice->invoice_number);
+                $this->logFinancial('Supplier Payment', -$amount, $invoice->invoice_number);
 
-                $this->log("  ✓ Paid " . number_format($amount, 2) .
+                $this->log('  ✓ Paid '.number_format($amount, 2).
                           " EGP to supplier for invoice {$invoice->invoice_number}");
             } catch (\Exception $e) {
-                $this->log("  ✗ Failed to pay supplier: " . $e->getMessage());
+                $this->log('  ✗ Failed to pay supplier: '.$e->getMessage());
             }
         }
     }
@@ -751,6 +816,7 @@ class GoldenPathSeeder extends Seeder
         // Check if we have enough cash
         if ($this->expectedTreasuryBalance < $amount) {
             $this->log("  ⚠ Insufficient funds for expense: {$expense['title']}");
+
             return;
         }
 
@@ -767,11 +833,11 @@ class GoldenPathSeeder extends Seeder
             $this->treasuryService->postExpense($expenseRecord);
 
             $this->expectedTreasuryBalance -= $amount;
-            $this->logFinancial("Expense", -$amount, $expense['title']);
+            $this->logFinancial('Expense', -$amount, $expense['title']);
 
-            $this->log("  ✓ Expense: {$expense['title']} - " . number_format($amount, 2) . " EGP");
+            $this->log("  ✓ Expense: {$expense['title']} - ".number_format($amount, 2).' EGP');
         } catch (\Exception $e) {
-            $this->log("  ✗ Failed to record expense: " . $e->getMessage());
+            $this->log('  ✗ Failed to record expense: '.$e->getMessage());
         }
     }
 
@@ -789,13 +855,13 @@ class GoldenPathSeeder extends Seeder
             $paymentMethod = rand(0, 1) ? 'cash' : 'credit';
 
             $salesReturn = SalesReturn::create([
-                'return_number' => 'SR-' . str_pad($this->salesReturnCounter++, 5, '0', STR_PAD_LEFT),
+                'return_number' => 'SR-'.str_pad($this->salesReturnCounter++, 5, '0', STR_PAD_LEFT),
                 'sales_invoice_id' => $invoice->id,
                 'warehouse_id' => $invoice->warehouse_id,
                 'partner_id' => $invoice->partner_id,
                 'status' => 'draft',
                 'payment_method' => $paymentMethod,
-                'notes' => 'مرتجع من فاتورة ' . $invoice->invoice_number,
+                'notes' => 'مرتجع من فاتورة '.$invoice->invoice_number,
                 'created_by' => $this->admin->id,
             ]);
 
@@ -837,13 +903,13 @@ class GoldenPathSeeder extends Seeder
                 // Update treasury (cash returns reduce treasury)
                 if ($paymentMethod === 'cash') {
                     $this->expectedTreasuryBalance -= $returnTotal;
-                    $this->logFinancial("Sales Return (Cash)", -$returnTotal, $salesReturn->return_number);
+                    $this->logFinancial('Sales Return (Cash)', -$returnTotal, $salesReturn->return_number);
                 }
 
-                $this->log("  ✓ Sales Return {$salesReturn->return_number}: " .
-                          number_format($returnTotal, 2) . " EGP");
+                $this->log("  ✓ Sales Return {$salesReturn->return_number}: ".
+                          number_format($returnTotal, 2).' EGP');
             } catch (\Exception $e) {
-                $this->log("  ✗ Failed to post sales return: " . $e->getMessage());
+                $this->log('  ✗ Failed to post sales return: '.$e->getMessage());
             }
         }
     }
@@ -871,11 +937,11 @@ class GoldenPathSeeder extends Seeder
             $this->treasuryService->postRevenue($revenueRecord);
 
             $this->expectedTreasuryBalance += $revenue['amount'];
-            $this->logFinancial("Revenue", $revenue['amount'], $revenue['title']);
+            $this->logFinancial('Revenue', $revenue['amount'], $revenue['title']);
 
-            $this->log("  ✓ Revenue: {$revenue['title']} - " . number_format($revenue['amount'], 2) . " EGP");
+            $this->log("  ✓ Revenue: {$revenue['title']} - ".number_format($revenue['amount'], 2).' EGP');
         } catch (\Exception $e) {
-            $this->log("  ✗ Failed to record revenue: " . $e->getMessage());
+            $this->log('  ✗ Failed to record revenue: '.$e->getMessage());
         }
     }
 
@@ -886,19 +952,19 @@ class GoldenPathSeeder extends Seeder
     private function verifyFinancialIntegrity(): void
     {
         $this->log("\n🔍 PHASE 4: Financial Integrity Verification");
-        $this->log(str_repeat("-", 80));
+        $this->log(str_repeat('-', 80));
 
         // Get actual treasury balance
         $actualBalance = $this->treasuryService->getTreasuryBalance($this->mainTreasury->id);
 
-        $this->log("Expected Treasury Balance: " . number_format($this->expectedTreasuryBalance, 2) . " EGP");
-        $this->log("Actual Treasury Balance:   " . number_format($actualBalance, 2) . " EGP");
+        $this->log('Expected Treasury Balance: '.number_format($this->expectedTreasuryBalance, 2).' EGP');
+        $this->log('Actual Treasury Balance:   '.number_format($actualBalance, 2).' EGP');
 
         $difference = abs($actualBalance - $this->expectedTreasuryBalance);
         if ($difference < 0.01) {
-            $this->log("✓ Treasury balances match perfectly!");
+            $this->log('✓ Treasury balances match perfectly!');
         } else {
-            $this->log("⚠ Warning: Balance difference of " . number_format($difference, 2) . " EGP");
+            $this->log('⚠ Warning: Balance difference of '.number_format($difference, 2).' EGP');
         }
 
         // Verify stock levels
@@ -916,8 +982,8 @@ class GoldenPathSeeder extends Seeder
             }
         }
 
-        if (!$negativeStock) {
-            $this->log("  ✓ No negative stock detected");
+        if (! $negativeStock) {
+            $this->log('  ✓ No negative stock detected');
         }
     }
 
@@ -928,14 +994,14 @@ class GoldenPathSeeder extends Seeder
     private function recalculateBalances(): void
     {
         $this->log("\n🔄 PHASE 5: Recalculating Partner Balances");
-        $this->log(str_repeat("-", 80));
+        $this->log(str_repeat('-', 80));
 
         $partners = Partner::all();
         foreach ($partners as $partner) {
             $partner->recalculateBalance();
         }
 
-        $this->log("✓ Recalculated " . $partners->count() . " partner balances");
+        $this->log('✓ Recalculated '.$partners->count().' partner balances');
     }
 
     // ========================================================================
@@ -965,7 +1031,7 @@ class GoldenPathSeeder extends Seeder
 
     private function log(string $message): void
     {
-        echo $message . "\n";
+        echo $message."\n";
     }
 
     private function logFinancial(string $type, float $amount, string $reference): void
@@ -981,9 +1047,9 @@ class GoldenPathSeeder extends Seeder
 
     private function printSummary(): void
     {
-        echo "\n" . str_repeat("=", 80) . "\n";
+        echo "\n".str_repeat('=', 80)."\n";
         echo "📊 GOLDEN PATH SEEDER SUMMARY\n";
-        echo str_repeat("=", 80) . "\n";
+        echo str_repeat('=', 80)."\n";
 
         // Partners
         $customersCount = Partner::where('type', 'customer')->count();
@@ -1010,12 +1076,12 @@ class GoldenPathSeeder extends Seeder
         $expensesTotal = Expense::sum('amount');
         $revenuesCount = Revenue::count();
         $revenuesTotal = Revenue::sum('amount');
-        echo "💰 Finance: {$expensesCount} expenses (" . number_format($expensesTotal, 2) . " EGP), ";
-        echo "{$revenuesCount} revenues (" . number_format($revenuesTotal, 2) . " EGP)\n";
+        echo "💰 Finance: {$expensesCount} expenses (".number_format($expensesTotal, 2).' EGP), ';
+        echo "{$revenuesCount} revenues (".number_format($revenuesTotal, 2)." EGP)\n";
 
         // Treasury Balance
         $actualBalance = $this->treasuryService->getTreasuryBalance($this->mainTreasury->id);
-        echo "🏦 Main Treasury Balance: " . number_format($actualBalance, 2) . " EGP\n";
+        echo '🏦 Main Treasury Balance: '.number_format($actualBalance, 2)." EGP\n";
 
         // Stock
         $totalStockValue = 0;
@@ -1023,8 +1089,8 @@ class GoldenPathSeeder extends Seeder
             $stock = $product->stockMovements()->sum('quantity');
             $totalStockValue += $stock * $product->avg_cost;
         }
-        echo "📊 Total Stock Value: " . number_format($totalStockValue, 2) . " EGP\n";
+        echo '📊 Total Stock Value: '.number_format($totalStockValue, 2)." EGP\n";
 
-        echo str_repeat("=", 80) . "\n";
+        echo str_repeat('=', 80)."\n";
     }
 }

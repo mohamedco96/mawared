@@ -68,8 +68,13 @@ class DatabaseSeeder extends Seeder
             // ==================================================
             // Uncomment if you want to add more specific data:
 
-            // QuotationSeeder::class,
+            QuotationSeeder::class,
             FixedAssetSeeder::class,
+            StockAdjustmentSeeder::class,
+            WarehouseTransferSeeder::class,
+            UserPreferenceSeeder::class,
+            InstallmentSeeder::class, // Must run after SalesInvoice are created
+
             // HomeGoodsSeeder::class, // If you have specific product data
 
             // ==================================================

@@ -16,7 +16,7 @@ class QuotationSeeder extends Seeder
     {
         $customers = Partner::where('type', 'customer')->get();
         $user = User::first();
-        $products = Product::all();
+        $products = Product::with(['smallUnit', 'largeUnit'])->get();
 
         if ($customers->isEmpty() || !$user || $products->isEmpty()) {
             $this->command->warn('Skipping QuotationSeeder: Missing required data (customers, user, or products)');

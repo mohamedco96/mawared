@@ -16,10 +16,27 @@ class WarehouseTransferSeeder extends Seeder
      */
     public function run(): void
     {
-        $fromWarehouse = Warehouse::where('code', 'WH-CAI-001')->first();
-        $toWarehouse = Warehouse::where('code', 'WH-ALX-001')->first();
+        $warehouses = Warehouse::limit(2)->get();
+        
+        if ($warehouses->count() < 2) {
+            $this->command->warn('Skipping WarehouseTransferSeeder: Need at least 2 warehouses.');
+            return;
+        }
+
+        $fromWarehouse = $warehouses[0];
+        $toWarehouse = $warehouses[1];
+        
         $user = User::first();
+        if (!$user) {
+            $this->command->warn('Skipping WarehouseTransferSeeder: No user found.');
+            return;
+        }
+
         $products = Product::limit(5)->get();
+        if ($products->isEmpty()) {
+            $this->command->warn('Skipping WarehouseTransferSeeder: No products found.');
+            return;
+        }
 
         // Create 2 warehouse transfers
         for ($i = 1; $i <= 2; $i++) {

@@ -12,6 +12,8 @@ class Dashboard extends BaseDashboard
 
     protected static ?int $navigationSort = -100;
 
+    protected static string $view = 'filament.pages.dashboard';
+
     public function getHeading(): string
     {
         return '';
@@ -29,5 +31,10 @@ class Dashboard extends BaseDashboard
             \App\Filament\Widgets\Tables\BestSellersWidget::class,
             \App\Filament\Widgets\LatestActivitiesWidget::class,
         ];
+    }
+
+    public function getColumns(): int|string|array
+    {
+        return 2;
     }
 }

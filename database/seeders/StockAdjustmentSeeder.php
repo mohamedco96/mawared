@@ -15,9 +15,23 @@ class StockAdjustmentSeeder extends Seeder
      */
     public function run(): void
     {
-        $warehouse = Warehouse::where('code', 'WH-CAI-001')->first();
+        $warehouse = Warehouse::first();
+        if (!$warehouse) {
+            $this->command->warn('Skipping StockAdjustmentSeeder: No warehouse found.');
+            return;
+        }
+
         $user = User::first();
+        if (!$user) {
+            $this->command->warn('Skipping StockAdjustmentSeeder: No user found.');
+            return;
+        }
+
         $products = Product::limit(5)->get();
+        if ($products->isEmpty()) {
+            $this->command->warn('Skipping StockAdjustmentSeeder: No products found.');
+            return;
+        }
 
         // Create 3 draft stock adjustments
         $types = ['damage', 'opening', 'gift', 'other'];

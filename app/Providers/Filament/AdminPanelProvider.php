@@ -32,8 +32,9 @@ class AdminPanelProvider extends PanelProvider
             // ->spa()  // Disabled for now - can re-enable later if needed
             ->databaseNotifications(isLazy: true)
             ->brandName('Osool - أصول')
+            ->darkMode()
             ->colors([
-                'primary' => Color::Blue,
+                'primary' => Color::Indigo,
                 'success' => Color::Emerald,
                 'warning' => Color::Amber,
                 'danger' => Color::Rose,
