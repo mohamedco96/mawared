@@ -41,6 +41,29 @@ class InstallmentService
 
         // Calculate installment amount
         $totalToInstall = (string) $invoice->remaining_amount;
+
+        // Apply surcharge if percentage is set
+        if ($invoice->installment_interest_percentage > 0) {
+            $percentage = (string) $invoice->installment_interest_percentage;
+
+            // Calculate interest amount: remaining_amount * (percentage / 100)
+            $interestAmount = bcmul($totalToInstall, bcdiv($percentage, '100', 4), 4);
+
+            // Update invoice with new totals
+            $invoice->installment_interest_amount = $interestAmount;
+
+            // Update total and remaining amount to include surcharge
+            $newRemaining = bcadd($totalToInstall, $interestAmount, 4);
+            $newTotal = bcadd((string) $invoice->total, $interestAmount, 4);
+
+            $invoice->remaining_amount = $newRemaining;
+            $invoice->total = $newTotal;
+            $invoice->saveQuietly(); // Prevent triggering observers
+
+            // Use the new total for installment calculation
+            $totalToInstall = $newRemaining;
+        }
+
         $months = $invoice->installment_months;
         $startDate = Carbon::parse($invoice->installment_start_date);
 
@@ -80,6 +103,8 @@ class InstallmentService
                 'total_amount' => $totalToInstall,
                 'installment_amount' => $installmentAmount,
                 'start_date' => $startDate->format('Y-m-d'),
+                'interest_percentage' => $invoice->installment_interest_percentage,
+                'interest_amount' => $invoice->installment_interest_amount,
             ])
             ->log('تم توليد خطة الأقساط');
     }

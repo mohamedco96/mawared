@@ -715,7 +715,7 @@ class SalesInvoiceResource extends Resource
                                                         }
                                                     }),
 
-                                                Forms\Components\Grid::make(3)
+                                                Forms\Components\Grid::make(4)
                                                     ->visible(fn (Get $get) => $get('has_installment_plan'))
                                                     ->schema([
                                                         Forms\Components\TextInput::make('installment_months')
@@ -724,12 +724,23 @@ class SalesInvoiceResource extends Resource
                                                             ->minValue(1)
                                                             ->maxValue(120)
                                                             ->default(3)
-                                                            ->required(),
+                                                            ->required()
+                                                            ->live(),
 
                                                         Forms\Components\DatePicker::make('installment_start_date')
                                                             ->label('تاريخ أول قسط')
                                                             ->required()
-                                                            ->default(now()->addMonth()->startOfMonth()),
+                                                            ->default(now()->addMonth()->startOfMonth())
+                                                            ->live(),
+
+                                                        Forms\Components\TextInput::make('installment_interest_percentage')
+                                                            ->label('نسبة الزيادة (الفائدة)')
+                                                            ->numeric()
+                                                            ->suffix('%')
+                                                            ->default(0)
+                                                            ->minValue(0)
+                                                            ->maxValue(100)
+                                                            ->live(),
 
                                                         Forms\Components\Textarea::make('installment_notes')
                                                             ->label('ملاحظات التقسيط')
@@ -744,13 +755,32 @@ class SalesInvoiceResource extends Resource
                                                         $months = intval($get('installment_months') ?? 3);
                                                         $startDate = $get('installment_start_date');
                                                         $remainingAmount = floatval($get('remaining_amount') ?? 0);
+                                                        $interestPercentage = floatval($get('installment_interest_percentage') ?? 0);
 
                                                         if (! $hasInstallment || ! $startDate || $remainingAmount <= 0) {
                                                             return '—';
                                                         }
 
-                                                        $installmentAmount = $remainingAmount / $months;
+                                                        // Calculate Interest
+                                                        $interestAmount = 0;
+                                                        if ($interestPercentage > 0) {
+                                                            $interestAmount = $remainingAmount * ($interestPercentage / 100);
+                                                        }
+                                                        $totalWithInterest = $remainingAmount + $interestAmount;
+                                                        $installmentAmount = $totalWithInterest / $months;
+
                                                         $html = '<div class="overflow-x-auto mt-4">';
+
+                                                        // Breakdown Header
+                                                        if ($interestAmount > 0) {
+                                                            $html .= '<div class="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-700">';
+                                                            $html .= '<div class="grid grid-cols-3 gap-4 text-center">';
+                                                            $html .= '<div><div class="text-xs text-gray-500">المبلغ الأصلي</div><div class="font-bold">'.number_format($remainingAmount, 2).'</div></div>';
+                                                            $html .= '<div><div class="text-xs text-gray-500">الزيادة ('.number_format($interestPercentage, 1).'%)</div><div class="font-bold text-red-600">+'.number_format($interestAmount, 2).'</div></div>';
+                                                            $html .= '<div><div class="text-xs text-gray-500">الإجمالي بعد الزيادة</div><div class="font-bold text-green-600">'.number_format($totalWithInterest, 2).'</div></div>';
+                                                            $html .= '</div></div>';
+                                                        }
+
                                                         $html .= '<table class="w-full text-sm border-collapse border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">';
                                                         $html .= '<thead class="bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-200">';
                                                         $html .= '<tr>';
@@ -772,7 +802,7 @@ class SalesInvoiceResource extends Resource
 
                                                         $html .= '</tbody><tfoot><tr class="bg-gray-100 dark:bg-gray-800 font-bold text-lg">';
                                                         $html .= '<td colspan="2" class="p-3 text-center">الإجمالي</td>';
-                                                        $html .= '<td class="p-3 text-center text-primary-700">'.number_format($remainingAmount, 2).' ج.م</td>';
+                                                        $html .= '<td class="p-3 text-center text-primary-700">'.number_format($totalWithInterest, 2).' ج.م</td>';
                                                         $html .= '</tr></tfoot></table>';
                                                         $html .= '</div>';
 
@@ -1180,6 +1210,11 @@ class SalesInvoiceResource extends Resource
 
                                 // Update invoice status
                                 $record->update(['status' => 'posted']);
+
+                                // Generate Installment Schedule
+                                if ($record->has_installment_plan) {
+                                    app(\App\Services\InstallmentService::class)->generateInstallmentSchedule($record);
+                                }
                             });
 
                             Notification::make()
@@ -1386,6 +1421,11 @@ class SalesInvoiceResource extends Resource
                                         $stockService->postSalesInvoice($record);
                                         $treasuryService->postSalesInvoice($record);
                                         $record->update(['status' => 'posted']);
+
+                                        // Generate Installment Schedule
+                                        if ($record->has_installment_plan) {
+                                            app(\App\Services\InstallmentService::class)->generateInstallmentSchedule($record);
+                                        }
                                     });
                                     $successCount++;
                                 } catch (\Exception $e) {

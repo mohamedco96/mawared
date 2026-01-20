@@ -40,6 +40,8 @@ class SalesInvoice extends Model
         'installment_months',
         'installment_start_date',
         'installment_notes',
+        'installment_interest_percentage',
+        'installment_interest_amount',
     ];
 
     protected function casts(): array
@@ -57,6 +59,8 @@ class SalesInvoice extends Model
             'remaining_amount' => 'decimal:4',
             'has_installment_plan' => 'boolean',
             'installment_start_date' => 'date',
+            'installment_interest_percentage' => 'decimal:2',
+            'installment_interest_amount' => 'decimal:4',
         ];
     }
 
