@@ -3,9 +3,8 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\QuotationResource\Pages;
-use App\Filament\Resources\QuotationResource\RelationManagers;
-use App\Models\Quotation;
 use App\Models\Product;
+use App\Models\Quotation;
 use App\Settings\CompanySettings;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -38,6 +37,7 @@ class QuotationResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         $count = static::getModel()::where('status', 'draft')->count();
+
         return $count > 0 ? (string) $count : null;
     }
 
@@ -56,7 +56,7 @@ class QuotationResource extends Resource
         return [
             'العميل' => $record->customer_name,
             'الإجمالي' => number_format($record->total, 2),
-            'الحالة' => match($record->status) {
+            'الحالة' => match ($record->status) {
                 'draft' => 'مسودة',
                 'sent' => 'مرسل',
                 'accepted' => 'مقبول',
@@ -89,7 +89,7 @@ class QuotationResource extends Resource
                     ->schema([
                         Forms\Components\Toggle::make('is_guest')
                             ->label('عميل غير مسجل')
-                            ->default(fn ($record) => $record ? !empty($record->guest_name) : false)
+                            ->default(fn ($record) => $record ? ! empty($record->guest_name) : false)
                             ->live()
                             ->afterStateUpdated(function (Set $set, $state) {
                                 if ($state) {
@@ -111,7 +111,7 @@ class QuotationResource extends Resource
                             )
                             ->searchable(['name', 'phone'])
                             ->preload()
-                            ->required(fn (Get $get) => !$get('is_guest'))
+                            ->required(fn (Get $get) => ! $get('is_guest'))
                             ->hidden(fn (Get $get) => $get('is_guest'))
                             ->native(false)
                             ->columnSpanFull(),
@@ -148,13 +148,19 @@ class QuotationResource extends Resource
                             ->live()
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 $items = $get('items');
-                                if (!$items) return;
+                                if (! $items) {
+                                    return;
+                                }
 
                                 foreach ($items as $key => $item) {
-                                    if (!isset($item['product_id'])) continue;
+                                    if (! isset($item['product_id'])) {
+                                        continue;
+                                    }
 
                                     $product = Product::find($item['product_id']);
-                                    if (!$product) continue;
+                                    if (! $product) {
+                                        continue;
+                                    }
 
                                     $unitType = $item['unit_type'] ?? 'small';
                                     $price = match ($state) {
@@ -226,11 +232,11 @@ class QuotationResource extends Resource
                                     ->getSearchResultsUsing(function (?string $search): array {
                                         $query = Product::query();
 
-                                        if (!empty($search)) {
+                                        if (! empty($search)) {
                                             $query->where(function ($q) use ($search) {
                                                 $q->where('name', 'like', "%{$search}%")
-                                                  ->orWhere('sku', 'like', "%{$search}%")
-                                                  ->orWhere('barcode', 'like', "%{$search}%");
+                                                    ->orWhere('sku', 'like', "%{$search}%")
+                                                    ->orWhere('barcode', 'like', "%{$search}%");
                                             });
                                         } else {
                                             // Load latest products when no search
@@ -244,6 +250,7 @@ class QuotationResource extends Resource
                                     })
                                     ->getOptionLabelUsing(function ($value): string {
                                         $product = Product::find($value);
+
                                         return $product ? "{$product->name} - {$product->barcode}" : '';
                                     })
                                     ->loadingMessage('جاري التحميل...')
@@ -276,6 +283,7 @@ class QuotationResource extends Resource
                                                 } else {
                                                     $set('unit_name', $product->largeUnit->name ?? 'وحدة كبيرة');
                                                 }
+                                                static::recalculateTotals($set, $get);
                                             }
                                         }
                                     })
@@ -286,7 +294,7 @@ class QuotationResource extends Resource
                                     ->label('الوحدة')
                                     ->options(function (Get $get) {
                                         $productId = $get('product_id');
-                                        if (!$productId) {
+                                        if (! $productId) {
                                             return ['small' => 'صغيرة'];
                                         }
                                         $product = Product::find($productId);
@@ -294,6 +302,7 @@ class QuotationResource extends Resource
                                         if ($product && $product->large_unit_id) {
                                             $options['large'] = $product->largeUnit->name ?? 'كبيرة';
                                         }
+
                                         return $options;
                                     })
                                     ->default('small')
@@ -321,6 +330,7 @@ class QuotationResource extends Resource
                                                 } else {
                                                     $set('unit_name', $product->largeUnit->name ?? 'وحدة كبيرة');
                                                 }
+                                                static::recalculateTotals($set, $get);
                                             }
                                         }
                                     })
@@ -336,8 +346,10 @@ class QuotationResource extends Resource
                                     ->minValue(1)
                                     ->live(debounce: 500)
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                        $unitPrice = $get('unit_price') ?? 0;
-                                        $set('total', $unitPrice * $state);
+                                        $unitPrice = floatval($get('unit_price') ?? 0);
+                                        $quantity = intval($state);
+                                        $set('total', $unitPrice * $quantity);
+                                        static::recalculateTotals($set, $get);
                                     })
                                     ->columnSpan(2),
 
@@ -350,10 +362,12 @@ class QuotationResource extends Resource
                                     ->minValue(0)
                                     ->live(debounce: 500)
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                        $quantity = $get('quantity') ?? 1;
-                                        $set('total', $state * $quantity);
+                                        $quantity = intval($get('quantity') ?? 1);
+                                        $unitPrice = floatval($state);
+                                        $set('total', $unitPrice * $quantity);
+                                        static::recalculateTotals($set, $get);
                                     })
-                                    
+
                                     ->columnSpan(2),
 
                                 Forms\Components\TextInput::make('total')
@@ -362,7 +376,7 @@ class QuotationResource extends Resource
                                     ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->disabled()
                                     ->dehydrated()
-                                    
+
                                     ->columnSpan(2),
 
                                 // Hidden snapshot fields
@@ -391,8 +405,7 @@ class QuotationResource extends Resource
                             ->numeric()
                             ->disabled()
                             ->dehydrated()
-                            ->extraInputAttributes(['dir' => 'ltr'])
-                            ,
+                            ->extraInputAttributes(['dir' => 'ltr']),
 
                         Forms\Components\TextInput::make('discount')
                             ->label('الخصم')
@@ -400,16 +413,14 @@ class QuotationResource extends Resource
                             ->disabled()
                             ->dehydrated()
                             ->default(0)
-                            ->extraInputAttributes(['dir' => 'ltr'])
-                            ,
+                            ->extraInputAttributes(['dir' => 'ltr']),
 
                         Forms\Components\TextInput::make('total')
                             ->label('الإجمالي النهائي')
                             ->numeric()
                             ->disabled()
                             ->dehydrated()
-                            ->extraInputAttributes(['dir' => 'ltr'])
-                            ,
+                            ->extraInputAttributes(['dir' => 'ltr']),
                     ])
                     ->columns(3)
                     ->collapsible()
@@ -419,11 +430,24 @@ class QuotationResource extends Resource
 
     protected static function recalculateTotals(Set $set, Get $get): void
     {
-        $items = $get('items') ?? [];
+        // Try to get items from current scope, or parent scope if inside repeater
+        $items = $get('items');
+        $pathPrefix = '';
+
+        if ($items === null) {
+            $items = $get('../../items');
+            if ($items !== null) {
+                $pathPrefix = '../../';
+            } else {
+                $items = [];
+            }
+        }
+
         $subtotal = collect($items)->sum('total');
 
-        $set('subtotal', $subtotal);
-        $set('total', $subtotal); // Discount not implemented yet
+        // Use pathPrefix for setting values
+        $set($pathPrefix.'subtotal', $subtotal);
+        $set($pathPrefix.'total', $subtotal); // Discount not implemented yet
     }
 
     public static function table(Table $table): Table

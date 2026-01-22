@@ -22,9 +22,10 @@ class CreatePurchaseReturn extends CreateRecord
             }
         }
 
-        $discount = $data['discount'] ?? 0;
+        $discount = floatval($data['discount'] ?? 0);
         $total = $subtotal - $discount;
 
+        $data['discount'] = $discount;
         $data['subtotal'] = $subtotal;
         $data['total'] = $total;
 

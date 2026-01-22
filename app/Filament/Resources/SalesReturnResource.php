@@ -292,8 +292,9 @@ class SalesReturnResource extends Resource
                                     ->minValue(1)
                                     ->live()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                        $unitPrice = $get('unit_price') ?? 0;
-                                        $set('total', $unitPrice * $state);
+                                        $unitPrice = floatval($get('unit_price') ?? 0);
+                                        $quantity = intval($state);
+                                        $set('total', $unitPrice * $quantity);
                                     })
                                     ->rules([
                                         'required',
@@ -317,8 +318,9 @@ class SalesReturnResource extends Resource
                                     ->required()
                                     ->live()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                        $quantity = $get('quantity') ?? 1;
-                                        $set('total', $state * $quantity);
+                                        $quantity = intval($get('quantity') ?? 1);
+                                        $unitPrice = floatval($state);
+                                        $set('total', $unitPrice * $quantity);
                                     })
                                     ->disabled(fn (Get $get) => $get('../../sales_invoice_id') !== null)
                                     ->dehydrated()
@@ -399,8 +401,8 @@ class SalesReturnResource extends Resource
         foreach ($items as $item) {
             $subtotal += floatval($item['total'] ?? 0);
         }
-        $set('subtotal', $subtotal);
-        $set('total', $subtotal - $discount);
+        $set('subtotal', number_format($subtotal, 2, '.', ''));
+        $set('total', number_format($subtotal - $discount, 2, '.', ''));
     }
 
     public static function table(Table $table): Table

@@ -86,9 +86,21 @@ class EditPurchaseInvoice extends EditRecord
             }
         }
 
-        $discount = $data['discount'] ?? 0;
-        $total = $subtotal - $discount;
+        // Calculate discount
+        $discountValue = floatval($data['discount_value'] ?? 0);
+        $discountType = $data['discount_type'] ?? 'fixed';
 
+        if ($discountType === 'percentage') {
+            $calculatedDiscount = $subtotal * ($discountValue / 100);
+        } else {
+            $calculatedDiscount = $discountValue;
+        }
+
+        $total = $subtotal - $calculatedDiscount;
+
+        // Ensure sanitized data is saved
+        $data['discount'] = $calculatedDiscount;
+        $data['discount_value'] = $discountValue;
         $data['subtotal'] = $subtotal;
         $data['total'] = $total;
 

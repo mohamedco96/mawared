@@ -331,8 +331,9 @@ class SalesInvoiceResource extends Resource
                                             ->required()
                                             ->live(onBlur: true)
                                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                                $unitPrice = $get('unit_price') ?? 0;
-                                                $set('total', $unitPrice * $state);
+                                                $unitPrice = floatval($get('unit_price') ?? 0);
+                                                $quantity = intval($state);
+                                                $set('total', $unitPrice * $quantity);
                                                 static::recalculateTotals($set, $get);
                                             })
                                             ->helperText(function (Get $get) {
@@ -406,8 +407,9 @@ class SalesInvoiceResource extends Resource
                                             ->minValue(0)
                                             ->live(onBlur: true)
                                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                                $quantity = $get('quantity') ?? 1;
-                                                $set('total', $state * $quantity);
+                                                $quantity = intval($get('quantity') ?? 1);
+                                                $unitPrice = floatval($state);
+                                                $set('total', $unitPrice * $quantity);
                                                 static::recalculateTotals($set, $get);
                                             })
                                             ->helperText(function (Get $get) {
@@ -830,11 +832,23 @@ class SalesInvoiceResource extends Resource
      */
     protected static function recalculateTotals(Set $set, Get $get): void
     {
-        $items = $get('items') ?? [];
+        // Try to get items from current scope, or parent scope if inside repeater
+        $items = $get('items');
+        $pathPrefix = '';
+
+        if ($items === null) {
+            $items = $get('../../items');
+            if ($items !== null) {
+                $pathPrefix = '../../';
+            } else {
+                $items = [];
+            }
+        }
+
         $subtotal = collect($items)->sum('total');
-        $discountType = $get('discount_type') ?? 'fixed';
-        $discountValue = floatval($get('discount_value') ?? 0);
-        $paymentMethod = $get('payment_method') ?? 'cash';
+        $discountType = $get($pathPrefix.'discount_type') ?? 'fixed';
+        $discountValue = floatval($get($pathPrefix.'discount_value') ?? 0);
+        $paymentMethod = $get($pathPrefix.'payment_method') ?? 'cash';
 
         // Calculate discount
         $totalDiscount = $discountType === 'percentage'
@@ -844,30 +858,30 @@ class SalesInvoiceResource extends Resource
         $netTotal = $subtotal - $totalDiscount;
 
         // Update hidden fields
-        $set('subtotal', $subtotal);
-        $set('discount', $totalDiscount); // OLD field for backward compatibility
-        $set('total', $netTotal);
+        $set($pathPrefix.'subtotal', $subtotal);
+        $set($pathPrefix.'discount', $totalDiscount); // OLD field for backward compatibility
+        $set($pathPrefix.'total', $netTotal);
 
         // NEW: Recalculate commission
-        $commissionRate = floatval($get('commission_rate') ?? 0) / 100;
+        $commissionRate = floatval($get($pathPrefix.'commission_rate') ?? 0) / 100;
         $commissionAmount = $netTotal * $commissionRate;
-        $set('commission_amount', $commissionAmount);
+        $set($pathPrefix.'commission_amount', $commissionAmount);
 
         // Handle remaining_amount based on payment method
         if ($paymentMethod === 'cash') {
             // For cash: DO NOTHING to paid_amount (dehydrate logic handles saving)
             // Just set remaining_amount to 0 (cash payments are always full)
-            $set('remaining_amount', 0);
+            $set($pathPrefix.'remaining_amount', 0);
         } else {
             // For credit: update remaining_amount based on current paid_amount
-            $currentPaidAmount = floatval($get('paid_amount') ?? 0);
+            $currentPaidAmount = floatval($get($pathPrefix.'paid_amount') ?? 0);
 
             // Reset if current paid_amount exceeds net total
             if ($currentPaidAmount > $netTotal) {
-                $set('paid_amount', 0);
-                $set('remaining_amount', $netTotal);
+                $set($pathPrefix.'paid_amount', 0);
+                $set($pathPrefix.'remaining_amount', $netTotal);
             } else {
-                $set('remaining_amount', max(0, $netTotal - $currentPaidAmount));
+                $set($pathPrefix.'remaining_amount', max(0, $netTotal - $currentPaidAmount));
             }
         }
     }

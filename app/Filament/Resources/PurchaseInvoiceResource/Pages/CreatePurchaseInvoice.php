@@ -23,7 +23,7 @@ class CreatePurchaseInvoice extends CreateRecord
 
         // Calculate discount: use discount_value from header (not item-level discount)
         // Item discounts are already deducted in subtotal calculation
-        $discountValue = $data['discount_value'] ?? 0;
+        $discountValue = floatval($data['discount_value'] ?? 0);
         $discountType = $data['discount_type'] ?? 'fixed';
 
         // Calculate actual discount amount
@@ -37,7 +37,8 @@ class CreatePurchaseInvoice extends CreateRecord
 
         // Store the calculated discount for reference
         $data['discount'] = $calculatedDiscount;
-
+        $data['discount_value'] = $discountValue;
+        
         $data['subtotal'] = $subtotal;
         $data['total'] = $total;
         $data['created_by'] = Auth::id();

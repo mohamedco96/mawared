@@ -301,8 +301,9 @@ class PurchaseReturnResource extends Resource
                                     ->minValue(1)
                                     ->live(debounce: 500)
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                        $unitCost = $get('unit_cost') ?? 0;
-                                        $set('total', $unitCost * $state);
+                                        $unitCost = floatval($get('unit_cost') ?? 0);
+                                        $quantity = intval($state);
+                                        $set('total', $unitCost * $quantity);
                                     })
                                     ->rules([
                                         'required',
@@ -368,8 +369,9 @@ class PurchaseReturnResource extends Resource
                                     ->required()
                                     ->live()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                        $quantity = $get('quantity') ?? 1;
-                                        $set('total', $state * $quantity);
+                                        $quantity = intval($get('quantity') ?? 1);
+                                        $unitCost = floatval($state);
+                                        $set('total', $unitCost * $quantity);
                                     })
                                     ->disabled(fn (Get $get) => $get('../../purchase_invoice_id') !== null)
                                     ->dehydrated()
@@ -450,8 +452,8 @@ class PurchaseReturnResource extends Resource
         foreach ($items as $item) {
             $subtotal += floatval($item['total'] ?? 0);
         }
-        $set('subtotal', $subtotal);
-        $set('total', $subtotal - $discount);
+        $set('subtotal', number_format($subtotal, 2, '.', ''));
+        $set('total', number_format($subtotal - $discount, 2, '.', ''));
     }
 
     public static function table(Table $table): Table

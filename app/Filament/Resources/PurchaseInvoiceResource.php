@@ -159,13 +159,12 @@ class PurchaseInvoiceResource extends Resource
                                     ->label('اسم المنتج')
                                     ->required(),
                                 Forms\Components\Select::make('category_id')
-                                    ->label('القسم')
+                                    ->label('التصنيف')
                                     ->options(ProductCategory::pluck('name', 'id'))
-                                    ->required()
                                     ->createOptionForm([
                                         Forms\Components\TextInput::make('name')
                                             ->required()
-                                            ->label('اسم القسم'),
+                                            ->label('اسم التصنيف'),
                                     ])
                                     ->createOptionUsing(function (array $data) {
                                         return ProductCategory::create($data)->id;
@@ -187,12 +186,10 @@ class PurchaseInvoiceResource extends Resource
                                         Forms\Components\TextInput::make('avg_cost')
                                             ->label('سعر التكلفة')
                                             ->numeric()
-                                            ->default(0)
                                             ->required(),
                                         Forms\Components\TextInput::make('retail_price')
                                             ->label('سعر البيع')
                                             ->numeric()
-                                            ->default(0)
                                             ->required(),
                                     ]),
                                 Forms\Components\TextInput::make('barcode')
@@ -398,8 +395,9 @@ class PurchaseInvoiceResource extends Resource
                                             ->required()
                                             ->live(onBlur: true)
                                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                                $unitCost = $get('unit_cost') ?? 0;
-                                                $set('total', $unitCost * $state);
+                                                $unitCost = floatval($get('unit_cost') ?? 0);
+                                                $quantity = intval($state);
+                                                $set('total', $unitCost * $quantity);
                                                 static::recalculateTotals($set, $get);
                                             })
                                             ->columnSpan(2),
@@ -412,8 +410,9 @@ class PurchaseInvoiceResource extends Resource
                                             ->minValue(0)
                                             ->live(onBlur: true)
                                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                                $quantity = $get('quantity') ?? 1;
-                                                $set('total', $state * $quantity);
+                                                $quantity = intval($get('quantity') ?? 1);
+                                                $unitCost = floatval($state);
+                                                $set('total', $unitCost * $quantity);
                                                 static::recalculateTotals($set, $get);
                                             })
                                             ->columnSpan(2),
@@ -597,11 +596,23 @@ class PurchaseInvoiceResource extends Resource
      */
     protected static function recalculateTotals(Set $set, Get $get): void
     {
-        $items = $get('items') ?? [];
+        // Try to get items from current scope, or parent scope if inside repeater
+        $items = $get('items');
+        $pathPrefix = '';
+
+        if ($items === null) {
+            $items = $get('../../items');
+            if ($items !== null) {
+                $pathPrefix = '../../';
+            } else {
+                $items = [];
+            }
+        }
+
         $subtotal = collect($items)->sum('total');
-        $discountType = $get('discount_type') ?? 'fixed';
-        $discountValue = floatval($get('discount_value') ?? 0);
-        $paymentMethod = $get('payment_method') ?? 'cash';
+        $discountType = $get($pathPrefix.'discount_type') ?? 'fixed';
+        $discountValue = floatval($get($pathPrefix.'discount_value') ?? 0);
+        $paymentMethod = $get($pathPrefix.'payment_method') ?? 'cash';
 
         // Calculate discount
         $totalDiscount = $discountType === 'percentage'
@@ -611,24 +622,24 @@ class PurchaseInvoiceResource extends Resource
         $netTotal = $subtotal - $totalDiscount;
 
         // Update hidden fields
-        $set('subtotal', $subtotal);
-        $set('discount', $totalDiscount); // OLD field for backward compatibility
-        $set('total', $netTotal);
+        $set($pathPrefix.'subtotal', $subtotal);
+        $set($pathPrefix.'discount', $totalDiscount); // OLD field for backward compatibility
+        $set($pathPrefix.'total', $netTotal);
 
         // Auto-fill paid_amount based on payment method
-        $currentPaidAmount = floatval($get('paid_amount') ?? 0);
+        $currentPaidAmount = floatval($get($pathPrefix.'paid_amount') ?? 0);
 
         // Only auto-fill if payment method is cash or if current paid amount exceeds net total
         if ($paymentMethod === 'cash') {
-            $set('paid_amount', $netTotal);
-            $set('remaining_amount', 0);
+            $set($pathPrefix.'paid_amount', $netTotal);
+            $set($pathPrefix.'remaining_amount', 0);
         } else {
             // For credit, only reset if current paid_amount exceeds net total
             if ($currentPaidAmount > $netTotal) {
-                $set('paid_amount', 0);
-                $set('remaining_amount', $netTotal);
+                $set($pathPrefix.'paid_amount', 0);
+                $set($pathPrefix.'remaining_amount', $netTotal);
             } else {
-                $set('remaining_amount', max(0, $netTotal - $currentPaidAmount));
+                $set($pathPrefix.'remaining_amount', max(0, $netTotal - $currentPaidAmount));
             }
         }
     }

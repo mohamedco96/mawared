@@ -2,12 +2,11 @@
 
 namespace App\Providers\Filament;
 
-use Filament\Http\Middleware\Authenticate;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
+use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -34,7 +33,7 @@ class AdminPanelProvider extends PanelProvider
             ->brandName('Osool - أصول')
             ->darkMode()
             ->colors([
-                'primary' => Color::Indigo,
+                'primary' => Color::Blue,
                 'success' => Color::Emerald,
                 'warning' => Color::Amber,
                 'danger' => Color::Rose,
@@ -226,9 +225,9 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 'panels::body.end',
                 fn (): string => '
-                    <script src="' . asset('js/filament/fix-arabic-numbers.js') . '"></script>
-                    <script src="' . asset('js/filament/force-english-display.js') . '"></script>
-                    <script type="module" src="' . \Vite::asset('resources/js/unsaved-changes-alert.js') . '"></script>
+                    <script src="'.asset('js/filament/fix-arabic-numbers.js').'"></script>
+                    <script src="'.asset('js/filament/force-english-display.js').'"></script>
+                    <script type="module" src="'.\Vite::asset('resources/js/unsaved-changes-alert.js').'"></script>
                     <script>
                         document.addEventListener("DOMContentLoaded", function() {
                             // Add toggle button to FinancialOverviewWidget
