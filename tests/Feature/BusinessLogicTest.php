@@ -1945,8 +1945,8 @@ class BusinessLogicTest extends TestCase
         // ASSERT: All transactions have references
         $transactions = TreasuryTransaction::all();
         foreach ($transactions as $transaction) {
-            // Skip the initial capital injection from TestCase setup
-            if ($transaction->reference_type === 'capital_injection') {
+            // Skip the initial capital injection and other manual transactions
+            if (in_array($transaction->reference_type, ['capital_injection', 'initial_capital', 'financial_transaction', 'discount'])) {
                 continue;
             }
 

@@ -184,18 +184,7 @@ class TreasuryService
             $transactionType = $isSales ? 'collection' : 'payment';
             $transactionAmount = $isSales ? $amount : -$amount;
 
-            // Create treasury transaction for the actual cash movement
-            $treasuryTransaction = $this->recordTransaction(
-                $treasuryId,
-                $transactionType,
-                $transactionAmount,
-                ($isSales ? 'تسديد فاتورة بيع ' : 'تسديد فاتورة شراء ')."#{$invoice->invoice_number}",
-                $invoice->partner_id,
-                null, // No reference_type since this is a direct payment transaction
-                null
-            );
-
-            // Create invoice payment record
+            // Create invoice payment record first to get ID
             $payment = \App\Models\InvoicePayment::create([
                 'payable_type' => $invoice->getMorphClass(),
                 'payable_id' => $invoice->id,
@@ -203,10 +192,24 @@ class TreasuryService
                 'discount' => $discount,
                 'payment_date' => now(),
                 'notes' => $notes,
-                'treasury_transaction_id' => $treasuryTransaction->id,
+                'treasury_transaction_id' => null, // Will be updated below
                 'partner_id' => $invoice->partner_id,
                 'created_by' => auth()->id(),
             ]);
+
+            // Create treasury transaction with reference to payment
+            $treasuryTransaction = $this->recordTransaction(
+                $treasuryId,
+                $transactionType,
+                $transactionAmount,
+                ($isSales ? 'تسديد فاتورة بيع ' : 'تسديد فاتورة شراء ')."#{$invoice->invoice_number}",
+                $invoice->partner_id,
+                'invoice_payment', // Reference Type
+                $payment->id       // Reference ID
+            );
+
+            // Update payment with transaction ID
+            $payment->update(['treasury_transaction_id' => $treasuryTransaction->id]);
 
             // CRITICAL FIX: Update invoice paid_amount to include settlement discount
             // The total settled amount is the cash paid + discount given

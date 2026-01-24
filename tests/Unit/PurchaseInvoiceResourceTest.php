@@ -23,21 +23,21 @@ class PurchaseInvoiceResourceTest extends TestCase
 
         // Mock Set
         $setMock = Mockery::mock(Set::class);
-        $setMock->shouldReceive('__invoke')->with('subtotal', 300)->once();
-        $setMock->shouldReceive('__invoke')->with('discount', 0)->once();
-        $setMock->shouldReceive('__invoke')->with('total', 300)->once();
-        $setMock->shouldReceive('__invoke')->with('paid_amount', 300)->once();
-        $setMock->shouldReceive('__invoke')->with('remaining_amount', 0)->once();
+        $setMock->shouldReceive('__invoke')->with('../../subtotal', 300)->once();
+        $setMock->shouldReceive('__invoke')->with('../../discount', 0)->once();
+        $setMock->shouldReceive('__invoke')->with('../../total', 300)->once();
+        $setMock->shouldReceive('__invoke')->with('../../paid_amount', 300)->once();
+        $setMock->shouldReceive('__invoke')->with('../../remaining_amount', 0)->once();
         $setMock->shouldReceive('__invoke')->with('commission_amount', Mockery::any()); // In case it's called (SalesInvoice has it, Purchase might not)
 
         // Mock Get
         $getMock = Mockery::mock(Get::class);
         $getMock->shouldReceive('__invoke')->with('items')->andReturn(null);
         $getMock->shouldReceive('__invoke')->with('../../items')->andReturn($items);
-        $getMock->shouldReceive('__invoke')->with('discount_type')->andReturn('fixed');
-        $getMock->shouldReceive('__invoke')->with('discount_value')->andReturn(0);
-        $getMock->shouldReceive('__invoke')->with('payment_method')->andReturn('cash');
-        $getMock->shouldReceive('__invoke')->with('paid_amount')->andReturn(0);
+        $getMock->shouldReceive('__invoke')->with('../../discount_type')->andReturn('fixed');
+        $getMock->shouldReceive('__invoke')->with('../../discount_value')->andReturn(0);
+        $getMock->shouldReceive('__invoke')->with('../../payment_method')->andReturn('cash');
+        $getMock->shouldReceive('__invoke')->with('../../paid_amount')->andReturn(0);
         $getMock->shouldReceive('__invoke')->with('commission_rate')->andReturn(0);
 
         // Access protected static method using reflection
@@ -59,20 +59,20 @@ class PurchaseInvoiceResourceTest extends TestCase
 
         // Mock Set
         $setMock = Mockery::mock(Set::class);
-        $setMock->shouldReceive('__invoke')->with('subtotal', $expectedSubtotal)->once();
-        $setMock->shouldReceive('__invoke')->with('discount', 0)->once();
-        $setMock->shouldReceive('__invoke')->with('total', $expectedSubtotal)->once();
-        $setMock->shouldReceive('__invoke')->with('paid_amount', $expectedSubtotal)->once();
-        $setMock->shouldReceive('__invoke')->with('remaining_amount', 0)->once();
+        $setMock->shouldReceive('__invoke')->with('../../subtotal', $expectedSubtotal)->once();
+        $setMock->shouldReceive('__invoke')->with('../../discount', 0)->once();
+        $setMock->shouldReceive('__invoke')->with('../../total', $expectedSubtotal)->once();
+        $setMock->shouldReceive('__invoke')->with('../../paid_amount', $expectedSubtotal)->once();
+        $setMock->shouldReceive('__invoke')->with('../../remaining_amount', 0)->once();
 
         // Mock Get
         $getMock = Mockery::mock(Get::class);
         $getMock->shouldReceive('__invoke')->with('items')->andReturn(null);
         $getMock->shouldReceive('__invoke')->with('../../items')->andReturn($items);
-        $getMock->shouldReceive('__invoke')->with('discount_type')->andReturn('fixed');
-        $getMock->shouldReceive('__invoke')->with('discount_value')->andReturn(0);
-        $getMock->shouldReceive('__invoke')->with('payment_method')->andReturn('cash');
-        $getMock->shouldReceive('__invoke')->with('paid_amount')->andReturn(0);
+        $getMock->shouldReceive('__invoke')->with('../../discount_type')->andReturn('fixed');
+        $getMock->shouldReceive('__invoke')->with('../../discount_value')->andReturn(0);
+        $getMock->shouldReceive('__invoke')->with('../../payment_method')->andReturn('cash');
+        $getMock->shouldReceive('__invoke')->with('../../paid_amount')->andReturn(0);
 
         $method = new \ReflectionMethod(PurchaseInvoiceResource::class, 'recalculateTotals');
         $method->setAccessible(true);
