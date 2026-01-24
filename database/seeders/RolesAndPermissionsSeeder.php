@@ -427,6 +427,13 @@ class RolesAndPermissionsSeeder extends Seeder
             'update_fixed::asset',
             'delete_fixed::asset',
 
+            // Equity Periods (Capital Management)
+            'view_any_equity::period',
+            'view_equity::period',
+            'create_equity::period',
+            'update_equity::period',
+            'delete_equity::period',
+
             // Activity Logs
             'view_any_activity::log',
             'view_activity::log',
@@ -447,20 +454,27 @@ class RolesAndPermissionsSeeder extends Seeder
             'page_Backups',
             'page_CollectPayments',
             'page_DailyOperations',
+            'page_FinancialDashboard',
             'page_GeneralSettings',
             'page_ItemProfitabilityReport',
+            'page_MonthlyProfitReport',
             'page_PartnerStatement',
             'page_ProfitLossReport',
+            'page_ReportsHub',
             'page_StockCard',
 
             // ==================================================
             // FILAMENT WIDGETS - Dashboard Widgets Permissions
             // ==================================================
-            'widget_FinancialOverviewWidget',
-            'widget_LatestActivitiesWidget',
-            'widget_OperationsOverviewWidget',
+            'widget_BestSellersWidget',
             'widget_CashFlowChartWidget',
+            'widget_FinancialOverviewWidget',
+            'widget_InventoryValueWidget',
+            'widget_LatestActivitiesWidget',
             'widget_LowStockTableWidget',
+            'widget_OperationalStatsWidget',
+            'widget_OperationsOverviewWidget',
+            'widget_QuickAccessWidget',
             'widget_TopCreditorsTableWidget',
             'widget_TopDebtorsTableWidget',
             'widget_TopSellingProductsWidget',
@@ -468,8 +482,9 @@ class RolesAndPermissionsSeeder extends Seeder
             // ==================================================
             // FINANCIAL DATA VISIBILITY - Cost & Profit Permissions
             // ==================================================
-            'view_cost_price',  // View purchase cost prices and supplier information
-            'view_profit',      // View profit margins and profitability data
+            'view_cost_price',           // View purchase cost prices and supplier information
+            'view_profit',               // View profit margins and profitability data
+            'view_financial_dashboard',  // Access to financial dashboard page
         ];
     }
 }
