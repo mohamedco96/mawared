@@ -8,6 +8,7 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Hash;
 
@@ -168,7 +169,7 @@ class UserResource extends Resource
                             ->when($data['from'], fn ($q, $amount) => $q->where('salary_amount', '>=', $amount))
                             ->when($data['until'], fn ($q, $amount) => $q->where('salary_amount', '<=', $amount));
                     }),
-            ])
+            ], layout: FiltersLayout::Dropdown)
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),

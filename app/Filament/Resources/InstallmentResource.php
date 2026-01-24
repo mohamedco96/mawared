@@ -3,17 +3,16 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\InstallmentResource\Pages;
-use App\Filament\Resources\InstallmentResource\RelationManagers;
 use App\Models\Installment;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
-use Filament\Tables;
-use Filament\Tables\Table;
 use Filament\Notifications\Notification;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Resources\Resource;
 use Filament\Support\Enums\FontWeight;
+use Filament\Tables;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class InstallmentResource extends Resource
 {
@@ -53,7 +52,7 @@ class InstallmentResource extends Resource
                             ->label('المبلغ')
                             ->required()
                             ->numeric()
-                            
+
                             ->disabled(fn (?Installment $record) => $record !== null),
 
                         Forms\Components\DatePicker::make('due_date')
@@ -69,7 +68,7 @@ class InstallmentResource extends Resource
                         Forms\Components\TextInput::make('paid_amount')
                             ->label('المبلغ المدفوع')
                             ->numeric()
-                            
+
                             ->disabled()
                             ->default(0.0000),
 
@@ -140,8 +139,7 @@ class InstallmentResource extends Resource
                     ->label('المدفوع')
                     ->formatStateUsing(fn ($state) => number_format($state, 2))
                     ->sortable()
-                    ->color(fn ($state, Installment $record) =>
-                        bccomp((string) $state, (string) $record->amount, 4) === 0 ? 'success' : 'warning'
+                    ->color(fn ($state, Installment $record) => bccomp((string) $state, (string) $record->amount, 4) === 0 ? 'success' : 'warning'
                     ),
 
                 Tables\Columns\TextColumn::make('remaining_amount')
@@ -154,8 +152,7 @@ class InstallmentResource extends Resource
                     ->label('تاريخ الاستحقاق')
                     ->date('Y-m-d')
                     ->sortable()
-                    ->color(fn (Installment $record) =>
-                        $record->isOverdue() ? 'danger' : ($record->isPaid() ? 'success' : 'warning')
+                    ->color(fn (Installment $record) => $record->isOverdue() ? 'danger' : ($record->isPaid() ? 'success' : 'warning')
                     )
                     ->weight(FontWeight::SemiBold),
 
@@ -240,13 +237,14 @@ class InstallmentResource extends Resource
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['from'] ?? null) {
-                            $indicators[] = Tables\Filters\Indicator::make('من تاريخ: ' . \Carbon\Carbon::parse($data['from'])->format('Y-m-d'))
+                            $indicators[] = Tables\Filters\Indicator::make('من تاريخ: '.\Carbon\Carbon::parse($data['from'])->format('Y-m-d'))
                                 ->removeField('from');
                         }
                         if ($data['until'] ?? null) {
-                            $indicators[] = Tables\Filters\Indicator::make('إلى تاريخ: ' . \Carbon\Carbon::parse($data['until'])->format('Y-m-d'))
+                            $indicators[] = Tables\Filters\Indicator::make('إلى تاريخ: '.\Carbon\Carbon::parse($data['until'])->format('Y-m-d'))
                                 ->removeField('until');
                         }
+
                         return $indicators;
                     }),
 
@@ -259,7 +257,7 @@ class InstallmentResource extends Resource
 
                 Tables\Filters\SelectFilter::make('partner_id')
                     ->label('العميل')
-                    ->options(fn() => \App\Models\Partner::pluck('name', 'id'))
+                    ->options(fn () => \App\Models\Partner::pluck('name', 'id'))
                     ->searchable()
                     ->preload()
                     ->native(false)
@@ -270,7 +268,7 @@ class InstallmentResource extends Resource
                             });
                         }
                     }),
-            ])
+            ], layout: FiltersLayout::Dropdown)
             ->actions([
                 Tables\Actions\ViewAction::make()
                     ->label('عرض'),
@@ -287,7 +285,7 @@ class InstallmentResource extends Resource
                     ->color('success')
                     ->visible(fn (Installment $record) => $record->invoice_payment_id !== null)
                     ->modalContent(fn (Installment $record) => view('filament.modals.payment-details', [
-                        'payment' => $record->invoicePayment
+                        'payment' => $record->invoicePayment,
                     ]))
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('إغلاق'),

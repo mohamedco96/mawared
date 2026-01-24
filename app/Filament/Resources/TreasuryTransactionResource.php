@@ -6,7 +6,6 @@ use App\Enums\TransactionType;
 use App\Filament\Resources\TreasuryTransactionResource\Pages;
 use App\Models\Partner;
 use App\Models\TreasuryTransaction;
-use App\Services\TreasuryService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
@@ -54,7 +53,7 @@ class TreasuryTransactionResource extends Resource
                             })
                             // Auto-select category when editing existing record
                             ->afterStateHydrated(function (Set $set, Get $get, $state) {
-                                if (!$state && $get('type')) {
+                                if (! $state && $get('type')) {
                                     $typeEnum = TransactionType::from($get('type'));
                                     $set('transaction_category', $typeEnum->getCategory());
                                 }
@@ -66,19 +65,20 @@ class TreasuryTransactionResource extends Resource
                             ->label('نوع المعاملة')
                             ->options(function (Get $get) {
                                 $category = $get('transaction_category');
-                                if (!$category) {
+                                if (! $category) {
                                     return [];
                                 }
 
                                 $types = TransactionType::forCategory($category);
+
                                 return collect($types)
-                                    ->mapWithKeys(fn(TransactionType $type) => [$type->value => $type->getLabel()])
+                                    ->mapWithKeys(fn (TransactionType $type) => [$type->value => $type->getLabel()])
                                     ->toArray();
                             })
                             ->required()
                             ->native(false)
                             ->live()
-                            ->disabled(fn (Get $get) => !$get('transaction_category'))
+                            ->disabled(fn (Get $get) => ! $get('transaction_category'))
                             ->afterStateUpdated(function (Set $set, $state) {
                                 // Reset entity fields when type changes
                                 $set('partner_id', null);
@@ -102,6 +102,7 @@ class TreasuryTransactionResource extends Resource
                                 if (in_array($type, ['collection', 'payment'])) {
                                     return 'العميل/المورد';
                                 }
+
                                 return 'الشريك';
                             })
                             ->relationship(
@@ -137,11 +138,11 @@ class TreasuryTransactionResource extends Resource
                             })
                             ->visible(fn (Get $get) => in_array($get('type'), [
                                 'collection', 'payment', 'capital_deposit', 'partner_drawing',
-                                'partner_loan_receipt', 'partner_loan_repayment'
+                                'partner_loan_receipt', 'partner_loan_repayment',
                             ]))
                             ->required(fn (Get $get) => in_array($get('type'), [
                                 'collection', 'payment', 'capital_deposit', 'partner_drawing',
-                                'partner_loan_receipt', 'partner_loan_repayment'
+                                'partner_loan_receipt', 'partner_loan_repayment',
                             ])),
 
                         Forms\Components\Placeholder::make('current_balance_display')
@@ -153,11 +154,13 @@ class TreasuryTransactionResource extends Resource
                                     if ($partner) {
                                         $balance = $partner->current_balance;
                                         $color = $balance < 0 ? 'text-red-600' : ($balance > 0 ? 'text-green-600' : 'text-gray-600');
+
                                         return new \Illuminate\Support\HtmlString(
-                                            '<span class="' . $color . ' font-bold text-lg">' . number_format($balance, 2) . '</span>'
+                                            '<span class="'.$color.' font-bold text-lg">'.number_format($balance, 2).'</span>'
                                         );
                                     }
                                 }
+
                                 return '—';
                             })
                             ->visible(fn (Get $get) => $get('partner_id') !== null),
@@ -194,11 +197,13 @@ class TreasuryTransactionResource extends Resource
                                     if ($employee && \Illuminate\Support\Facades\Schema::hasColumn('users', 'advance_balance')) {
                                         $balance = $employee->advance_balance;
                                         $color = $balance > 0 ? 'text-red-600' : 'text-gray-600';
+
                                         return new \Illuminate\Support\HtmlString(
-                                            '<span class="' . $color . ' font-bold text-lg">' . number_format($balance, 2) . '</span>'
+                                            '<span class="'.$color.' font-bold text-lg">'.number_format($balance, 2).'</span>'
                                         );
                                     }
                                 }
+
                                 return '—';
                             })
                             ->visible(fn (Get $get) => $get('employee_id') !== null && $get('type') === 'employee_advance'),
@@ -213,11 +218,12 @@ class TreasuryTransactionResource extends Resource
                                         $salary = $employee->salary_amount;
                                         if ($salary > 0) {
                                             return new \Illuminate\Support\HtmlString(
-                                                '<span class="text-blue-600 font-bold text-lg">' . number_format($salary, 2) . ' ج.م</span>'
+                                                '<span class="text-blue-600 font-bold text-lg">'.number_format($salary, 2).' ج.م</span>'
                                             );
                                         }
                                     }
                                 }
+
                                 return '—';
                             })
                             ->visible(fn (Get $get) => $get('employee_id') !== null && $get('type') === 'salary_payment'),
@@ -255,6 +261,7 @@ class TreasuryTransactionResource extends Resource
                                     // Validate positive amount
                                     if ($amount <= 0) {
                                         $fail('المبلغ يجب أن يكون أكبر من صفر.');
+
                                         return;
                                     }
 
@@ -267,7 +274,7 @@ class TreasuryTransactionResource extends Resource
                                         $treasury = \App\Models\Treasury::find($treasuryId);
 
                                         if ($treasury && $amount > $treasury->balance) {
-                                            $fail('رصيد الخزينة غير كافٍ لإتمام هذه العملية. الرصيد الحالي: ' . number_format($treasury->balance, 2) . ' والمبلغ المطلوب: ' . number_format($amount, 2));
+                                            $fail('رصيد الخزينة غير كافٍ لإتمام هذه العملية. الرصيد الحالي: '.number_format($treasury->balance, 2).' والمبلغ المطلوب: '.number_format($amount, 2));
                                         }
                                     }
                                 },
@@ -339,7 +346,7 @@ class TreasuryTransactionResource extends Resource
                 Tables\Columns\TextColumn::make('reference')
                     ->label('المرجع')
                     ->formatStateUsing(function (TreasuryTransaction $record) {
-                        if (!$record->reference_type || !$record->reference_id) {
+                        if (! $record->reference_type || ! $record->reference_id) {
                             return '—';
                         }
 
@@ -350,7 +357,7 @@ class TreasuryTransactionResource extends Resource
 
                         // Manually fetch the reference record based on type
                         try {
-                            $reference = match($record->reference_type) {
+                            $reference = match ($record->reference_type) {
                                 'sales_invoice' => \App\Models\SalesInvoice::find($record->reference_id),
                                 'purchase_invoice' => \App\Models\PurchaseInvoice::find($record->reference_id),
                                 'sales_return' => \App\Models\SalesReturn::find($record->reference_id),
@@ -358,15 +365,15 @@ class TreasuryTransactionResource extends Resource
                                 default => null,
                             };
 
-                            if (!$reference) {
+                            if (! $reference) {
                                 return $record->reference_type;
                             }
 
-                            return match($record->reference_type) {
-                                'sales_invoice' => 'فاتورة بيع: ' . ($reference->invoice_number ?? '—'),
-                                'purchase_invoice' => 'فاتورة شراء: ' . ($reference->invoice_number ?? '—'),
-                                'sales_return' => 'مرتجع بيع: ' . ($reference->return_number ?? '—'),
-                                'purchase_return' => 'مرتجع شراء: ' . ($reference->return_number ?? '—'),
+                            return match ($record->reference_type) {
+                                'sales_invoice' => 'فاتورة بيع: '.($reference->invoice_number ?? '—'),
+                                'purchase_invoice' => 'فاتورة شراء: '.($reference->invoice_number ?? '—'),
+                                'sales_return' => 'مرتجع بيع: '.($reference->return_number ?? '—'),
+                                'purchase_return' => 'مرتجع شراء: '.($reference->return_number ?? '—'),
                                 default => $record->reference_type,
                             };
                         } catch (\Exception $e) {
@@ -382,7 +389,7 @@ class TreasuryTransactionResource extends Resource
                     ->label('النوع')
                     ->options(function () {
                         return collect(TransactionType::cases())
-                            ->mapWithKeys(fn(TransactionType $type) => [$type->value => $type->getLabel()])
+                            ->mapWithKeys(fn (TransactionType $type) => [$type->value => $type->getLabel()])
                             ->toArray();
                     })
                     ->native(false),
@@ -433,7 +440,7 @@ class TreasuryTransactionResource extends Resource
                             ->when($data['from'], fn ($q, $amount) => $q->where('amount', '>=', $amount))
                             ->when($data['until'], fn ($q, $amount) => $q->where('amount', '<=', $amount));
                     }),
-            ])
+            ], layout: \Filament\Tables\Enums\FiltersLayout::Dropdown)
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 // Edit and delete actions removed - treasury transactions are immutable for audit trail

@@ -12,6 +12,7 @@ use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\DB;
 
@@ -63,11 +64,11 @@ class StockAdjustmentResource extends Resource
                             ->getSearchResultsUsing(function (?string $search): array {
                                 $query = Product::query();
 
-                                if (!empty($search)) {
+                                if (! empty($search)) {
                                     $query->where(function ($q) use ($search) {
                                         $q->where('name', 'like', "%{$search}%")
-                                          ->orWhere('sku', 'like', "%{$search}%")
-                                          ->orWhere('barcode', 'like', "%{$search}%");
+                                            ->orWhere('sku', 'like', "%{$search}%")
+                                            ->orWhere('barcode', 'like', "%{$search}%");
                                     });
                                 } else {
                                     // Load latest products when no search
@@ -78,6 +79,7 @@ class StockAdjustmentResource extends Resource
                             })
                             ->getOptionLabelUsing(function ($value): string {
                                 $product = Product::find($value);
+
                                 return $product ? $product->name : '';
                             })
                             ->loadingMessage('جاري التحميل...')
@@ -122,6 +124,7 @@ class StockAdjustmentResource extends Resource
                                     // Validate positive quantity
                                     if ($value !== null && intval($value) <= 0) {
                                         $fail('الكمية يجب أن تكون أكبر من صفر.');
+
                                         return;
                                     }
 
@@ -130,13 +133,15 @@ class StockAdjustmentResource extends Resource
                                     $productId = $get('product_id');
 
                                     // Ensure warehouse and product are selected
-                                    if (!$warehouseId) {
+                                    if (! $warehouseId) {
                                         $fail('يجب اختيار المخزن أولاً.');
+
                                         return;
                                     }
 
-                                    if (!$productId) {
+                                    if (! $productId) {
                                         $fail('يجب اختيار المنتج أولاً.');
+
                                         return;
                                     }
 
@@ -176,7 +181,7 @@ class StockAdjustmentResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('type')
                     ->label('النوع')
-                    ->formatStateUsing(fn (string $state): string => match($state) {
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
                         'addition' => 'إضافة',
                         'subtraction' => 'خصم',
                         'damage' => 'تالف',
@@ -186,7 +191,7 @@ class StockAdjustmentResource extends Resource
                         default => $state,
                     })
                     ->badge()
-                    ->color(fn (string $state): string => match($state) {
+                    ->color(fn (string $state): string => match ($state) {
                         'addition' => 'success',
                         'subtraction' => 'warning',
                         'damage' => 'danger',
@@ -202,10 +207,12 @@ class StockAdjustmentResource extends Resource
                         // Display with direction indicator based on type
                         $subtractionTypes = ['subtraction', 'damage', 'gift'];
                         $prefix = in_array($record->type, $subtractionTypes) ? '-' : '+';
-                        return $prefix . abs($state);
+
+                        return $prefix.abs($state);
                     })
                     ->color(function ($record) {
                         $subtractionTypes = ['subtraction', 'damage', 'gift'];
+
                         return in_array($record->type, $subtractionTypes) ? 'danger' : 'success';
                     }),
                 Tables\Columns\TextColumn::make('status')
@@ -272,7 +279,7 @@ class StockAdjustmentResource extends Resource
                             ->native(false),
                     ])
                     ->query(function ($query, array $data) {
-                        if (!isset($data['type'])) {
+                        if (! isset($data['type'])) {
                             return $query;
                         }
 
@@ -282,7 +289,7 @@ class StockAdjustmentResource extends Resource
                             fn ($q) => $q->where('quantity', '<', 0)
                         );
                     }),
-            ])
+            ], layout: FiltersLayout::Dropdown)
             ->actions([
                 Tables\Actions\Action::make('post')
                     ->label('تأكيد')

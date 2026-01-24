@@ -9,6 +9,7 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 
 class RevenueResource extends Resource
@@ -142,7 +143,7 @@ class RevenueResource extends Resource
                             ->when($data['from'], fn ($q, $amount) => $q->where('amount', '>=', $amount))
                             ->when($data['until'], fn ($q, $amount) => $q->where('amount', '<=', $amount));
                     }),
-            ])
+            ], layout: FiltersLayout::Dropdown)
             ->actions([
                 Tables\Actions\ViewAction::make()
                     ->modalHeading(fn ($record) => 'تفاصيل الإيراد'),

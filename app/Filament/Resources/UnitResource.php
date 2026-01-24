@@ -9,6 +9,7 @@ use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 
 class UnitResource extends Resource
@@ -60,7 +61,7 @@ class UnitResource extends Resource
             ])
             ->filters([
                 //
-            ])
+            ], layout: FiltersLayout::Dropdown)
             ->actions([
                 Tables\Actions\EditAction::make()
                     ->slideOver(),
@@ -120,7 +121,7 @@ class UnitResource extends Resource
                                 Notification::make()
                                     ->warning()
                                     ->title('بعض الوحدات مستخدمة')
-                                    ->body('الوحدات التالية مستخدمة في منتجات: ' . implode(', ', $blocked))
+                                    ->body('الوحدات التالية مستخدمة في منتجات: '.implode(', ', $blocked))
                                     ->persistent()
                                     ->send();
                             }

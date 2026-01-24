@@ -9,9 +9,9 @@ use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 class ProductCategoryResource extends Resource
@@ -55,7 +55,7 @@ class ProductCategoryResource extends Resource
                             ->maxLength(255)
                             ->live(onBlur: true)
                             ->afterStateUpdated(function (Forms\Set $set, ?string $state) {
-                                if (!empty($state)) {
+                                if (! empty($state)) {
                                     $set('slug', Str::slug($state));
                                 }
                             }),
@@ -168,7 +168,7 @@ class ProductCategoryResource extends Resource
                 Tables\Filters\TrashedFilter::make()
                     ->label('المحذوفة')
                     ->native(false),
-            ])
+            ], layout: FiltersLayout::Dropdown)
             ->actions([
                 Tables\Actions\EditAction::make()
                     ->label('تعديل'),

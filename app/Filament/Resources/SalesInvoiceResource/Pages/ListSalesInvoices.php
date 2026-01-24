@@ -19,20 +19,31 @@ class ListSalesInvoices extends ListRecords
         ];
     }
 
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            SalesInvoiceResource\Widgets\SalesInvoiceStatsOverview::class,
+        ];
+    }
+
     public function getTabs(): array
     {
         return [
-            'الكل' => Tab::make()
+            'all' => Tab::make('الكل')
+                ->icon('heroicon-m-squares-2x2')
                 ->badge(fn () => \App\Models\SalesInvoice::count()),
-            'مسودة' => Tab::make()
+            'draft' => Tab::make('مسودة')
+                ->icon('heroicon-m-document-text')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'draft'))
                 ->badge(fn () => \App\Models\SalesInvoice::where('status', 'draft')->count())
                 ->badgeColor('warning'),
-            'مؤكدة' => Tab::make()
+            'posted' => Tab::make('مؤكدة')
+                ->icon('heroicon-m-check-circle')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'posted'))
                 ->badge(fn () => \App\Models\SalesInvoice::where('status', 'posted')->count())
                 ->badgeColor('success'),
-            'ديون' => Tab::make()
+            'unpaid' => Tab::make('آجل / ديون')
+                ->icon('heroicon-m-clock')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'posted')->where('remaining_amount', '>', 0))
                 ->badge(fn () => \App\Models\SalesInvoice::where('status', 'posted')->where('remaining_amount', '>', 0)->count())
                 ->badgeColor('danger'),

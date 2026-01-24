@@ -8,6 +8,7 @@ use Filament\Pages\Page;
 use Filament\Tables;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -45,27 +46,37 @@ class DailyOperations extends Page implements HasTable
         $this->resetTable();
     }
 
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            \App\Filament\Widgets\DailyOperationsStatsOverview::class,
+        ];
+    }
+
     public function getTabs(): array
     {
         return [
             'sales' => (object) [
                 'label' => 'تدفق المبيعات',
+                'icon' => 'heroicon-m-banknotes',
                 'badge' => TreasuryTransaction::where('type', 'collection')
                     ->whereDate('created_at', today())
                     ->count(),
-                'badgeColor' => null,
+                'badgeColor' => 'success',
             ],
             'cashflow' => (object) [
                 'label' => 'التدفق النقدي',
+                'icon' => 'heroicon-m-arrows-right-left',
                 'badge' => TreasuryTransaction::whereDate('created_at', today())
                     ->count(),
-                'badgeColor' => null,
+                'badgeColor' => 'warning',
             ],
             'stock' => (object) [
                 'label' => 'سجل المخزون',
+                'icon' => 'heroicon-m-cube',
                 'badge' => StockMovement::whereDate('created_at', today())
                     ->count(),
-                'badgeColor' => null,
+                'badgeColor' => 'info',
             ],
         ];
     }
@@ -81,13 +92,14 @@ class DailyOperations extends Page implements HasTable
             ->query($this->getTableQuery())
             ->columns($this->getTableColumns())
             ->filters($this->getTableFilters())
+            ->filtersLayout(FiltersLayout::Dropdown)
             ->defaultSort('created_at', 'desc')
             ->poll('30s');
     }
 
     protected function getTableQuery(): Builder
     {
-        return match($this->activeTab) {
+        return match ($this->activeTab) {
             'sales' => TreasuryTransaction::query()
                 ->where('type', 'collection')
                 ->with(['treasury', 'partner']),
@@ -101,7 +113,7 @@ class DailyOperations extends Page implements HasTable
 
     protected function getTableColumns(): array
     {
-        return match($this->activeTab) {
+        return match ($this->activeTab) {
             'sales' => [
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('التاريخ')
@@ -123,7 +135,7 @@ class DailyOperations extends Page implements HasTable
                     ->tooltip(fn (TreasuryTransaction $record): string => $record->description),
                 Tables\Columns\TextColumn::make('reference_type')
                     ->label('المصدر')
-                    ->formatStateUsing(fn (?string $state): string => match($state) {
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
                         'sales_invoice' => 'فاتورة بيع',
                         'financial_transaction' => 'معاملة مالية',
                         default => $state ?? '—',
@@ -137,7 +149,7 @@ class DailyOperations extends Page implements HasTable
                     ->sortable(),
                 Tables\Columns\TextColumn::make('type')
                     ->label('النوع')
-                    ->formatStateUsing(fn (string $state): string => match($state) {
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
                         'collection' => 'تحصيل',
                         'payment' => 'دفع',
                         'income' => 'إيراد',
@@ -145,7 +157,7 @@ class DailyOperations extends Page implements HasTable
                         default => $state,
                     })
                     ->badge()
-                    ->color(fn (string $state): string => match($state) {
+                    ->color(fn (string $state): string => match ($state) {
                         'collection', 'income' => 'success',
                         'payment', 'expense' => 'danger',
                         default => 'gray',
@@ -182,7 +194,7 @@ class DailyOperations extends Page implements HasTable
                     ->sortable(),
                 Tables\Columns\TextColumn::make('type')
                     ->label('النوع')
-                    ->formatStateUsing(fn (string $state): string => match($state) {
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
                         'sale' => 'بيع',
                         'purchase' => 'شراء',
                         'sale_return' => 'مرتجع بيع',
@@ -193,7 +205,7 @@ class DailyOperations extends Page implements HasTable
                         default => $state,
                     })
                     ->badge()
-                    ->color(fn (string $state): string => match($state) {
+                    ->color(fn (string $state): string => match ($state) {
                         'sale', 'adjustment_out' => 'danger',
                         'purchase', 'adjustment_in' => 'success',
                         'sale_return', 'purchase_return' => 'warning',
@@ -210,7 +222,7 @@ class DailyOperations extends Page implements HasTable
                     ->sortable(),
                 Tables\Columns\TextColumn::make('reference_type')
                     ->label('المصدر')
-                    ->formatStateUsing(fn (?string $state): string => match($state) {
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
                         'sales_invoice' => 'فاتورة بيع',
                         'purchase_invoice' => 'فاتورة شراء',
                         'sales_return' => 'مرتجع بيع',
@@ -227,7 +239,7 @@ class DailyOperations extends Page implements HasTable
 
     protected function getTableFilters(): array
     {
-        return match($this->activeTab) {
+        return match ($this->activeTab) {
             'sales', 'cashflow' => [
                 Tables\Filters\Filter::make('created_at')
                     ->form([
@@ -251,7 +263,7 @@ class DailyOperations extends Page implements HasTable
             'stock' => [
                 Tables\Filters\SelectFilter::make('warehouse_id')
                     ->label('المخزن')
-                ->options(\App\Models\Warehouse::pluck('name', 'id'))
+                    ->options(\App\Models\Warehouse::pluck('name', 'id'))
                     ->searchable()
                     ->preload(),
                 Tables\Filters\SelectFilter::make('type')

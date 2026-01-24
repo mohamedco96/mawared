@@ -65,6 +65,7 @@ class AppServiceProvider extends ServiceProvider
             'treasury_transaction' => \App\Models\TreasuryTransaction::class,
             'quotation' => \App\Models\Quotation::class,
             'installment' => \App\Models\Installment::class,
+            'invoice_payment' => \App\Models\InvoicePayment::class,
         ]);
     }
 }

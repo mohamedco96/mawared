@@ -17,6 +17,7 @@ use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -1022,45 +1023,8 @@ class SalesInvoiceResource extends Resource
                     ->toggleable(),
             ])
             ->persistFiltersInSession()
+            ->filtersLayout(FiltersLayout::Dropdown)
             ->filters([
-                // Quick Filter Pills
-                ...\App\Filament\Components\QuickFilterPills::make(),
-                \App\Filament\Components\QuickFilterPills::unpaidFilter(),
-                \App\Filament\Components\QuickFilterPills::draftFilter(),
-
-                Tables\Filters\SelectFilter::make('status')
-                    ->label('الحالة')
-                    ->options([
-                        'draft' => 'مسودة',
-                        'posted' => 'مؤكدة',
-                    ])
-                    ->native(false),
-                Tables\Filters\SelectFilter::make('payment_method')
-                    ->label('طريقة الدفع')
-                    ->options([
-                        'cash' => 'نقدي',
-                        'credit' => 'آجل',
-                    ])
-                    ->native(false),
-                Tables\Filters\SelectFilter::make('warehouse_id')
-                    ->label('المخزن')
-                    ->relationship('warehouse', 'name')
-                    ->searchable()
-                    ->preload(),
-                Tables\Filters\SelectFilter::make('partner_id')
-                    ->label('العميل')
-                    ->relationship('partner', 'name')
-                    ->searchable()
-                    ->preload(),
-                Tables\Filters\TernaryFilter::make('has_returns')
-                    ->label('لديه مرتجعات')
-                    ->placeholder('الكل')
-                    ->trueLabel('لديه مرتجعات')
-                    ->falseLabel('ليس لديه مرتجعات')
-                    ->queries(
-                        true: fn ($query) => $query->has('returns'),
-                        false: fn ($query) => $query->doesntHave('returns'),
-                    ),
                 Tables\Filters\Filter::make('created_at')
                     ->label('تاريخ الإنشاء')
                     ->form([
@@ -1074,25 +1038,11 @@ class SalesInvoiceResource extends Resource
                             ->when($data['from'], fn ($q, $date) => $q->whereDate('created_at', '>=', $date))
                             ->when($data['until'], fn ($q, $date) => $q->whereDate('created_at', '<=', $date));
                     }),
-                Tables\Filters\Filter::make('total')
-                    ->label('الإجمالي')
-                    ->form([
-                        Forms\Components\TextInput::make('from')
-                            ->label('من')
-                            ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                            ->step(0.01),
-                        Forms\Components\TextInput::make('until')
-                            ->label('إلى')
-                            ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                            ->step(0.01),
-                    ])
-                    ->query(function ($query, array $data) {
-                        return $query
-                            ->when($data['from'], fn ($q, $amount) => $q->where('total', '>=', $amount))
-                            ->when($data['until'], fn ($q, $amount) => $q->where('total', '<=', $amount));
-                    }),
+                Tables\Filters\SelectFilter::make('partner_id')
+                    ->label('العميل')
+                    ->relationship('partner', 'name')
+                    ->searchable()
+                    ->preload(),
                 Tables\Filters\SelectFilter::make('created_by')
                     ->label('المستخدم')
                     ->relationship('creator', 'name')

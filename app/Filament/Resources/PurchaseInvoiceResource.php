@@ -19,6 +19,7 @@ use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -789,7 +790,7 @@ class PurchaseInvoiceResource extends Resource
                     ->relationship('creator', 'name')
                     ->searchable()
                     ->preload(),
-            ])
+            ], layout: FiltersLayout::Dropdown)
             ->actions([
                 Tables\Actions\Action::make('post')
                     ->label('تأكيد')

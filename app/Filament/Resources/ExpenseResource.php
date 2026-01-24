@@ -8,6 +8,7 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 
 class ExpenseResource extends Resource
@@ -55,9 +56,9 @@ class ExpenseResource extends Resource
                                         $treasuryService = app(\App\Services\TreasuryService::class);
                                         $currentBalance = (float) $treasuryService->getTreasuryBalance($get('treasury_id'));
                                         $expenseAmount = (float) $value;
-                                        
+
                                         if ($currentBalance < $expenseAmount) {
-                                            $fail("المبلغ المطلوب يتجاوز الرصيد المتاح في الخزينة. الرصيد الحالي: " . number_format($currentBalance, 2) . " ج.م");
+                                            $fail('المبلغ المطلوب يتجاوز الرصيد المتاح في الخزينة. الرصيد الحالي: '.number_format($currentBalance, 2).' ج.م');
                                         }
                                     }
                                 },
@@ -77,9 +78,9 @@ class ExpenseResource extends Resource
                                         $treasuryService = app(\App\Services\TreasuryService::class);
                                         $currentBalance = (float) $treasuryService->getTreasuryBalance($value);
                                         $expenseAmount = (float) $get('amount');
-                                        
+
                                         if ($currentBalance < $expenseAmount) {
-                                            $fail("الرصيد المتاح في الخزينة غير كافٍ. الرصيد الحالي: " . number_format($currentBalance, 2) . " ج.م، المبلغ المطلوب: " . number_format($expenseAmount, 2) . " ج.م");
+                                            $fail('الرصيد المتاح في الخزينة غير كافٍ. الرصيد الحالي: '.number_format($currentBalance, 2).' ج.م، المبلغ المطلوب: '.number_format($expenseAmount, 2).' ج.م');
                                         }
                                     }
                                 },
@@ -172,7 +173,7 @@ class ExpenseResource extends Resource
                             ->when($data['from'], fn ($q, $amount) => $q->where('amount', '>=', $amount))
                             ->when($data['until'], fn ($q, $amount) => $q->where('amount', '<=', $amount));
                     }),
-            ])
+            ], layout: FiltersLayout::Dropdown)
             ->actions([
                 Tables\Actions\ViewAction::make()
                     ->modalHeading(fn ($record) => 'تفاصيل المصروف'),

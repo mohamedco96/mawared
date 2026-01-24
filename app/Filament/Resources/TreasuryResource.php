@@ -8,6 +8,7 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\DB;
 
@@ -70,12 +71,12 @@ class TreasuryResource extends Resource
                 Tables\Columns\TextColumn::make('type')
                     ->label('النوع')
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => match($state) {
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
                         'cash' => 'نقدية',
                         'bank' => 'بنك',
                         default => $state,
                     })
-                    ->color(fn (string $state): string => match($state) {
+                    ->color(fn (string $state): string => match ($state) {
                         'cash' => 'success',
                         'bank' => 'info',
                         default => 'gray',
@@ -89,12 +90,17 @@ class TreasuryResource extends Resource
                             ->sum('amount') ?? 0;
                     })
                     ->numeric(decimalPlaces: 2)
-                    
+
                     ->sortable()
                     ->badge()
                     ->color(function ($state) {
-                        if ($state < 0) return 'danger';
-                        if ($state == 0) return 'gray';
+                        if ($state < 0) {
+                            return 'danger';
+                        }
+                        if ($state == 0) {
+                            return 'gray';
+                        }
+
                         return 'success';
                     }),
 
@@ -118,7 +124,7 @@ class TreasuryResource extends Resource
                         'bank' => 'بنك',
                     ])
                     ->native(false),
-            ])
+            ], layout: FiltersLayout::Dropdown)
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),

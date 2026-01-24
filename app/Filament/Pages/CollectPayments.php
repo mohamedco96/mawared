@@ -2,17 +2,18 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\CollectPaymentsStatsOverview;
 use App\Models\SalesInvoice;
 use App\Models\Treasury;
 use App\Services\TreasuryService;
 use Filament\Forms;
-use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Tables;
-use Filament\Tables\Table;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -30,9 +31,64 @@ class CollectPayments extends Page implements HasTable
 
     protected static ?int $navigationSort = 3;
 
+    public ?string $activeTab = 'all';
+
     public function getHeading(): string
     {
         return 'تحصيل الدفعات';
+    }
+
+    public function getStatsWidgets(): array
+    {
+        return [
+            CollectPaymentsStatsOverview::class,
+        ];
+    }
+
+    public function getTabs(): array
+    {
+        return [
+            'all' => (object) [
+                'label' => 'الكل',
+                'icon' => 'heroicon-m-squares-2x2',
+                'badge' => SalesInvoice::where('status', 'posted')
+                    ->where('remaining_amount', '>', 0)
+                    ->count(),
+                'badgeColor' => null,
+            ],
+            'overdue' => (object) [
+                'label' => 'متأخرة',
+                'icon' => 'heroicon-m-clock',
+                'badge' => SalesInvoice::where('status', 'posted')
+                    ->where('remaining_amount', '>', 0)
+                    ->where('created_at', '<', now()->subDays(30))
+                    ->count(),
+                'badgeColor' => 'danger',
+            ],
+            'today' => (object) [
+                'label' => 'اليوم',
+                'icon' => 'heroicon-m-calendar',
+                'badge' => SalesInvoice::where('status', 'posted')
+                    ->where('remaining_amount', '>', 0)
+                    ->whereDate('created_at', today())
+                    ->count(),
+                'badgeColor' => 'info',
+            ],
+            'has_installments' => (object) [
+                'label' => 'أقساط',
+                'icon' => 'heroicon-m-banknotes',
+                'badge' => SalesInvoice::where('status', 'posted')
+                    ->where('remaining_amount', '>', 0)
+                    ->where('has_installment_plan', true)
+                    ->count(),
+                'badgeColor' => 'warning',
+            ],
+        ];
+    }
+
+    public function setActiveTab(string $tab): void
+    {
+        $this->activeTab = $tab;
     }
 
     public function table(Table $table): Table
@@ -68,11 +124,10 @@ class CollectPayments extends Page implements HasTable
                     ->sortable(),
                 Tables\Columns\TextColumn::make('days_overdue')
                     ->label('أيام التأخير')
-                    ->state(fn (SalesInvoice $record) =>
-                        now()->diffInDays($record->created_at)
+                    ->state(fn (SalesInvoice $record) => now()->diffInDays($record->created_at)
                     )
                     ->badge()
-                    ->color(fn ($state) => match(true) {
+                    ->color(fn ($state) => match (true) {
                         $state > 30 => 'danger',
                         $state > 14 => 'warning',
                         default => 'gray',
@@ -84,19 +139,7 @@ class CollectPayments extends Page implements HasTable
                     ->relationship('partner', 'name')
                     ->searchable()
                     ->preload(),
-                Tables\Filters\Filter::make('overdue')
-                    ->label('متأخرة')
-                    ->query(fn ($query) =>
-                        $query->where('created_at', '<', now()->subDays(30))
-                    )
-                    ->toggle(),
-                Tables\Filters\Filter::make('has_installments')
-                    ->label('بها أقساط')
-                    ->query(fn ($query) =>
-                        $query->where('has_installment_plan', true)
-                    )
-                    ->toggle(),
-            ])
+            ], layout: FiltersLayout::Dropdown)
             ->actions([
                 Tables\Actions\Action::make('quick_payment')
                     ->label('تسجيل دفعة')
@@ -115,24 +158,22 @@ class CollectPayments extends Page implements HasTable
                             ->rules([
                                 'required',
                                 'numeric',
-                                fn (SalesInvoice $record): \Closure =>
-                                    function ($attribute, $value, $fail) use ($record) {
-                                        // Load returns if not already loaded
-                                        if (!$record->relationLoaded('returns')) {
-                                            $record->loadSum('returns', 'total');
-                                        }
-                                        if (!$record->relationLoaded('payments')) {
-                                            $record->loadSum('payments', 'amount');
-                                        }
-
-                                        $currentRemaining = $record->current_remaining;
-                                        if ($value > $currentRemaining) {
-                                            $fail('المبلغ أكبر من المتبقي (' . number_format($currentRemaining, 2) . ' ج.م)');
-                                        }
+                                fn (SalesInvoice $record): \Closure => function ($attribute, $value, $fail) use ($record) {
+                                    // Load returns if not already loaded
+                                    if (! $record->relationLoaded('returns')) {
+                                        $record->loadSum('returns', 'total');
                                     }
+                                    if (! $record->relationLoaded('payments')) {
+                                        $record->loadSum('payments', 'amount');
+                                    }
+
+                                    $currentRemaining = $record->current_remaining;
+                                    if ($value > $currentRemaining) {
+                                        $fail('المبلغ أكبر من المتبقي ('.number_format($currentRemaining, 2).' ج.م)');
+                                    }
+                                },
                             ])
-                            ->helperText(fn (SalesInvoice $record) =>
-                                'المبلغ المتبقي: ' . number_format($record->current_remaining, 2) . ' ج.م'
+                            ->helperText(fn (SalesInvoice $record) => 'المبلغ المتبقي: '.number_format($record->current_remaining, 2).' ج.م'
                             ),
                         Forms\Components\Select::make('treasury_id')
                             ->label('الخزينة')
@@ -159,8 +200,10 @@ class CollectPayments extends Page implements HasTable
                             Notification::make()
                                 ->success()
                                 ->title('تم تسجيل الدفعة بنجاح')
-                                ->body('تم إضافة ' . number_format($data['amount'], 2) . ' ج.م إلى الخزينة')
+                                ->body('تم إضافة '.number_format($data['amount'], 2).' ج.م إلى الخزينة')
                                 ->send();
+
+                            $this->dispatch('refreshStats');
                         } catch (\Exception $e) {
                             Notification::make()
                                 ->danger()
@@ -172,8 +215,7 @@ class CollectPayments extends Page implements HasTable
                 Tables\Actions\Action::make('view_invoice')
                     ->label('عرض الفاتورة')
                     ->icon('heroicon-o-eye')
-                    ->url(fn (SalesInvoice $record) =>
-                        \App\Filament\Resources\SalesInvoiceResource::getUrl('edit', ['record' => $record])
+                    ->url(fn (SalesInvoice $record) => \App\Filament\Resources\SalesInvoiceResource::getUrl('edit', ['record' => $record])
                     )
                     ->color('gray'),
             ])
@@ -218,10 +260,10 @@ class CollectPayments extends Page implements HasTable
 
                                 foreach ($records as $invoice) {
                                     // Load required relationships
-                                    if (!$invoice->relationLoaded('returns')) {
+                                    if (! $invoice->relationLoaded('returns')) {
                                         $invoice->loadSum('returns', 'total');
                                     }
-                                    if (!$invoice->relationLoaded('payments')) {
+                                    if (! $invoice->relationLoaded('payments')) {
                                         $invoice->loadSum('payments', 'amount');
                                     }
 
@@ -239,13 +281,15 @@ class CollectPayments extends Page implements HasTable
                             } else {
                                 // Pay in order until money runs out
                                 foreach ($records as $invoice) {
-                                    if ($remainingAmount <= 0) break;
+                                    if ($remainingAmount <= 0) {
+                                        break;
+                                    }
 
                                     // Load required relationships
-                                    if (!$invoice->relationLoaded('returns')) {
+                                    if (! $invoice->relationLoaded('returns')) {
                                         $invoice->loadSum('returns', 'total');
                                     }
-                                    if (!$invoice->relationLoaded('payments')) {
+                                    if (! $invoice->relationLoaded('payments')) {
                                         $invoice->loadSum('payments', 'amount');
                                     }
 
@@ -284,11 +328,20 @@ class CollectPayments extends Page implements HasTable
 
     protected function getTableQuery(): Builder
     {
-        return SalesInvoice::query()
+        $query = SalesInvoice::query()
             ->where('status', 'posted')
             ->where('remaining_amount', '>', 0)
-            ->with(['partner'])
-            ->orderBy('created_at', 'asc');
+            ->with(['partner']);
+
+        // Apply filters based on active tab
+        match ($this->activeTab) {
+            'overdue' => $query->where('created_at', '<', now()->subDays(30)),
+            'today' => $query->whereDate('created_at', today()),
+            'has_installments' => $query->where('has_installment_plan', true),
+            default => $query,
+        };
+
+        return $query->orderBy('created_at', 'asc');
     }
 
     public static function canAccess(): bool

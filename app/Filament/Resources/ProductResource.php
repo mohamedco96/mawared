@@ -424,63 +424,6 @@ class ProductResource extends Resource
                     ->toggleable(),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('small_unit_id')
-                    ->label('الوحدة الصغيرة')
-                    ->relationship('smallUnit', 'name')
-                    ->searchable()
-                    ->preload(),
-                Tables\Filters\Filter::make('stock_level')
-                    ->label('مستوى المخزون')
-                    ->form([
-                        Forms\Components\Select::make('level')
-                            ->label('المستوى')
-                            ->options([
-                                'out_of_stock' => 'نفذ من المخزون',
-                                'low_stock' => 'مخزون منخفض',
-                                'in_stock' => 'متوفر',
-                            ])
-                            ->native(false),
-                    ])
-                    ->query(function ($query, array $data) {
-                        if (! isset($data['level'])) {
-                            return $query;
-                        }
-
-                        return $query->whereHas('stockMovements', function ($q) use ($data) {
-                            $q->select('product_id')
-                                ->selectRaw('SUM(quantity) as total_stock')
-                                ->groupBy('product_id')
-                                ->havingRaw(match ($data['level']) {
-                                    'out_of_stock' => 'SUM(quantity) <= 0',
-                                    'low_stock' => 'SUM(quantity) > 0 AND SUM(quantity) < products.min_stock',
-                                    'in_stock' => 'SUM(quantity) > 0',
-                                    default => '1=1'
-                                });
-                        });
-                    }),
-                Tables\Filters\Filter::make('price_range')
-                    ->label('نطاق السعر')
-                    ->form([
-                        Forms\Components\TextInput::make('from')
-                            ->label('من')
-                            ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                            ->step(0.01),
-                        Forms\Components\TextInput::make('until')
-                            ->label('إلى')
-                            ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
-                            ->step(0.01),
-                    ])
-                    ->query(function ($query, array $data) {
-                        return $query
-                            ->when($data['from'], fn ($q, $price) => $q->where('retail_price', '>=', $price))
-                            ->when($data['until'], fn ($q, $price) => $q->where('retail_price', '<=', $price));
-                    }),
-                Tables\Filters\Filter::make('has_large_unit')
-                    ->label('وحدة كبيرة')
-                    ->toggle()
-                    ->query(fn ($query) => $query->whereNotNull('large_unit_id')),
                 Tables\Filters\TernaryFilter::make('slow_moving')
                     ->label('الأصناف بطيئة الحركة')
                     ->placeholder('الكل')
@@ -502,7 +445,34 @@ class ProductResource extends Resource
                             });
                         }),
                     ),
+                Tables\Filters\SelectFilter::make('visibility')
+                    ->label('الظهور في الكتالوج')
+                    ->options([
+                        'retail' => 'كتالوج التجزئة',
+                        'wholesale' => 'كتالوج الجملة',
+                        'both' => 'كلاهما',
+                        'none' => 'غير معروض',
+                    ])
+                    ->query(function ($query, array $data) {
+                        if ($data['value'] === 'retail') {
+                            return $query->where('is_visible_in_retail_catalog', true);
+                        }
+                        if ($data['value'] === 'wholesale') {
+                            return $query->where('is_visible_in_wholesale_catalog', true);
+                        }
+                        if ($data['value'] === 'both') {
+                            return $query->where('is_visible_in_retail_catalog', true)
+                                ->where('is_visible_in_wholesale_catalog', true);
+                        }
+                        if ($data['value'] === 'none') {
+                            return $query->where('is_visible_in_retail_catalog', false)
+                                ->where('is_visible_in_wholesale_catalog', false);
+                        }
+
+                        return $query;
+                    }),
             ])
+            ->filtersLayout(Tables\Enums\FiltersLayout::Dropdown)
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\Action::make('view_stock_card')
@@ -550,6 +520,29 @@ class ProductResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\BulkAction::make('export')
+                        ->label('تصدير المحدد')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->action(function (Collection $records) {
+                            return response()->streamDownload(function () use ($records) {
+                                echo "\xEF\xBB\xBF"; // BOM for Excel
+                                $handle = fopen('php://output', 'w');
+                                fputcsv($handle, ['الاسم', 'SKU', 'الباركود', 'سعر قطاعي', 'سعر الجملة', 'المخزون']);
+
+                                foreach ($records as $record) {
+                                    fputcsv($handle, [
+                                        $record->name,
+                                        $record->sku,
+                                        $record->barcode,
+                                        $record->retail_price,
+                                        $record->wholesale_price,
+                                        $record->stock_movements_sum_quantity ?? 0,
+                                    ]);
+                                }
+                                fclose($handle);
+                            }, 'products_export_'.date('Y-m-d_H-i-s').'.csv');
+                        })
+                        ->deselectRecordsAfterCompletion(),
                     Tables\Actions\BulkAction::make('bulk_price_update')
                         ->label('تحديث الأسعار')
                         ->icon('heroicon-o-currency-dollar')

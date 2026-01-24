@@ -9,8 +9,8 @@ use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\DB;
 
 class WarehouseResource extends Resource
 {
@@ -85,8 +85,13 @@ class WarehouseResource extends Resource
                     ->sortable()
                     ->badge()
                     ->color(function ($state) {
-                        if ($state < 0) return 'danger';
-                        if ($state == 0) return 'warning';
+                        if ($state < 0) {
+                            return 'danger';
+                        }
+                        if ($state == 0) {
+                            return 'warning';
+                        }
+
                         return 'success';
                     }),
 
@@ -107,7 +112,7 @@ class WarehouseResource extends Resource
                     ->label('لديه رمز')
                     ->toggle()
                     ->query(fn ($query) => $query->whereNotNull('code')),
-            ])
+            ], layout: FiltersLayout::Dropdown)
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make()
@@ -138,7 +143,7 @@ class WarehouseResource extends Resource
                                     ->sum('quantity');
 
                                 if ($totalStock > 0) {
-                                    $blocked[] = $record->name . " ({$totalStock} وحدة)";
+                                    $blocked[] = $record->name." ({$totalStock} وحدة)";
                                 } else {
                                     $record->delete();
                                     $deleted[] = $record->name;
@@ -149,7 +154,7 @@ class WarehouseResource extends Resource
                                 Notification::make()
                                     ->warning()
                                     ->title('بعض المخازن لم يتم حذفها')
-                                    ->body('المخازن التالية تحتوي على مخزون: ' . implode(', ', $blocked))
+                                    ->body('المخازن التالية تحتوي على مخزون: '.implode(', ', $blocked))
                                     ->persistent()
                                     ->send();
                             }
@@ -158,7 +163,7 @@ class WarehouseResource extends Resource
                                 Notification::make()
                                     ->success()
                                     ->title('تم الحذف')
-                                    ->body('تم حذف ' . count($deleted) . ' مخزن')
+                                    ->body('تم حذف '.count($deleted).' مخزن')
                                     ->send();
                             }
                         }),

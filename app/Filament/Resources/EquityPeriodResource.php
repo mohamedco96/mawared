@@ -5,7 +5,6 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\EquityPeriodResource\Pages;
 use App\Models\EquityPeriod;
 use App\Services\CapitalService;
-use Carbon\Carbon;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -71,7 +70,7 @@ class EquityPeriodResource extends Resource
                                     ? app(CapitalService::class)->getFinancialSummary($record)['total_revenue']
                                     : $record->total_revenue;
 
-                                return number_format($value, 2) . ' ج.م';
+                                return number_format($value, 2).' ج.م';
                             }),
 
                         Forms\Components\Placeholder::make('total_expenses')
@@ -84,7 +83,7 @@ class EquityPeriodResource extends Resource
                                     ? app(CapitalService::class)->getFinancialSummary($record)['total_expenses']
                                     : $record->total_expenses;
 
-                                return number_format($value, 2) . ' ج.م';
+                                return number_format($value, 2).' ج.م';
                             }),
 
                         Forms\Components\Placeholder::make('net_profit')
@@ -97,7 +96,7 @@ class EquityPeriodResource extends Resource
                                     ? app(CapitalService::class)->getFinancialSummary($record)['net_profit']
                                     : $record->net_profit;
 
-                                return number_format($value, 2) . ' ج.م';
+                                return number_format($value, 2).' ج.م';
                             }),
                     ])
                     ->visible(fn ($record) => $record !== null)
@@ -159,6 +158,27 @@ class EquityPeriodResource extends Resource
                     ->dateTime('Y-m-d H:i')
                     ->placeholder('—'),
             ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('status')
+                    ->label('الحالة')
+                    ->options([
+                        'open' => 'مفتوحة',
+                        'closed' => 'مغلقة',
+                    ]),
+                Tables\Filters\Filter::make('start_date')
+                    ->label('تاريخ البداية')
+                    ->form([
+                        Forms\Components\DatePicker::make('from')
+                            ->label('من'),
+                        Forms\Components\DatePicker::make('until')
+                            ->label('إلى'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'], fn ($q, $date) => $q->whereDate('start_date', '>=', $date))
+                            ->when($data['until'], fn ($q, $date) => $q->whereDate('start_date', '<=', $date));
+                    }),
+            ], layout: Tables\Enums\FiltersLayout::Dropdown)
             ->defaultSort('period_number', 'desc')
             ->actions([
                 Tables\Actions\ViewAction::make(),

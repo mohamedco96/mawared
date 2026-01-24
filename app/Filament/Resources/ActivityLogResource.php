@@ -4,12 +4,13 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\ActivityLogResource\Pages;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
-use Filament\Tables;
-use Filament\Tables\Table;
-use Spatie\Activitylog\Models\Activity;
 use Filament\Infolists;
 use Filament\Infolists\Infolist;
+use Filament\Resources\Resource;
+use Filament\Tables;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Table;
+use Spatie\Activitylog\Models\Activity;
 
 class ActivityLogResource extends Resource
 {
@@ -18,9 +19,13 @@ class ActivityLogResource extends Resource
     protected static ?string $cluster = \App\Filament\Clusters\SystemSettings::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
+
     protected static ?string $navigationLabel = 'سجل النشاطات';
+
     protected static ?string $modelLabel = 'نشاط';
+
     protected static ?string $pluralModelLabel = 'سجل النشاطات';
+
     protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
@@ -37,7 +42,7 @@ class ActivityLogResource extends Resource
                     ->label('المستخدم')
                     ->getStateUsing(fn ($record) => $record->causer?->name ?? 'النظام')
                     ->circular()
-                    ->defaultImageUrl(fn ($record) => 'https://ui-avatars.com/api/?name=' . urlencode($record->causer?->name ?? 'System') . '&color=7F9CF5&background=EBF4FF'),
+                    ->defaultImageUrl(fn ($record) => 'https://ui-avatars.com/api/?name='.urlencode($record->causer?->name ?? 'System').'&color=7F9CF5&background=EBF4FF'),
 
                 Tables\Columns\TextColumn::make('causer.name')
                     ->label('اسم المستخدم')
@@ -65,7 +70,10 @@ class ActivityLogResource extends Resource
                 Tables\Columns\TextColumn::make('subject_type')
                     ->label('نوع السجل')
                     ->formatStateUsing(function ($state) {
-                        if (!$state) return '—';
+                        if (! $state) {
+                            return '—';
+                        }
+
                         return match ($state) {
                             'user' => 'مستخدم',
                             'product' => 'منتج',
@@ -98,8 +106,8 @@ class ActivityLogResource extends Resource
                 Tables\Columns\TextColumn::make('subject_id')
                     ->label('السجل المتأثر')
                     ->formatStateUsing(function ($state, $record) {
-                        if (!$record->subject) {
-                            return '#' . $record->subject_id . ' (محذوف)';
+                        if (! $record->subject) {
+                            return '#'.$record->subject_id.' (محذوف)';
                         }
 
                         $subject = $record->subject;
@@ -107,10 +115,10 @@ class ActivityLogResource extends Resource
                         if (isset($subject->name)) {
                             return $subject->name;
                         } elseif (isset($subject->invoice_number)) {
-                            return 'فاتورة #' . $subject->invoice_number;
+                            return 'فاتورة #'.$subject->invoice_number;
                         }
 
-                        return '#' . $record->subject_id;
+                        return '#'.$record->subject_id;
                     })
                     ->url(fn ($record): ?string => static::getSubjectUrl($record), shouldOpenInNewTab: true)
                     ->icon(fn ($record) => $record->subject ? 'heroicon-o-arrow-top-right-on-square' : null)
@@ -122,13 +130,13 @@ class ActivityLogResource extends Resource
                 Tables\Columns\TextColumn::make('event')
                     ->label('نوع العملية')
                     ->badge()
-                    ->formatStateUsing(fn (?string $state): string => match($state) {
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
                         'created' => 'إنشاء',
                         'updated' => 'تحديث',
                         'deleted' => 'حذف',
                         default => $state ?? '—',
                     })
-                    ->color(fn (?string $state): string => match($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'created' => 'success',
                         'updated' => 'warning',
                         'deleted' => 'danger',
@@ -192,7 +200,7 @@ class ActivityLogResource extends Resource
                             ->when($data['created_from'], fn ($query, $date) => $query->whereDate('created_at', '>=', $date))
                             ->when($data['created_until'], fn ($query, $date) => $query->whereDate('created_at', '<=', $date));
                     }),
-            ])
+            ], layout: FiltersLayout::Dropdown)
             ->actions([
                 Tables\Actions\ViewAction::make()
                     ->label('عرض التفاصيل'),
@@ -218,13 +226,13 @@ class ActivityLogResource extends Resource
                         Infolists\Components\TextEntry::make('event')
                             ->label('نوع العملية')
                             ->badge()
-                            ->formatStateUsing(fn (?string $state): string => match($state) {
+                            ->formatStateUsing(fn (?string $state): string => match ($state) {
                                 'created' => 'إنشاء',
                                 'updated' => 'تحديث',
                                 'deleted' => 'حذف',
                                 default => $state ?? '—',
                             })
-                            ->color(fn (?string $state): string => match($state) {
+                            ->color(fn (?string $state): string => match ($state) {
                                 'created' => 'success',
                                 'updated' => 'warning',
                                 'deleted' => 'danger',
@@ -234,7 +242,10 @@ class ActivityLogResource extends Resource
                         Infolists\Components\TextEntry::make('subject_type')
                             ->label('نوع السجل')
                             ->formatStateUsing(function ($state) {
-                                if (!$state) return '—';
+                                if (! $state) {
+                                    return '—';
+                                }
+
                                 return match ($state) {
                                     'user' => 'مستخدم',
                                     'product' => 'منتج',
@@ -267,8 +278,8 @@ class ActivityLogResource extends Resource
                         Infolists\Components\TextEntry::make('subject_link')
                             ->label('السجل المتأثر')
                             ->state(function ($record) {
-                                if (!$record->subject) {
-                                    return '#' . $record->subject_id . ' (محذوف)';
+                                if (! $record->subject) {
+                                    return '#'.$record->subject_id.' (محذوف)';
                                 }
 
                                 $subject = $record->subject;
@@ -277,16 +288,16 @@ class ActivityLogResource extends Resource
                                 if (isset($subject->name)) {
                                     $displayName = $subject->name;
                                 } elseif (isset($subject->invoice_number)) {
-                                    $displayName = 'فاتورة #' . $subject->invoice_number;
+                                    $displayName = 'فاتورة #'.$subject->invoice_number;
                                 } else {
-                                    $displayName = '#' . $record->subject_id;
+                                    $displayName = '#'.$record->subject_id;
                                 }
 
                                 $url = static::getSubjectUrl($record);
 
                                 if ($url) {
-                                    return '<a href="' . htmlspecialchars($url) . '" target="_blank" class="text-primary-600 hover:text-primary-700 hover:underline font-medium inline-flex items-center gap-1">
-                                        ' . htmlspecialchars($displayName) . '
+                                    return '<a href="'.htmlspecialchars($url).'" target="_blank" class="text-primary-600 hover:text-primary-700 hover:underline font-medium inline-flex items-center gap-1">
+                                        '.htmlspecialchars($displayName).'
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
                                         </svg>
@@ -312,49 +323,48 @@ class ActivityLogResource extends Resource
                                     ->label('القيم الجديدة / الحالية')
                                     ->columnSpan(1)
                                     ->state(function ($record) {
-                                        if (!$record->properties || !isset($record->properties['attributes'])) {
+                                        if (! $record->properties || ! isset($record->properties['attributes'])) {
                                             return [];
                                         }
 
                                         return collect($record->properties['attributes'])->mapWithKeys(function ($value, $key) {
                                             $translatedKey = static::translateFieldName($key);
                                             $translatedValue = static::translateFieldValue($key, $value);
+
                                             return [$translatedKey => $translatedValue];
                                         })->toArray();
                                     })
-                                    ->visible(fn ($record) =>
-                                        $record->properties &&
+                                    ->visible(fn ($record) => $record->properties &&
                                         isset($record->properties['attributes']) &&
-                                        !empty($record->properties['attributes'])
+                                        ! empty($record->properties['attributes'])
                                     ),
 
                                 Infolists\Components\KeyValueEntry::make('formatted_old')
                                     ->label('القيم القديمة')
                                     ->columnSpan(1)
                                     ->state(function ($record) {
-                                        if (!$record->properties || !isset($record->properties['old'])) {
+                                        if (! $record->properties || ! isset($record->properties['old'])) {
                                             return [];
                                         }
 
                                         return collect($record->properties['old'])->mapWithKeys(function ($value, $key) {
                                             $translatedKey = static::translateFieldName($key);
                                             $translatedValue = static::translateFieldValue($key, $value);
+
                                             return [$translatedKey => $translatedValue];
                                         })->toArray();
                                     })
-                                    ->visible(fn ($record) =>
-                                        $record->properties &&
+                                    ->visible(fn ($record) => $record->properties &&
                                         isset($record->properties['old']) &&
-                                        !empty($record->properties['old']) &&
+                                        ! empty($record->properties['old']) &&
                                         in_array($record->event, ['updated', 'deleted'])
                                     ),
                             ]),
                     ])
-                    ->visible(fn ($record) =>
-                        $record->properties &&
+                    ->visible(fn ($record) => $record->properties &&
                         (
-                            (isset($record->properties['attributes']) && !empty($record->properties['attributes'])) ||
-                            (isset($record->properties['old']) && !empty($record->properties['old']))
+                            (isset($record->properties['attributes']) && ! empty($record->properties['attributes'])) ||
+                            (isset($record->properties['old']) && ! empty($record->properties['old']))
                         )
                     )
                     ->collapsed(false),
@@ -381,7 +391,7 @@ class ActivityLogResource extends Resource
 
     protected static function getSubjectUrl($record): ?string
     {
-        if (!$record->subject || !$record->subject_type) {
+        if (! $record->subject || ! $record->subject_type) {
             return null;
         }
 
@@ -398,7 +408,7 @@ class ActivityLogResource extends Resource
 
         $resourceClass = $resourceMap[$record->subject_type] ?? null;
 
-        if (!$resourceClass || !class_exists($resourceClass)) {
+        if (! $resourceClass || ! class_exists($resourceClass)) {
             return null;
         }
 
@@ -407,6 +417,7 @@ class ActivityLogResource extends Resource
             if (in_array($record->subject_type, ['sales_invoice', 'purchase_invoice'])) {
                 return $resourceClass::getUrl('view', ['record' => $record->subject_id]);
             }
+
             return $resourceClass::getUrl('edit', ['record' => $record->subject_id]);
         } catch (\Exception $e) {
             // Fallback to edit if view doesn't exist
@@ -610,6 +621,7 @@ class ActivityLogResource extends Resource
                 'active' => 'نشط',
                 'inactive' => 'غير نشط',
             ];
+
             return $statusTranslations[$stringValue] ?? $value;
         }
 
@@ -634,6 +646,7 @@ class ActivityLogResource extends Resource
                 'adjustment_out' => 'خصم',
                 'transfer' => 'نقل',
             ];
+
             return $typeTranslations[$stringValue] ?? $value;
         }
 
@@ -646,6 +659,7 @@ class ActivityLogResource extends Resource
                 'check' => 'شيك',
                 'transfer' => 'تحويل',
             ];
+
             return $paymentTranslations[$stringValue] ?? $value;
         }
 
@@ -655,6 +669,7 @@ class ActivityLogResource extends Resource
                 'small' => 'صغيرة',
                 'large' => 'كبيرة',
             ];
+
             return $unitTranslations[$stringValue] ?? $value;
         }
 
@@ -671,6 +686,7 @@ class ActivityLogResource extends Resource
                 'quotation' => 'عرض سعر',
                 'installment' => 'قسط',
             ];
+
             return $referenceTranslations[$stringValue] ?? $value;
         }
 
@@ -682,6 +698,7 @@ class ActivityLogResource extends Resource
                 'manual' => 'يدوي',
                 'custom' => 'مخصص',
             ];
+
             return $pricingTranslations[$stringValue] ?? $value;
         }
 
@@ -692,6 +709,7 @@ class ActivityLogResource extends Resource
                 'declining_balance' => 'الرصيد المتناقص',
                 'sum_of_years' => 'مجموع أرقام السنوات',
             ];
+
             return $depreciationTranslations[$stringValue] ?? $value;
         }
 
@@ -704,6 +722,7 @@ class ActivityLogResource extends Resource
                 'count_adjustment' => 'تعديل جرد',
                 'other' => 'أخرى',
             ];
+
             return $reasonTranslations[$stringValue] ?? $value;
         }
 
@@ -720,6 +739,7 @@ class ActivityLogResource extends Resource
                 'rent' => 'إيجار',
                 'other' => 'أخرى',
             ];
+
             return $categoryTranslations[$stringValue] ?? $value;
         }
 

@@ -11,6 +11,7 @@ use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\DB;
 
@@ -71,9 +72,9 @@ class FixedAssetResource extends Resource
                                         $treasuryService = app(TreasuryService::class);
                                         $currentBalance = (float) $treasuryService->getTreasuryBalance($get('treasury_id'));
                                         $purchaseAmount = (float) $value;
-                                        
+
                                         if ($currentBalance < $purchaseAmount) {
-                                            $fail("المبلغ المطلوب يتجاوز الرصيد المتاح في الخزينة. الرصيد الحالي: " . number_format($currentBalance, 2) . " ج.م");
+                                            $fail('المبلغ المطلوب يتجاوز الرصيد المتاح في الخزينة. الرصيد الحالي: '.number_format($currentBalance, 2).' ج.م');
                                         }
                                     }
                                 },
@@ -123,9 +124,9 @@ class FixedAssetResource extends Resource
                                         $treasuryService = app(TreasuryService::class);
                                         $currentBalance = (float) $treasuryService->getTreasuryBalance($value);
                                         $purchaseAmount = (float) $get('purchase_amount');
-                                        
+
                                         if ($currentBalance < $purchaseAmount) {
-                                            $fail("الرصيد المتاح في الخزينة غير كافٍ. الرصيد الحالي: " . number_format($currentBalance, 2) . " ج.م، المبلغ المطلوب: " . number_format($purchaseAmount, 2) . " ج.م");
+                                            $fail('الرصيد المتاح في الخزينة غير كافٍ. الرصيد الحالي: '.number_format($currentBalance, 2).' ج.م، المبلغ المطلوب: '.number_format($purchaseAmount, 2).' ج.م');
                                         }
                                     }
                                 },
@@ -138,7 +139,7 @@ class FixedAssetResource extends Resource
                             ->maxLength(255)
                             ->helperText('اسم المورد الذي سيتم الشراء منه بالآجل')
                             ->visible(fn (Forms\Get $get) => $get('funding_method') === 'payable')
-                            ->required(fn (Forms\Get $get) => $get('funding_method') === 'payable' && !$get('supplier_id')),
+                            ->required(fn (Forms\Get $get) => $get('funding_method') === 'payable' && ! $get('supplier_id')),
 
                         Forms\Components\Select::make('supplier_id')
                             ->label('أو اختر من الموردين المسجلين')
@@ -218,7 +219,8 @@ class FixedAssetResource extends Resource
 
                                 if ($amount > 0 && $years > 0) {
                                     $monthly = ($amount - $salvage) / ($years * 12);
-                                    return number_format($monthly, 2) . ' ج.م شهرياً';
+
+                                    return number_format($monthly, 2).' ج.م شهرياً';
                                 }
 
                                 return '—';
@@ -227,18 +229,19 @@ class FixedAssetResource extends Resource
 
                         Forms\Components\Placeholder::make('accumulated_depreciation_info')
                             ->label('الاستهلاك المتراكم')
-                            ->content(fn ($record) => $record ? number_format($record->accumulated_depreciation, 2) . ' ج.م' : '0.00 ج.م')
+                            ->content(fn ($record) => $record ? number_format($record->accumulated_depreciation, 2).' ج.م' : '0.00 ج.م')
                             ->visible(fn ($record) => $record !== null),
 
                         Forms\Components\Placeholder::make('book_value_info')
                             ->label('القيمة الدفترية')
                             ->content(function ($record, Get $get) {
                                 if ($record && method_exists($record, 'getBookValue')) {
-                                    return number_format($record->getBookValue(), 2) . ' ج.م';
+                                    return number_format($record->getBookValue(), 2).' ج.م';
                                 }
 
                                 $amount = floatval($get('purchase_amount') ?? 0);
-                                return number_format($amount, 2) . ' ج.م';
+
+                                return number_format($amount, 2).' ج.م';
                             })
                             ->helperText('قيمة الشراء - الاستهلاك المتراكم'),
 
@@ -314,7 +317,7 @@ class FixedAssetResource extends Resource
                     ->badge()
                     ->color('success')
                     ->sortable(query: function ($query, string $direction) {
-                        return $query->orderByRaw('(purchase_amount - accumulated_depreciation) ' . $direction);
+                        return $query->orderByRaw('(purchase_amount - accumulated_depreciation) '.$direction);
                     })
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('accumulated_depreciation')
@@ -364,9 +367,10 @@ class FixedAssetResource extends Resource
                 Tables\Filters\SelectFilter::make('status')
                     ->label('الحالة')
                     ->options([
-                        'draft' => 'مسودة',
                         'active' => 'مسجل',
-                    ]),
+                        'draft' => 'مسودة',
+                    ])
+                    ->native(false),
                 Tables\Filters\SelectFilter::make('funding_method')
                     ->label('طريقة التمويل')
                     ->options([
@@ -374,7 +378,7 @@ class FixedAssetResource extends Resource
                         'payable' => 'آجل',
                         'equity' => 'رأسمالي',
                     ]),
-            ])
+            ], layout: FiltersLayout::Dropdown)
             ->actions([
                 Tables\Actions\Action::make('post')
                     ->label('تسجيل الأصل')
@@ -382,7 +386,7 @@ class FixedAssetResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('تسجيل الأصل الثابت')
-                    ->modalDescription(fn (FixedAsset $record) => match($record->funding_method) {
+                    ->modalDescription(fn (FixedAsset $record) => match ($record->funding_method) {
                         'cash' => 'سيتم خصم المبلغ من الخزينة المحددة',
                         'payable' => 'سيتم إنشاء ذمة دائنة للمورد (الأصل مشترى بالآجل)',
                         'equity' => 'سيتم تسجيل مساهمة رأسمالية للشريك',
@@ -409,11 +413,11 @@ class FixedAssetResource extends Resource
                                 ->send();
                         }
                     })
-                    ->visible(fn (FixedAsset $record) => !$record->isPosted()),
+                    ->visible(fn (FixedAsset $record) => ! $record->isPosted()),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\DeleteAction::make()
-                    ->visible(fn (FixedAsset $record) => !$record->isPosted())
+                    ->visible(fn (FixedAsset $record) => ! $record->isPosted())
                     ->before(function (FixedAsset $record, Tables\Actions\DeleteAction $action) {
                         if ($record->isPosted()) {
                             Notification::make()
@@ -430,7 +434,7 @@ class FixedAssetResource extends Resource
                     Tables\Actions\DeleteBulkAction::make()
                         ->action(function ($records) {
                             $postedRecords = $records->filter(fn ($r) => $r->isPosted());
-                            $draftRecords = $records->filter(fn ($r) => !$r->isPosted());
+                            $draftRecords = $records->filter(fn ($r) => ! $r->isPosted());
 
                             if ($postedRecords->count() > 0) {
                                 Notification::make()

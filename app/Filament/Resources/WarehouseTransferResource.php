@@ -14,6 +14,7 @@ use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -102,11 +103,11 @@ class WarehouseTransferResource extends Resource
                                     ->getSearchResultsUsing(function (?string $search): array {
                                         $query = Product::query();
 
-                                        if (!empty($search)) {
+                                        if (! empty($search)) {
                                             $query->where(function ($q) use ($search) {
                                                 $q->where('name', 'like', "%{$search}%")
-                                                  ->orWhere('sku', 'like', "%{$search}%")
-                                                  ->orWhere('barcode', 'like', "%{$search}%");
+                                                    ->orWhere('sku', 'like', "%{$search}%")
+                                                    ->orWhere('barcode', 'like', "%{$search}%");
                                             });
                                         } else {
                                             // Load latest products when no search
@@ -117,6 +118,7 @@ class WarehouseTransferResource extends Resource
                                     })
                                     ->getOptionLabelUsing(function ($value): string {
                                         $product = Product::find($value);
+
                                         return $product ? $product->name : '';
                                     })
                                     ->loadingMessage('جاري التحميل...')
@@ -144,17 +146,19 @@ class WarehouseTransferResource extends Resource
                                         if ($productId && $fromWarehouse) {
                                             $stockService = app(StockService::class);
                                             $stock = $stockService->getCurrentStock($fromWarehouse, $productId);
+
                                             return new \Illuminate\Support\HtmlString(
-                                                '<span class="font-bold ' . ($stock > 0 ? 'text-green-600' : 'text-red-600') . '">' . $stock . '</span>'
+                                                '<span class="font-bold '.($stock > 0 ? 'text-green-600' : 'text-red-600').'">'.$stock.'</span>'
                                             );
                                         }
+
                                         return '—';
                                     })
                                     ->visible(fn (Get $get) => $get('product_id') !== null),
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('الكمية (بالوحدة الأساسية)')
                                     ->numeric()
-                            ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
+                                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'decimal'])
                                     ->required()
                                     ->minValue(1)
                                     ->reactive()
@@ -239,7 +243,7 @@ class WarehouseTransferResource extends Resource
                     ->relationship('creator', 'name')
                     ->searchable()
                     ->preload(),
-            ])
+            ], layout: FiltersLayout::Dropdown)
             ->actions([
                 Tables\Actions\Action::make('post')
                     ->label('تأكيد النقل')
@@ -254,6 +258,7 @@ class WarehouseTransferResource extends Resource
                                 ->title('لا يمكن تأكيد النقل')
                                 ->body('النقل لا يحتوي على أي أصناف')
                                 ->send();
+
                             return;
                         }
 
@@ -278,7 +283,7 @@ class WarehouseTransferResource extends Resource
                                 ->send();
                         }
                     })
-                    ->visible(fn (WarehouseTransfer $record) => !$record->stockMovements()->exists()),
+                    ->visible(fn (WarehouseTransfer $record) => ! $record->stockMovements()->exists()),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\DeleteAction::make(),

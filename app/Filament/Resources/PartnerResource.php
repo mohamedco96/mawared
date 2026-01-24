@@ -127,13 +127,13 @@ class PartnerResource extends Resource
                 Tables\Columns\TextColumn::make('type')
                     ->label('النوع')
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => match($state) {
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
                         'customer' => 'عميل',
                         'supplier' => 'مورد',
                         'shareholder' => 'شريك (مساهم)',
                         default => $state,
                     })
-                    ->color(fn (string $state): string => match($state) {
+                    ->color(fn (string $state): string => match ($state) {
                         'customer' => 'success',
                         'supplier' => 'info',
                         'shareholder' => 'warning',
@@ -166,7 +166,7 @@ class PartnerResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('equity_percentage')
                     ->label('نسبة الملكية')
-                    ->formatStateUsing(fn ($state) => $state ? number_format($state, 2) . '%' : '—')
+                    ->formatStateUsing(fn ($state) => $state ? number_format($state, 2).'%' : '—')
                     ->badge()
                     ->color('info')
                     ->sortable()
@@ -237,7 +237,7 @@ class PartnerResource extends Resource
                             ->native(false),
                     ])
                     ->query(function ($query, array $data) {
-                        if (!isset($data['status'])) {
+                        if (! isset($data['status'])) {
                             return $query;
                         }
 
@@ -251,7 +251,7 @@ class PartnerResource extends Resource
                             )
                         );
                     }),
-            ])
+            ], layout: Tables\Enums\FiltersLayout::Dropdown)
             ->actions([
                 Tables\Actions\EditAction::make()
                     ->slideOver(),

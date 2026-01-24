@@ -611,34 +611,6 @@ class SalesInvoiceResourceTest extends TestCase
 
     // ===== FILTERS & BULK ACTIONS =====
 
-    public function test_can_filter_by_status(): void
-    {
-        $draft = SalesInvoice::factory()->create(['status' => 'draft']);
-        $posted = SalesInvoice::factory()->create(['status' => 'posted']);
-
-        Livewire::test(ListSalesInvoices::class)
-            ->filterTable('status', 'draft')
-            ->assertCanSeeTableRecords([$draft])
-            ->assertCanNotSeeTableRecords([$posted])
-            ->filterTable('status', 'posted')
-            ->assertCanSeeTableRecords([$posted])
-            ->assertCanNotSeeTableRecords([$draft]);
-    }
-
-    public function test_can_filter_by_payment_method(): void
-    {
-        $cash = SalesInvoice::factory()->create(['payment_method' => 'cash']);
-        $credit = SalesInvoice::factory()->create(['payment_method' => 'credit']);
-
-        Livewire::test(ListSalesInvoices::class)
-            ->filterTable('payment_method', 'cash')
-            ->assertCanSeeTableRecords([$cash])
-            ->assertCanNotSeeTableRecords([$credit])
-            ->filterTable('payment_method', 'credit')
-            ->assertCanSeeTableRecords([$credit])
-            ->assertCanNotSeeTableRecords([$cash]);
-    }
-
     public function test_bulk_delete_respects_safeguards(): void
     {
         $safeToDelete = SalesInvoice::factory()->create(['status' => 'draft']);

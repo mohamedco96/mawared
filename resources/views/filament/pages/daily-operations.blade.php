@@ -5,6 +5,7 @@
                 :active="$this->activeTab === $key"
                 :badge="$tab->badge"
                 :badge-color="$tab->badgeColor"
+                :icon="$tab->icon ?? null"
                 wire:click="setActiveTab('{{ $key }}')"
                 tag="button"
             >
