@@ -19,6 +19,9 @@ class Expense extends Model
         'treasury_id',
         'expense_date',
         'created_by',
+        'expense_category_id',
+        'beneficiary_name',
+        'attachment',
     ];
 
     protected function casts(): array
@@ -38,6 +41,11 @@ class Expense extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function expenseCategory(): BelongsTo
+    {
+        return $this->belongsTo(ExpenseCategory::class);
     }
 
     public function treasuryTransactions(): MorphMany
