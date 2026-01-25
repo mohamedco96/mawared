@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Expense;
+use App\Models\ExpenseCategory;
 use App\Models\Partner;
 use App\Models\Product;
 use App\Models\ProductCategory;
@@ -18,6 +19,7 @@ use App\Models\Treasury;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Enums\ExpenseCategoryType;
 use App\Services\CapitalService;
 use App\Services\StockService;
 use App\Services\TreasuryService;
@@ -73,6 +75,8 @@ class GoldenPathSeeder extends Seeder
     private array $shareholders = [];
 
     private array $products = [];
+
+    private array $expenseCategories = [];
 
     // Track inventory levels in memory for fast lookups
     private array $inventoryLevels = [];
@@ -181,7 +185,28 @@ class GoldenPathSeeder extends Seeder
         // Create products
         $this->createProducts();
 
+        // Create expense categories
+        $this->createExpenseCategories();
+
         $this->log("✓ Foundation setup complete\n");
+    }
+
+    private function createExpenseCategories(): void
+    {
+        $categories = [
+            ['name' => 'مصاريف تشغيلية', 'type' => ExpenseCategoryType::OPERATIONAL],
+            ['name' => 'مصاريف إدارية', 'type' => ExpenseCategoryType::ADMIN],
+            ['name' => 'مصاريف تسويقية', 'type' => ExpenseCategoryType::MARKETING],
+            ['name' => 'استهلاك أصول', 'type' => ExpenseCategoryType::DEPRECIATION],
+        ];
+
+        foreach ($categories as $cat) {
+            $this->expenseCategories[] = ExpenseCategory::firstOrCreate(
+                ['name' => $cat['name']],
+                ['type' => $cat['type'], 'is_active' => true]
+            );
+        }
+        $this->log('✓ Created '.count($this->expenseCategories).' expense categories');
     }
 
     private function createPartners(): void
@@ -428,6 +453,18 @@ class GoldenPathSeeder extends Seeder
         for ($day = 1; $day <= $days; $day++) {
             $this->currentDate = $this->currentDate->copy()->addDay();
             $this->log("\n--- Day {$day}: ".$this->currentDate->format('Y-m-d').' ---');
+
+            // Close period on Day 15 to show historical data
+            if ($day === 16) {
+                $this->log("\n🔄 MID-MONTH: Closing current equity period and allocating profit...");
+                try {
+                    auth()->login($this->admin);
+                    $this->capitalService->closePeriodAndAllocate($this->currentDate->copy()->subSecond(), 'Mid-month closing');
+                    $this->log("✓ Period closed and new one opened automatically.");
+                } catch (\Exception $e) {
+                    $this->log("✗ Failed to close period: ".$e->getMessage());
+                }
+            }
 
             // Purchase cycle: Days 1-10 (Buy inventory)
             if ($day <= 10) {
@@ -803,15 +840,18 @@ class GoldenPathSeeder extends Seeder
     private function recordExpenses(): void
     {
         $expenseTypes = [
-            ['title' => 'إيجار المكتب', 'amount' => 10000],
-            ['title' => 'رواتب الموظفين', 'amount' => 25000],
-            ['title' => 'فواتير الكهرباء والمياه', 'amount' => 1500],
-            ['title' => 'مصاريف تسويق', 'amount' => 3000],
-            ['title' => 'صيانة وإصلاحات', 'amount' => 2000],
+            ['title' => 'إيجار المكتب', 'amount' => 10000, 'type' => ExpenseCategoryType::ADMIN],
+            ['title' => 'رواتب الموظفين', 'amount' => 25000, 'type' => ExpenseCategoryType::OPERATIONAL],
+            ['title' => 'فواتير الكهرباء والمياه', 'amount' => 1500, 'type' => ExpenseCategoryType::OPERATIONAL],
+            ['title' => 'مصاريف تسويق', 'amount' => 3000, 'type' => ExpenseCategoryType::MARKETING],
+            ['title' => 'صيانة وإصلاحات', 'amount' => 2000, 'type' => ExpenseCategoryType::OPERATIONAL],
         ];
 
-        $expense = $expenseTypes[array_rand($expenseTypes)];
-        $amount = $expense['amount'];
+        $expenseData = $expenseTypes[array_rand($expenseTypes)];
+        $amount = $expenseData['amount'];
+
+        // Get matching category
+        $category = collect($this->expenseCategories)->first(fn($c) => $c->type === $expenseData['type']);
 
         // Check if we have enough cash
         if ($this->expectedTreasuryBalance < $amount) {
@@ -822,12 +862,14 @@ class GoldenPathSeeder extends Seeder
 
         try {
             $expenseRecord = Expense::create([
-                'title' => $expense['title'],
+                'title' => $expenseData['title'],
                 'description' => 'مصروف تشغيلي',
                 'amount' => $amount,
                 'treasury_id' => $this->mainTreasury->id,
                 'expense_date' => $this->currentDate,
                 'created_by' => $this->admin->id,
+                'expense_category_id' => $category?->id,
+                'is_non_cash' => false,
             ]);
 
             $this->treasuryService->postExpense($expenseRecord);

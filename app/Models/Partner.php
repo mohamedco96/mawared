@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -217,10 +218,17 @@ class Partner extends Model
 
     /**
      * Recalculate and update the current_balance field
+     *
+     * BLIND-05 FIX: Made atomic with lockForUpdate() to prevent race conditions
+     * when multiple transactions try to update balance simultaneously.
      */
     public function recalculateBalance(): void
     {
-        $this->update(['current_balance' => $this->calculateBalance()]);
+        DB::transaction(function () {
+            // Lock the partner record during balance calculation
+            $partner = Partner::lockForUpdate()->findOrFail($this->id);
+            $partner->update(['current_balance' => $this->calculateBalance()]);
+        });
     }
 
     /**

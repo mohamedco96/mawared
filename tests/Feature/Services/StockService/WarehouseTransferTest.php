@@ -108,16 +108,10 @@ test('it validates stock availability in source warehouse', function () {
         'quantity' => 30, // More than available
     ]);
 
-    // Note: The service doesn't validate stock for transfers, but we can test the movements are created
-    // The validation would happen at the UI/Resource level
-    $this->stockService->postWarehouseTransfer($transfer);
-
-    $outMovement = StockMovement::where('reference_type', 'warehouse_transfer')
-        ->where('reference_id', $transfer->id)
-        ->where('warehouse_id', $this->fromWarehouse->id)
-        ->first();
-
-    expect($outMovement->quantity)->toBe(-30);
+    // BLIND-02 FIX: Now validates stock availability before transfer
+    // Should throw exception when insufficient stock
+    expect(fn () => $this->stockService->postWarehouseTransfer($transfer))
+        ->toThrow(Exception::class, 'المخزون غير كافٍ للنقل');
 });
 
 test('it handles multiple products in transfer', function () {

@@ -7,6 +7,7 @@ enum ExpenseCategoryType: string
     case OPERATIONAL = 'operational';
     case ADMIN = 'admin';
     case MARKETING = 'marketing';
+    case DEPRECIATION = 'depreciation';
 
     /**
      * Get Arabic label for the expense category type
@@ -17,6 +18,7 @@ enum ExpenseCategoryType: string
             self::OPERATIONAL => 'تشغيلية',
             self::ADMIN => 'إدارية',
             self::MARKETING => 'تسويقية',
+            self::DEPRECIATION => 'استهلاك أصول',
         };
     }
 
@@ -29,6 +31,18 @@ enum ExpenseCategoryType: string
             self::OPERATIONAL => 'primary',
             self::ADMIN => 'info',
             self::MARKETING => 'success',
+            self::DEPRECIATION => 'warning',
+        };
+    }
+
+    /**
+     * Check if this expense type is non-cash (doesn't affect treasury)
+     */
+    public function isNonCash(): bool
+    {
+        return match($this) {
+            self::DEPRECIATION => true,
+            default => false,
         };
     }
 

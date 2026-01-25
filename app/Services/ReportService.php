@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\InvoicePayment;
 use App\Models\Partner;
 use App\Models\Product;
+use App\Models\PurchaseInvoice;
+use App\Models\PurchaseReturn;
 use App\Models\SalesInvoice;
 use App\Models\SalesReturn;
 use App\Models\StockMovement;
@@ -17,6 +19,8 @@ class ReportService
     /**
      * Generate Partner Statement Report
      *
+     * BLIND-09/16 FIX: Now handles both customers and suppliers correctly
+     *
      * @param string $partnerId
      * @param string $startDate
      * @param string $endDate
@@ -24,13 +28,22 @@ class ReportService
      */
     public function getPartnerStatement(string $partnerId, string $startDate, string $endDate): array
     {
+        $partner = Partner::findOrFail($partnerId);
+
         // Calculate opening balance
         $openingBalance = $this->calculateOpeningBalance($partnerId, $startDate);
 
-        // Fetch transactions in date range
-        $invoices = $this->fetchSalesInvoices($partnerId, $startDate, $endDate);
-        $payments = $this->fetchInvoicePayments($partnerId, $startDate, $endDate);
-        $returns = $this->fetchSalesReturns($partnerId, $startDate, $endDate);
+        // Fetch transactions based on partner type
+        if ($partner->type === 'customer') {
+            $invoices = $this->fetchSalesInvoices($partnerId, $startDate, $endDate);
+            $payments = $this->fetchInvoicePayments($partnerId, 'sales_invoice', $startDate, $endDate);
+            $returns = $this->fetchSalesReturns($partnerId, $startDate, $endDate);
+        } else {
+            // Supplier
+            $invoices = $this->fetchPurchaseInvoices($partnerId, $startDate, $endDate);
+            $payments = $this->fetchInvoicePayments($partnerId, 'purchase_invoice', $startDate, $endDate);
+            $returns = $this->fetchPurchaseReturns($partnerId, $startDate, $endDate);
+        }
 
         // Merge and sort transactions
         $transactions = $invoices
@@ -51,9 +64,6 @@ class ReportService
 
         $closingBalance = $runningBalance;
 
-        // Get partner with relationships
-        $partner = Partner::find($partnerId);
-
         return [
             'partner' => $partner,
             'opening_balance' => round($openingBalance, 4),
@@ -69,34 +79,66 @@ class ReportService
     /**
      * Calculate Opening Balance for Partner Statement
      *
+     * BLIND-09/16 FIX: Now handles both customers and suppliers correctly
+     *
+     * For customers: Debit = Sales, Credit = Payments + Returns
+     * For suppliers: Debit = Payments + Returns, Credit = Purchases
+     *
      * @param string $partnerId
      * @param string $startDate
      * @return float
      */
     protected function calculateOpeningBalance(string $partnerId, string $startDate): float
     {
-        $partner = Partner::find($partnerId);
-        $openingBalance = (float)($partner->opening_balance ?? 0);
+        $partner = Partner::findOrFail($partnerId);
+        $openingBalance = (float) ($partner->opening_balance ?? 0);
 
-        // Debit: Posted sales invoices total (created_at < start_date)
-        $salesDebit = SalesInvoice::where('partner_id', $partnerId)
-            ->where('status', 'posted')
-            ->where('created_at', '<', $startDate)
-            ->sum('total');
+        if ($partner->type === 'customer') {
+            // Customer: Positive balance = they owe us
 
-        // Credit: Invoice payments (payment_date < start_date)
-        $paymentsCredit = InvoicePayment::where('partner_id', $partnerId)
-            ->where('payable_type', 'sales_invoice')
-            ->where('payment_date', '<', $startDate)
-            ->sum(DB::raw('amount + discount'));
+            // Debit: Posted sales invoices total (created_at < start_date)
+            $invoicesDebit = SalesInvoice::where('partner_id', $partnerId)
+                ->where('status', 'posted')
+                ->where('created_at', '<', $startDate)
+                ->sum('total');
 
-        // Credit: Sales returns (created_at < start_date)
-        $returnsCredit = SalesReturn::where('partner_id', $partnerId)
-            ->where('status', 'posted')
-            ->where('created_at', '<', $startDate)
-            ->sum('total');
+            // Credit: Invoice payments (payment_date < start_date)
+            $paymentsCredit = InvoicePayment::where('partner_id', $partnerId)
+                ->where('payable_type', SalesInvoice::class)
+                ->where('payment_date', '<', $startDate)
+                ->sum(DB::raw('amount + discount'));
 
-        return $openingBalance + $salesDebit - $paymentsCredit - $returnsCredit;
+            // Credit: Sales returns (created_at < start_date)
+            $returnsCredit = SalesReturn::where('partner_id', $partnerId)
+                ->where('status', 'posted')
+                ->where('created_at', '<', $startDate)
+                ->sum('total');
+
+            return $openingBalance + $invoicesDebit - $paymentsCredit - $returnsCredit;
+
+        } else {
+            // Supplier: Positive balance = we owe them
+
+            // Credit: Posted purchase invoices total (created_at < start_date)
+            $invoicesCredit = PurchaseInvoice::where('partner_id', $partnerId)
+                ->where('status', 'posted')
+                ->where('created_at', '<', $startDate)
+                ->sum('total');
+
+            // Debit: Invoice payments (payment_date < start_date) - we paid them
+            $paymentsDebit = InvoicePayment::where('partner_id', $partnerId)
+                ->where('payable_type', PurchaseInvoice::class)
+                ->where('payment_date', '<', $startDate)
+                ->sum(DB::raw('amount + discount'));
+
+            // Debit: Purchase returns (created_at < start_date) - reduces what we owe
+            $returnsDebit = PurchaseReturn::where('partner_id', $partnerId)
+                ->where('status', 'posted')
+                ->where('created_at', '<', $startDate)
+                ->sum('total');
+
+            return $openingBalance + $invoicesCredit - $paymentsDebit - $returnsDebit;
+        }
     }
 
     /**
@@ -131,27 +173,34 @@ class ReportService
     /**
      * Fetch Invoice Payments for Partner Statement
      *
+     * BLIND-09/16 FIX: Now accepts payable type to handle both sales and purchase invoices
+     *
      * @param string $partnerId
+     * @param string $payableType Class name of the payable model
      * @param string $startDate
      * @param string $endDate
      * @return Collection
      */
-    protected function fetchInvoicePayments(string $partnerId, string $startDate, string $endDate): Collection
+    protected function fetchInvoicePayments(string $partnerId, string $payableType, string $startDate, string $endDate): Collection
     {
+        $isCustomer = $payableType === 'sales_invoice' || $payableType === SalesInvoice::class;
+
         return InvoicePayment::where('partner_id', $partnerId)
-            ->where('payable_type', 'sales_invoice')
+            ->where('payable_type', $payableType)
             ->whereDate('payment_date', '>=', $startDate)
             ->whereDate('payment_date', '<=', $endDate)
             ->with('payable')
             ->get()
-            ->map(function ($payment) {
+            ->map(function ($payment) use ($isCustomer) {
+                // For customers: payment is CREDIT (reduces what they owe)
+                // For suppliers: payment is DEBIT (reduces what we owe)
                 return [
                     'date' => $payment->payment_date,
                     'type' => 'payment',
                     'reference' => $payment->payable?->invoice_number ?? '-',
-                    'description' => 'سداد دفعة',
-                    'debit' => 0,
-                    'credit' => (float) ($payment->amount + $payment->discount),
+                    'description' => $isCustomer ? 'سداد دفعة' : 'سداد للمورد',
+                    'debit' => $isCustomer ? 0 : (float) ($payment->amount + $payment->discount),
+                    'credit' => $isCustomer ? (float) ($payment->amount + $payment->discount) : 0,
                     'notes' => $payment->notes,
                 ];
             });
@@ -181,6 +230,70 @@ class ReportService
                     'description' => 'مرتجع مبيعات',
                     'debit' => 0,
                     'credit' => (float) $return->total,
+                    'warehouse' => $return->warehouse?->name,
+                ];
+            });
+    }
+
+    /**
+     * Fetch Purchase Invoices for Partner Statement (Suppliers)
+     *
+     * BLIND-09/16 FIX: Added support for supplier statements
+     *
+     * @param string $partnerId
+     * @param string $startDate
+     * @param string $endDate
+     * @return Collection
+     */
+    protected function fetchPurchaseInvoices(string $partnerId, string $startDate, string $endDate): Collection
+    {
+        return PurchaseInvoice::where('partner_id', $partnerId)
+            ->where('status', 'posted')
+            ->where('created_at', '>=', $startDate . ' 00:00:00')
+            ->where('created_at', '<=', $endDate . ' 23:59:59')
+            ->with('warehouse')
+            ->get()
+            ->map(function ($invoice) {
+                // For suppliers: invoice is CREDIT (increases what we owe them)
+                return [
+                    'date' => $invoice->created_at,
+                    'type' => 'invoice',
+                    'reference' => $invoice->invoice_number,
+                    'description' => 'فاتورة مشتريات',
+                    'debit' => 0,
+                    'credit' => (float) $invoice->total,
+                    'warehouse' => $invoice->warehouse?->name,
+                ];
+            });
+    }
+
+    /**
+     * Fetch Purchase Returns for Partner Statement (Suppliers)
+     *
+     * BLIND-09/16 FIX: Added support for supplier statements
+     *
+     * @param string $partnerId
+     * @param string $startDate
+     * @param string $endDate
+     * @return Collection
+     */
+    protected function fetchPurchaseReturns(string $partnerId, string $startDate, string $endDate): Collection
+    {
+        return PurchaseReturn::where('partner_id', $partnerId)
+            ->where('status', 'posted')
+            ->where('created_at', '>=', $startDate . ' 00:00:00')
+            ->where('created_at', '<=', $endDate . ' 23:59:59')
+            ->with('warehouse')
+            ->get()
+            ->map(function ($return) {
+                // For suppliers: return is DEBIT (reduces what we owe them)
+                return [
+                    'date' => $return->created_at,
+                    'type' => 'return',
+                    'reference' => $return->return_number,
+                    'description' => 'مرتجع مشتريات',
+                    'debit' => (float) $return->total,
+                    'credit' => 0,
                     'warehouse' => $return->warehouse?->name,
                 ];
             });

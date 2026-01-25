@@ -3,6 +3,8 @@
 namespace Database\Seeders;
 
 use App\Models\Expense;
+use App\Models\ExpenseCategory;
+use App\Enums\ExpenseCategoryType;
 use App\Models\Treasury;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -17,6 +19,12 @@ class ExpenseSeeder extends Seeder
         $treasury = Treasury::where('name', 'الخزينة الرئيسية')->first();
         $user = User::first();
 
+        // Ensure categories exist
+        $categories = [
+            'admin' => ExpenseCategory::firstOrCreate(['name' => 'مصاريف إدارية'], ['type' => ExpenseCategoryType::ADMIN, 'is_active' => true]),
+            'operational' => ExpenseCategory::firstOrCreate(['name' => 'مصاريف تشغيلية'], ['type' => ExpenseCategoryType::OPERATIONAL, 'is_active' => true]),
+        ];
+
         $expenses = [
             [
                 'title' => 'إيجار المكتب - يناير 2025',
@@ -25,6 +33,8 @@ class ExpenseSeeder extends Seeder
                 'treasury_id' => $treasury->id,
                 'expense_date' => now()->subDays(10),
                 'created_by' => $user->id,
+                'expense_category_id' => $categories['admin']->id,
+                'is_non_cash' => false,
             ],
             [
                 'title' => 'فواتير كهرباء',
@@ -33,6 +43,8 @@ class ExpenseSeeder extends Seeder
                 'treasury_id' => $treasury->id,
                 'expense_date' => now()->subDays(5),
                 'created_by' => $user->id,
+                'expense_category_id' => $categories['operational']->id,
+                'is_non_cash' => false,
             ],
             [
                 'title' => 'مرتبات الموظفين',
@@ -41,6 +53,8 @@ class ExpenseSeeder extends Seeder
                 'treasury_id' => $treasury->id,
                 'expense_date' => now()->subDays(2),
                 'created_by' => $user->id,
+                'expense_category_id' => $categories['admin']->id,
+                'is_non_cash' => false,
             ],
             [
                 'title' => 'صيانة معدات',
@@ -49,6 +63,8 @@ class ExpenseSeeder extends Seeder
                 'treasury_id' => $treasury->id,
                 'expense_date' => now()->subDay(),
                 'created_by' => $user->id,
+                'expense_category_id' => $categories['operational']->id,
+                'is_non_cash' => false,
             ],
         ];
 

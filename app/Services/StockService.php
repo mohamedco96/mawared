@@ -142,39 +142,59 @@ class StockService
 
     /**
      * Update product average cost after purchase
+     *
+     * CRITICAL FIXES APPLIED:
+     * 1. Uses BC Math for all financial calculations (CRITICAL-01)
+     * 2. Uses lockForUpdate() to prevent race conditions (CRITICAL-02)
+     * 3. Preserves last known avg_cost when quantity is zero (CRITICAL-03)
      */
     public function updateProductAvgCost(string $productId): void
     {
         $execute = function () use ($productId) {
-            $product = Product::findOrFail($productId);
+            // CRITICAL-02 FIX: Lock product to prevent concurrent updates
+            $product = Product::lockForUpdate()->findOrFail($productId);
 
             // Calculate weighted average cost from purchase and purchase_return movements
-            // Only non-zero quantities (to avoid division by zero and filter noise)
+            // Also lock movements to ensure consistent calculation
             $purchaseMovements = StockMovement::where('product_id', $productId)
                 ->whereIn('type', ['purchase', 'purchase_return'])
                 ->where('quantity', '!=', 0)
+                ->lockForUpdate()
                 ->get();
 
             if ($purchaseMovements->isEmpty()) {
                 return;
             }
 
-            $totalCost = 0;
-            $totalQuantity = 0;
+            // CRITICAL-01 FIX: Use BC Math for precise financial calculations
+            $totalCost = '0';
+            $totalQuantity = '0';
 
             foreach ($purchaseMovements as $movement) {
                 // quantity can be negative for purchase_return
-                $totalCost += $movement->cost_at_time * $movement->quantity;
-                $totalQuantity += $movement->quantity;
+                // cost_at_time * quantity
+                $movementCost = bcmul((string) $movement->cost_at_time, (string) $movement->quantity, 4);
+                $totalCost = bcadd($totalCost, $movementCost, 4);
+                $totalQuantity = bcadd($totalQuantity, (string) $movement->quantity, 4);
             }
 
-            if ($totalQuantity > 0) {
-                $avgCost = $totalCost / $totalQuantity;
+            // CRITICAL-03 FIX: Only update if quantity > 0, otherwise preserve last known cost
+            if (bccomp($totalQuantity, '0', 4) > 0) {
+                $avgCost = bcdiv($totalCost, $totalQuantity, 4);
+
+                \Log::info('Product avg_cost updated', [
+                    'product_id' => $productId,
+                    'old_avg_cost' => $product->avg_cost,
+                    'new_avg_cost' => $avgCost,
+                    'total_cost' => $totalCost,
+                    'total_quantity' => $totalQuantity,
+                    'movement_count' => $purchaseMovements->count(),
+                ]);
+
                 $product->update(['avg_cost' => $avgCost]);
-            } else {
-                // If all stock is returned, set avg_cost to 0
-                $product->update(['avg_cost' => 0]);
             }
+            // If totalQuantity <= 0, do NOT update avg_cost - preserve the last known value
+            // This maintains historical cost data for GAAP compliance
         };
 
         // Wrap in transaction to ensure atomicity
@@ -241,8 +261,8 @@ class StockService
             // Lock the invoice to prevent concurrent posting
             $invoice = SalesInvoice::with('items.product')->lockForUpdate()->findOrFail($invoice->id);
 
-            // COGS Calculation
-            $totalCOGS = 0;
+            // COGS Calculation using BC Math for precision
+            $totalCOGS = '0';
 
             foreach ($invoice->items as $item) {
                 $product = $item->product;
@@ -257,9 +277,9 @@ class StockService
                     throw new \Exception("المخزون غير كافٍ للمنتج: {$product->name}");
                 }
 
-                // CRITICAL: Calculate COGS using avg_cost at time of sale
-                $itemCOGS = floatval($product->avg_cost) * $baseQuantity;
-                $totalCOGS += $itemCOGS;
+                // CRITICAL: Calculate COGS using avg_cost at time of sale with BC Math
+                $itemCOGS = bcmul((string) $product->avg_cost, (string) $baseQuantity, 4);
+                $totalCOGS = bcadd($totalCOGS, $itemCOGS, 4);
 
                 // Create negative stock movement (sale)
                 $this->recordMovement(
@@ -408,6 +428,31 @@ class StockService
     }
 
     /**
+     * Get the cost per unit for a returned item.
+     * Tries to retrieve original sale cost from stock movement, falls back to current avg_cost.
+     */
+    protected function getCostForReturn(SalesReturn $return, string $productId): float
+    {
+        // If linked to an invoice, try to get the cost from the original sale movement
+        if ($return->sales_invoice_id) {
+            $saleMovement = StockMovement::where('reference_type', 'sales_invoice')
+                ->where('reference_id', $return->sales_invoice_id)
+                ->where('product_id', $productId)
+                ->where('type', 'sale')
+                ->first();
+
+            if ($saleMovement) {
+                return floatval($saleMovement->cost_at_time);
+            }
+        }
+
+        // Fallback to current avg_cost
+        $product = Product::find($productId);
+
+        return floatval($product->avg_cost ?? 0);
+    }
+
+    /**
      * Post a sales return - creates stock movements (REVERSE of sale)
      */
     public function postSalesReturn(SalesReturn $return): void
@@ -442,7 +487,7 @@ class StockService
         }
 
         DB::transaction(function () use ($return) {
-            $totalCOGSReversal = 0;
+            $totalCOGSReversal = '0';
 
             foreach ($return->items as $item) {
                 $product = $item->product;
@@ -450,9 +495,12 @@ class StockService
                 // Convert to base unit
                 $baseQuantity = $this->convertToBaseUnit($product, $item->quantity, $item->unit_type);
 
-                // Calculate COGS reversal (add back the cost)
-                $itemCOGSReversal = floatval($product->avg_cost) * $baseQuantity;
-                $totalCOGSReversal += $itemCOGSReversal;
+                // Get cost from original sale movement if available, otherwise use current avg_cost
+                $costPerUnit = $this->getCostForReturn($return, $product->id);
+
+                // Calculate COGS reversal (add back the cost) using BC Math
+                $itemCOGSReversal = bcmul((string) $costPerUnit, (string) $baseQuantity, 4);
+                $totalCOGSReversal = bcadd($totalCOGSReversal, $itemCOGSReversal, 4);
 
                 // Create POSITIVE stock movement (sale_return)
                 // REVERSE LOGIC: Sale removes stock (negative), return adds stock (positive)
@@ -461,20 +509,15 @@ class StockService
                     $product->id,
                     'sale_return',
                     $baseQuantity, // POSITIVE for return
-                    $product->avg_cost,
+                    $costPerUnit,
                     'sales_return',
                     $return->id
                 );
             }
 
-            // CRITICAL: Update original invoice to reduce COGS
-            if ($return->sales_invoice_id) {
-                $originalInvoice = SalesInvoice::find($return->sales_invoice_id);
-                if ($originalInvoice) {
-                    $newCOGS = floatval($originalInvoice->cost_total) - $totalCOGSReversal;
-                    $originalInvoice->update(['cost_total' => max(0, $newCOGS)]);
-                }
-            }
+            // Store cost_total on the SalesReturn record (Periodicity Principle)
+            // The original invoice remains unchanged - preserving historical data
+            $return->update(['cost_total' => $totalCOGSReversal]);
         });
     }
 
@@ -564,31 +607,42 @@ class StockService
             $adjustment->load('product');
             $product = $adjustment->product;
 
-            // Determine movement type and quantity direction based on adjustment type and quantity sign
-            // Enum values: 'damage', 'opening', 'gift', 'other'
-            // Quantity can be positive (addition) or negative (subtraction)
+            // BLIND-03 FIX: Simplified sign logic with type-based defaults
+            // - Types 'damage' and 'gift' are ALWAYS subtractions (stock out)
+            // - Type 'opening' is ALWAYS addition (stock in)
+            // - Type 'other' uses the quantity sign to determine direction
+            // This provides semantic clarity while still allowing flexibility
 
-            // Types that typically SUBTRACT from stock: 'damage', 'gift'
-            // Types that typically ADD to stock: 'opening'
-            // 'other' can be either, determined by quantity sign
-
+            $quantity = (float) $adjustment->quantity;
             $subtractionTypes = ['damage', 'gift'];
-            $isSubtraction = in_array($adjustment->type, $subtractionTypes)
-                || ($adjustment->type === 'other' && $adjustment->quantity < 0)
-                || ($adjustment->quantity < 0); // Negative quantity always means subtraction
+            $additionTypes = ['opening'];
 
-            if ($isSubtraction) {
+            // Determine if this is a subtraction based on type or sign
+            if (in_array($adjustment->type, $subtractionTypes)) {
+                // Subtraction types: ensure quantity is negative (normalize)
                 $movementType = 'adjustment_out';
-                $quantity = -abs($adjustment->quantity); // Ensure negative for subtraction
+                $quantity = -abs($quantity);
 
                 // Validate stock availability for subtraction
                 if (! $this->validateStockAvailability($adjustment->warehouse_id, $product->id, abs($quantity))) {
                     throw new \Exception("المخزون غير كافٍ للمنتج: {$product->name}");
                 }
-            } else {
-                // Types that ADD to stock (positive quantity): 'opening', 'other' (with positive quantity)
+            } elseif (in_array($adjustment->type, $additionTypes)) {
+                // Addition types: ensure quantity is positive (normalize)
                 $movementType = 'adjustment_in';
-                $quantity = abs($adjustment->quantity); // Ensure positive for additions
+                $quantity = abs($quantity);
+            } else {
+                // 'other' type: use quantity sign directly
+                if ($quantity < 0) {
+                    $movementType = 'adjustment_out';
+
+                    // Validate stock availability for subtraction
+                    if (! $this->validateStockAvailability($adjustment->warehouse_id, $product->id, abs($quantity))) {
+                        throw new \Exception("المخزون غير كافٍ للمنتج: {$product->name}");
+                    }
+                } else {
+                    $movementType = 'adjustment_in';
+                }
             }
 
             $this->recordMovement(
@@ -606,6 +660,8 @@ class StockService
 
     /**
      * Post a warehouse transfer - creates dual stock movements
+     *
+     * BLIND-02 FIX: Added stock validation before transfer
      */
     public function postWarehouseTransfer(WarehouseTransfer $transfer): void
     {
@@ -613,6 +669,19 @@ class StockService
             // Eager load items with products to prevent lazy loading
             $transfer->load('items.product');
 
+            // BLIND-02 FIX: Validate stock availability BEFORE creating any movements
+            foreach ($transfer->items as $item) {
+                $product = $item->product;
+
+                // Get current stock with lock to prevent race conditions
+                $currentStock = $this->getCurrentStock($transfer->from_warehouse_id, $product->id, true);
+
+                if ($currentStock < $item->quantity) {
+                    throw new \Exception("المخزون غير كافٍ للنقل: {$product->name}. المتاح: {$currentStock}, المطلوب: {$item->quantity}");
+                }
+            }
+
+            // Now create the movements after validation passes
             foreach ($transfer->items as $item) {
                 $product = $item->product;
 

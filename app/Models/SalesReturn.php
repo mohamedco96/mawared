@@ -24,6 +24,7 @@ class SalesReturn extends Model
         'subtotal',
         'discount',
         'total',
+        'cost_total',
         'notes',
         'created_by',
     ];
@@ -34,6 +35,7 @@ class SalesReturn extends Model
             'subtotal' => 'decimal:4',
             'discount' => 'decimal:4',
             'total' => 'decimal:4',
+            'cost_total' => 'decimal:4',
         ];
     }
 

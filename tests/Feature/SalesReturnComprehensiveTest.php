@@ -211,7 +211,7 @@ test('it fails to post return if total exceeds invoice total', function () {
         ->toThrow(Exception::class, 'لا يمكن تأكيد المرتجع: قيمة المرتجع تتجاوز قيمة الفاتورة المتبقية');
 });
 
-test('it updates original invoice COGS correctly', function () {
+test('it stores cost_total on sales return and preserves original invoice', function () {
     $product = TestHelpers::createDualUnitProduct($this->units['piece'], $this->units['carton'], avgCost: '50.00');
 
     $invoice = SalesInvoice::factory()->create([
@@ -245,9 +245,13 @@ test('it updates original invoice COGS correctly', function () {
     fullPostSalesReturn($return, $this->treasury->id);
 
     $invoice->refresh();
-    // Return 4 pieces. Original COGS was 500. Reversal = 4 * 50 = 200.
-    // New COGS = 500 - 200 = 300.
-    expect((float)$invoice->cost_total)->toBe(300.00);
+    $return->refresh();
+
+    // Periodicity Principle: Original invoice COGS remains UNCHANGED
+    expect((float)$invoice->cost_total)->toBe(500.00);
+
+    // Return stores its own cost_total: 4 pieces * 50.00 = 200.00
+    expect((float)$return->cost_total)->toBe(200.00);
 });
 
 test('it handles items with zero quantity in returns gracefully', function () {

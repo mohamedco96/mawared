@@ -45,25 +45,26 @@ class TreasuryService
                 'amount' => $amount,
             ]);
 
-            // Calculate what the new balance would be
-            $currentBalance = (float) $this->getTreasuryBalance($treasuryId);
-            $newBalance = $currentBalance + (float) $amount;
+            // CRITICAL-04 FIX: Use BC Math for precise balance calculation
+            $currentBalance = $this->getTreasuryBalance($treasuryId);
+            $newBalance = bcadd((string) $currentBalance, (string) $amount, 4);
 
             \Log::info('Treasury balance check', [
                 'treasury_id' => $treasuryId,
                 'current_balance' => $currentBalance,
-                'transaction_amount' => (float) $amount,
+                'transaction_amount' => $amount,
                 'new_balance' => $newBalance,
-                'will_fail' => $newBalance < 0,
+                'will_fail' => bccomp($newBalance, '0', 4) < 0,
                 'transaction_level' => DB::transactionLevel(),
             ]);
 
+            // CRITICAL-04 FIX: Use bccomp instead of float comparison
             // Prevent negative balance (amount is negative for withdrawals/payments)
-            if ($newBalance < 0) {
+            if (bccomp($newBalance, '0', 4) < 0) {
                 \Log::error('Treasury balance insufficient - throwing exception', [
                     'treasury_id' => $treasuryId,
                     'current_balance' => $currentBalance,
-                    'transaction_amount' => (float) $amount,
+                    'transaction_amount' => $amount,
                     'new_balance' => $newBalance,
                     'transaction_level' => DB::transactionLevel(),
                 ]);
@@ -273,15 +274,24 @@ class TreasuryService
 
             // ONLY create treasury transaction if actual cash was received
             if ($paidAmount > 0) {
-                $this->recordTransaction(
-                    $treasuryId,
-                    'collection',
-                    $paidAmount,
-                    "Sales Invoice #{$invoice->invoice_number}",
-                    $invoice->partner_id,
-                    'sales_invoice',
-                    $invoice->id
-                );
+                // Idempotency check: prevent duplicate transactions
+                $existingTransaction = TreasuryTransaction::where('reference_type', 'sales_invoice')
+                    ->where('reference_id', $invoice->id)
+                    ->first();
+
+                if ($existingTransaction) {
+                    \Log::warning("SalesInvoice {$invoice->id} already has treasury transaction {$existingTransaction->id}. Skipping duplicate.");
+                } else {
+                    $this->recordTransaction(
+                        $treasuryId,
+                        'collection',
+                        $paidAmount,
+                        "Sales Invoice #{$invoice->invoice_number}",
+                        $invoice->partner_id,
+                        'sales_invoice',
+                        $invoice->id
+                    );
+                }
             }
 
             // Update partner balance based on new calculation
@@ -333,26 +343,35 @@ class TreasuryService
 
             // ONLY create treasury transaction if actual cash was paid
             if ($paidAmount > 0) {
-                \Log::info('Calling recordTransaction for purchase invoice', [
-                    'treasury_id' => $treasuryId,
-                    'paid_amount' => $paidAmount,
-                    'transaction_level' => DB::transactionLevel(),
-                ]);
+                // Idempotency check: prevent duplicate transactions
+                $existingTransaction = TreasuryTransaction::where('reference_type', 'purchase_invoice')
+                    ->where('reference_id', $invoice->id)
+                    ->first();
 
-                $this->recordTransaction(
-                    $treasuryId,
-                    'payment',
-                    -$paidAmount, // Negative for payment
-                    "Purchase Invoice #{$invoice->invoice_number}",
-                    $invoice->partner_id,
-                    'purchase_invoice',
-                    $invoice->id
-                );
+                if ($existingTransaction) {
+                    \Log::warning("PurchaseInvoice {$invoice->id} already has treasury transaction {$existingTransaction->id}. Skipping duplicate.");
+                } else {
+                    \Log::info('Calling recordTransaction for purchase invoice', [
+                        'treasury_id' => $treasuryId,
+                        'paid_amount' => $paidAmount,
+                        'transaction_level' => DB::transactionLevel(),
+                    ]);
 
-                \Log::info('recordTransaction completed successfully', [
-                    'invoice_id' => $invoice->id,
-                    'transaction_level' => DB::transactionLevel(),
-                ]);
+                    $this->recordTransaction(
+                        $treasuryId,
+                        'payment',
+                        -$paidAmount, // Negative for payment
+                        "Purchase Invoice #{$invoice->invoice_number}",
+                        $invoice->partner_id,
+                        'purchase_invoice',
+                        $invoice->id
+                    );
+
+                    \Log::info('recordTransaction completed successfully', [
+                        'invoice_id' => $invoice->id,
+                        'transaction_level' => DB::transactionLevel(),
+                    ]);
+                }
             } else {
                 \Log::info('Skipping treasury transaction - no paid amount', [
                     'paid_amount' => $paidAmount,
@@ -392,15 +411,24 @@ class TreasuryService
         DB::transaction(function () use ($return, $treasuryId) {
             // ONLY create treasury transaction if cash refund
             if ($return->payment_method === 'cash') {
-                $this->recordTransaction(
-                    $treasuryId,
-                    'refund',
-                    -$return->total, // NEGATIVE - money leaves treasury
-                    "مرتجع فاتورة بيع #{$return->return_number}",
-                    $return->partner_id,
-                    'sales_return',
-                    $return->id
-                );
+                // Idempotency check: prevent duplicate transactions
+                $existingTransaction = TreasuryTransaction::where('reference_type', 'sales_return')
+                    ->where('reference_id', $return->id)
+                    ->first();
+
+                if ($existingTransaction) {
+                    \Log::warning("SalesReturn {$return->id} already has treasury transaction {$existingTransaction->id}. Skipping duplicate.");
+                } else {
+                    $this->recordTransaction(
+                        $treasuryId,
+                        'refund',
+                        -$return->total, // NEGATIVE - money leaves treasury
+                        "مرتجع فاتورة بيع #{$return->return_number}",
+                        $return->partner_id,
+                        'sales_return',
+                        $return->id
+                    );
+                }
             }
 
             // NEW: Handle commission reversal
@@ -540,9 +568,18 @@ class TreasuryService
 
     /**
      * Post an expense - creates treasury transaction
+     *
+     * NOTE: Non-cash expenses (like depreciation) are skipped - they don't affect treasury.
      */
     public function postExpense(Expense $expense): void
     {
+        // Skip non-cash expenses - they don't create treasury transactions
+        if ($expense->is_non_cash) {
+            \Log::info("Expense {$expense->id} is non-cash (depreciation). No treasury transaction needed.");
+
+            return;
+        }
+
         DB::transaction(function () use ($expense) {
             // Idempotency check: prevent duplicate transactions
             $existingTransaction = TreasuryTransaction::where('reference_type', 'expense')
@@ -573,6 +610,17 @@ class TreasuryService
     public function postRevenue(Revenue $revenue): void
     {
         DB::transaction(function () use ($revenue) {
+            // Idempotency check: prevent duplicate transactions
+            $existingTransaction = TreasuryTransaction::where('reference_type', 'revenue')
+                ->where('reference_id', $revenue->id)
+                ->first();
+
+            if ($existingTransaction) {
+                \Log::warning("Revenue {$revenue->id} already has treasury transaction {$existingTransaction->id}. Skipping duplicate.");
+
+                return;
+            }
+
             $this->recordTransaction(
                 $revenue->treasury_id,
                 'income',

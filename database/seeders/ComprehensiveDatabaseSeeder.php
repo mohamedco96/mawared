@@ -3,6 +3,8 @@
 namespace Database\Seeders;
 
 use App\Models\Expense;
+use App\Models\ExpenseCategory;
+use App\Enums\ExpenseCategoryType;
 use App\Models\Installment;
 use App\Models\Partner;
 use App\Models\Product;
@@ -23,6 +25,7 @@ use App\Models\TreasuryTransaction;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\CapitalService;
 use App\Services\InstallmentService;
 use App\Services\StockService;
 use App\Services\TreasuryService;
@@ -49,6 +52,7 @@ class ComprehensiveDatabaseSeeder extends Seeder
     private InstallmentService $installmentService;
     private User $admin;
     private Warehouse $mainWarehouse;
+    private CapitalService $capitalService;
     private array $treasuries = [];
     private array $customers = [];
     private array $suppliers = [];
@@ -60,6 +64,7 @@ class ComprehensiveDatabaseSeeder extends Seeder
         $this->treasuryService = app(TreasuryService::class);
         $this->stockService = app(StockService::class);
         $this->installmentService = app(InstallmentService::class);
+        $this->capitalService = app(CapitalService::class);
     }
 
     public function run(): void
@@ -149,6 +154,27 @@ class ComprehensiveDatabaseSeeder extends Seeder
         ];
 
         echo "   ✓ Created 4 treasuries\n";
+
+        // Create expense categories
+        $this->seedExpenseCategories();
+    }
+
+    private function seedExpenseCategories(): void
+    {
+        echo "📂 Seeding expense categories...\n";
+        $categories = [
+            ['name' => 'مصاريف تشغيلية', 'type' => ExpenseCategoryType::OPERATIONAL],
+            ['name' => 'مصاريف إدارية', 'type' => ExpenseCategoryType::ADMIN],
+            ['name' => 'مصاريف تسويقية', 'type' => ExpenseCategoryType::MARKETING],
+            ['name' => 'استهلاك أصول', 'type' => ExpenseCategoryType::DEPRECIATION],
+        ];
+
+        foreach ($categories as $cat) {
+            ExpenseCategory::firstOrCreate(
+                ['name' => $cat['name']],
+                ['type' => $cat['type'], 'is_active' => true]
+            );
+        }
     }
 
     /**
@@ -351,50 +377,39 @@ class ComprehensiveDatabaseSeeder extends Seeder
         $totalCapital = 500000; // 500,000 EGP initial capital
 
         // Main shareholder deposits majority
-        $this->treasuryService->recordTransaction(
-            $this->treasuries['main']->id,
-            'capital_deposit',
+        $this->capitalService->injectCapital(
+            $this->shareholders[0],
             $totalCapital * 0.6, // 300,000
-            'رأس المال الافتتاحي - حصة الشريك الرئيسي',
-            $this->shareholders[0]->id,
-            null, // No reference_type for capital deposits
-            null
+            'cash',
+            [
+                'treasury_id' => $this->treasuries['main']->id,
+                'description' => 'رأس المال الافتتاحي - حصة الشريك الرئيسي',
+            ]
         );
 
         // Second shareholder
-        $this->treasuryService->recordTransaction(
-            $this->treasuries['main']->id,
-            'capital_deposit',
+        $this->capitalService->injectCapital(
+            $this->shareholders[1],
             $totalCapital * 0.3, // 150,000
-            'رأس المال الافتتاحي - حصة الشريك الثاني',
-            $this->shareholders[1]->id,
-            null, // No reference_type for capital deposits
-            null
+            'cash',
+            [
+                'treasury_id' => $this->treasuries['main']->id,
+                'description' => 'رأس المال الافتتاحي - حصة الشريك الثاني',
+            ]
         );
 
         // Third shareholder
-        $this->treasuryService->recordTransaction(
-            $this->treasuries['main']->id,
-            'capital_deposit',
+        $this->capitalService->injectCapital(
+            $this->shareholders[2],
             $totalCapital * 0.1, // 50,000
-            'رأس المال الافتتاحي - حصة الشريك الثالث',
-            $this->shareholders[2]->id,
-            null, // No reference_type for capital deposits
-            null
+            'cash',
+            [
+                'treasury_id' => $this->treasuries['main']->id,
+                'description' => 'رأس المال الافتتاحي - حصة الشريك الثالث',
+            ]
         );
 
-        // Deposit some to bank account
-        $this->treasuryService->recordTransaction(
-            $this->treasuries['bank']->id,
-            'capital_deposit',
-            200000,
-            'إيداع رأس مال في الحساب البنكي',
-            null,
-            null, // No reference_type for capital deposits
-            null
-        );
-
-        echo "   ✓ Deposited " . number_format($totalCapital + 200000, 2) . " EGP across treasuries\n";
+        echo "   ✓ Deposited " . number_format($totalCapital, 2) . " EGP across treasuries\n";
     }
 
     /**
@@ -1087,6 +1102,7 @@ class ComprehensiveDatabaseSeeder extends Seeder
             }
 
             try {
+                $categoryRecord = ExpenseCategory::all()->random();
                 $expense = Expense::create([
                     'title' => $category['title'] . ' - ' . $faker->monthName,
                     'description' => 'مصروف تشغيلي',
@@ -1094,6 +1110,8 @@ class ComprehensiveDatabaseSeeder extends Seeder
                     'treasury_id' => $treasury->id,
                     'expense_date' => $faker->dateTimeBetween('-60 days', 'now'),
                     'created_by' => $this->admin->id,
+                    'expense_category_id' => $categoryRecord->id,
+                    'is_non_cash' => false,
                 ]);
 
                 // Post expense to treasury

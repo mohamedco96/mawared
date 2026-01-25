@@ -2,12 +2,13 @@
 
 namespace Tests\Feature\Services;
 
-use App\Enums\TransactionType;
+use App\Enums\ExpenseCategoryType;
+use App\Models\Expense;
+use App\Models\ExpenseCategory;
 use App\Models\FixedAsset;
 use App\Models\Treasury;
 use App\Models\TreasuryTransaction;
 use App\Services\DepreciationService;
-use App\Services\TreasuryService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -18,18 +19,15 @@ class DepreciationServiceTest extends TestCase
 
     protected DepreciationService $depreciationService;
 
-    protected TreasuryService $treasuryService;
-
     protected Treasury $treasury;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->treasuryService = new TreasuryService;
-        $this->depreciationService = new DepreciationService($this->treasuryService);
+        $this->depreciationService = new DepreciationService;
 
-        // Create a treasury for expenses
+        // Create a treasury for reference (though depreciation doesn't use it)
         $this->treasury = Treasury::factory()->create([
             'type' => 'cash',
             'name' => 'Main Treasury',
@@ -39,7 +37,7 @@ class DepreciationServiceTest extends TestCase
         TreasuryTransaction::create([
             'treasury_id' => $this->treasury->id,
             'type' => 'income',
-            'amount' => '100000.00',
+            'amount' => '1000000.00',
             'description' => 'Seed',
         ]);
     }
@@ -126,12 +124,17 @@ class DepreciationServiceTest extends TestCase
         $this->assertEquals('1000.0000', $asset->accumulated_depreciation);
         $this->assertTrue($asset->last_depreciation_date->eq($month->startOfMonth()));
 
-        // Check Treasury Transaction
-        $this->assertDatabaseHas('treasury_transactions', [
-            'type' => TransactionType::DEPRECIATION_EXPENSE->value,
-            'amount' => '-1000.0000', // Expense is negative
-            'treasury_id' => $this->treasury->id,
-            'reference_type' => FixedAsset::class,
+        // Check Expense Record (NOT Treasury Transaction - depreciation is NON-CASH)
+        $this->assertDatabaseHas('expenses', [
+            'fixed_asset_id' => $asset->id,
+            'amount' => '1000.0000',
+            'is_non_cash' => true,
+            'treasury_id' => null, // Non-cash expense has no treasury
+        ]);
+
+        // Verify NO treasury transaction was created for depreciation
+        $this->assertDatabaseMissing('treasury_transactions', [
+            'type' => 'depreciation_expense',
             'reference_id' => $asset->id,
         ]);
     }
@@ -190,19 +193,75 @@ class DepreciationServiceTest extends TestCase
             'treasury_id' => $this->treasury->id,
         ]);
 
+        $month = Carbon::now();
+
         // ACT
-        $this->depreciationService->processMonthlyDepreciation(now());
+        $this->depreciationService->processMonthlyDepreciation($month);
 
         // ASSERT
         $asset->refresh();
         // 11500 + 500 = 12000
         $this->assertEquals('12000.0000', $asset->accumulated_depreciation);
 
-        // Transaction should be -500
-        $this->assertDatabaseHas('treasury_transactions', [
-            'type' => TransactionType::DEPRECIATION_EXPENSE->value,
-            'amount' => '-500.0000',
-            'reference_id' => $asset->id,
+        // Expense should be 500 (capped at remaining depreciable amount)
+        $this->assertDatabaseHas('expenses', [
+            'fixed_asset_id' => $asset->id,
+            'amount' => '500.0000',
+            'is_non_cash' => true,
         ]);
+    }
+
+    public function test_idempotency_prevents_duplicate_depreciation(): void
+    {
+        // ARRANGE
+        $asset = FixedAsset::factory()->create([
+            'name' => 'Test Asset',
+            'purchase_amount' => 12000,
+            'useful_life_years' => 1,
+            'salvage_value' => 0,
+            'accumulated_depreciation' => 0,
+            'status' => 'active',
+            'treasury_id' => $this->treasury->id,
+            'last_depreciation_date' => null,
+        ]);
+
+        $month = Carbon::create(2024, 1, 15);
+
+        // ACT - Process twice for same period
+        $results1 = $this->depreciationService->processMonthlyDepreciation($month);
+        $results2 = $this->depreciationService->processMonthlyDepreciation($month);
+
+        // ASSERT
+        $this->assertEquals(1, $results1['processed']);
+        // Second call should skip due to last_depreciation_date check
+        $this->assertEquals(0, $results2['processed']);
+
+        // Only one expense record should exist
+        $this->assertEquals(1, Expense::where('fixed_asset_id', $asset->id)->count());
+    }
+
+    public function test_depreciation_creates_correct_expense_category(): void
+    {
+        // ARRANGE
+        $asset = FixedAsset::factory()->create([
+            'name' => 'Test Asset',
+            'purchase_amount' => 12000,
+            'useful_life_years' => 1,
+            'salvage_value' => 0,
+            'accumulated_depreciation' => 0,
+            'status' => 'active',
+            'treasury_id' => $this->treasury->id,
+        ]);
+
+        // ACT
+        $this->depreciationService->processMonthlyDepreciation(Carbon::now());
+
+        // ASSERT
+        $expense = Expense::where('fixed_asset_id', $asset->id)->first();
+        $this->assertNotNull($expense);
+        $this->assertNotNull($expense->expense_category_id);
+
+        $category = ExpenseCategory::find($expense->expense_category_id);
+        $this->assertEquals(ExpenseCategoryType::DEPRECIATION->value, $category->getRawOriginal('type'));
     }
 }

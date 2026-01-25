@@ -140,33 +140,95 @@ class FinancialReportService
     }
 
     /**
-     * Calculate inventory value at a specific date
+     * Calculate inventory value at a specific date using HISTORICAL avg_cost
+     *
+     * ACCOUNTING PRINCIPLE: Inventory must be valued at the cost that existed at the valuation date,
+     * NOT at current cost. This is critical for the Matching Principle and period-over-period comparisons.
      *
      * @param  string  $date  The date to calculate inventory up to
      * @param  bool  $exclusive  If true, use < instead of <= for date comparison
      */
     protected function calculateInventoryValue(string $date, bool $exclusive = false): float
     {
-        $dateOperator = $exclusive ? '<' : '<=';
+        $dateCondition = $exclusive ? '<' : '<=';
+        $dateTime = $date . ($exclusive ? ' 00:00:00' : ' 23:59:59');
 
-        $totalValue = 0;
-        $products = Product::where('avg_cost', '>', 0)->get();
+        $totalValue = '0';
 
-        foreach ($products as $product) {
+        // Get all products that have any stock movements
+        $productIds = DB::table('stock_movements')
+            ->whereNull('deleted_at')
+            ->where('created_at', $dateCondition, $dateTime)
+            ->distinct()
+            ->pluck('product_id');
+
+        foreach ($productIds as $productId) {
+            // Get quantity at this date
             $qty = DB::table('stock_movements')
-                ->where('product_id', $product->id)
-                ->where('created_at', $dateOperator, $date.($exclusive ? ' 00:00:00' : ' 23:59:59'))
-                ->whereNull('stock_movements.deleted_at')
+                ->where('product_id', $productId)
+                ->whereNull('deleted_at')
+                ->where('created_at', $dateCondition, $dateTime)
                 ->sum('quantity');
 
-            if ($qty > 0) {
-                $totalValue += $product->avg_cost * $qty;
+            if ($qty <= 0) {
+                continue;
+            }
+
+            // Calculate historical weighted average cost at this date
+            // Only from purchase and purchase_return movements up to this date
+            $historicalAvgCost = $this->calculateHistoricalAvgCost($productId, $dateTime, $dateCondition);
+
+            if (bccomp($historicalAvgCost, '0', 4) > 0) {
+                $productValue = bcmul($historicalAvgCost, (string) $qty, 4);
+                $totalValue = bcadd($totalValue, $productValue, 4);
             }
         }
 
         return (float) $totalValue;
+    }
 
-        return (float) $totalValue;
+    /**
+     * Calculate the weighted average cost for a product at a specific historical date
+     *
+     * @param  string  $productId  The product ID
+     * @param  string  $dateTime  The cutoff datetime
+     * @param  string  $dateCondition  Either '<' or '<='
+     */
+    protected function calculateHistoricalAvgCost(string $productId, string $dateTime, string $dateCondition): string
+    {
+        // Get all purchase and purchase_return movements up to this date
+        $movements = DB::table('stock_movements')
+            ->where('product_id', $productId)
+            ->whereIn('type', ['purchase', 'purchase_return'])
+            ->whereNull('deleted_at')
+            ->where('created_at', $dateCondition, $dateTime)
+            ->where('quantity', '!=', 0)
+            ->select('quantity', 'cost_at_time')
+            ->get();
+
+        if ($movements->isEmpty()) {
+            // Fall back to current avg_cost if no historical purchase data
+            $product = Product::find($productId);
+            return (string) ($product->avg_cost ?? 0);
+        }
+
+        $totalCost = '0';
+        $totalQuantity = '0';
+
+        foreach ($movements as $movement) {
+            // cost_at_time * quantity (quantity can be negative for returns)
+            $movementCost = bcmul((string) $movement->cost_at_time, (string) $movement->quantity, 4);
+            $totalCost = bcadd($totalCost, $movementCost, 4);
+            $totalQuantity = bcadd($totalQuantity, (string) $movement->quantity, 4);
+        }
+
+        if (bccomp($totalQuantity, '0', 4) <= 0) {
+            // If all purchased stock was returned, use last known cost
+            $product = Product::find($productId);
+            return (string) ($product->avg_cost ?? 0);
+        }
+
+        return bcdiv($totalCost, $totalQuantity, 4);
     }
 
     /**
@@ -202,11 +264,45 @@ class FinancialReportService
 
     /**
      * Calculate total cash from all treasuries
+     *
+     * IMPORTANT: Excludes non-cash transaction types:
+     * - 'discount': Settlement discounts don't affect cash
+     * - 'depreciation_expense': Depreciation is non-cash (now tracked in Expense model)
+     *
+     * BLIND-07 FIX: Optionally filter by treasury type ('cash' or 'bank')
+     * @param string|null $treasuryType If null, returns total across all treasuries
      */
-    protected function calculateTotalCash(): float
+    protected function calculateTotalCash(?string $treasuryType = null): float
     {
-        // Use single aggregated query instead of looping through treasuries
-        return (float) TreasuryTransaction::sum('amount') ?? 0;
+        $query = TreasuryTransaction::whereNotIn('type', [
+            'discount',
+            'depreciation_expense', // Legacy - should not exist in new data
+        ]);
+
+        // BLIND-07 FIX: Filter by treasury type if specified
+        if ($treasuryType !== null) {
+            $query->whereHas('treasury', function ($q) use ($treasuryType) {
+                $q->where('type', $treasuryType);
+            });
+        }
+
+        return (float) ($query->sum('amount') ?? 0);
+    }
+
+    /**
+     * Calculate total cash in physical cash boxes only
+     */
+    protected function calculateCashOnHand(): float
+    {
+        return $this->calculateTotalCash('cash');
+    }
+
+    /**
+     * Calculate total cash in bank accounts only
+     */
+    protected function calculateBankBalance(): float
+    {
+        return $this->calculateTotalCash('bank');
     }
 
     /**
@@ -221,14 +317,24 @@ class FinancialReportService
     }
 
     /**
-     * Calculate COGS (Cost of Goods Sold) from posted sales invoices
+     * Calculate COGS (Cost of Goods Sold) - Gross minus Returned
      */
     protected function calculateCOGS($fromDate, $toDate): float
     {
-        return SalesInvoice::where('status', 'posted')
+        // Gross COGS from posted sales invoices
+        $grossCOGS = SalesInvoice::where('status', 'posted')
             ->whereDate('created_at', '>=', $fromDate)
             ->whereDate('created_at', '<=', $toDate)
             ->sum('cost_total');
+
+        // Returned COGS from posted sales returns (Periodicity Principle)
+        $returnedCOGS = SalesReturn::where('status', 'posted')
+            ->whereDate('created_at', '>=', $fromDate)
+            ->whereDate('created_at', '<=', $toDate)
+            ->sum('cost_total');
+
+        // Net COGS
+        return floatval(bcsub((string) $grossCOGS, (string) $returnedCOGS, 4));
     }
 
     /**

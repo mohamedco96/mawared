@@ -7,12 +7,20 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
+/**
+ * TreasuryTransaction Model
+ *
+ * BLIND-04 FIX: Added SoftDeletes to allow transaction reversal/voiding
+ * without losing audit trail. Financial transactions should never be
+ * hard-deleted for compliance purposes.
+ */
 class TreasuryTransaction extends Model
 {
-    use HasFactory, HasUlids, LogsActivity;
+    use HasFactory, HasUlids, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'treasury_id',

@@ -6,15 +6,13 @@ use App\Enums\TransactionType;
 use App\Models\EquityPeriod;
 use App\Models\EquityPeriodPartner;
 use App\Models\Expense;
+use App\Models\InvoicePayment;
 use App\Models\Partner;
-use App\Models\PurchaseInvoice;
-use App\Models\PurchaseReturn;
 use App\Models\Revenue;
 use App\Models\SalesInvoice;
 use App\Models\SalesReturn;
 use App\Models\Treasury;
 use App\Models\TreasuryTransaction;
-use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -34,6 +32,23 @@ class CapitalService
     public function getCurrentPeriod(): ?EquityPeriod
     {
         return EquityPeriod::open()->first();
+    }
+
+    /**
+     * Get the default cash treasury for capital transactions
+     *
+     * BLIND-14 FIX: Proper null handling for treasury selection
+     * @throws \Exception If no cash treasury exists
+     */
+    protected function getDefaultCashTreasury(): Treasury
+    {
+        $treasury = Treasury::where('type', 'cash')->first();
+
+        if (! $treasury) {
+            throw new \Exception('لا توجد خزينة نقدية متاحة. يرجى إنشاء خزينة نقدية أولاً.');
+        }
+
+        return $treasury;
     }
 
     /**
@@ -73,7 +88,9 @@ class CapitalService
 
     /**
      * Get calculated financial summary for a period (without saving)
-     * Returns array with total_revenue, total_expenses, net_profit
+     * Uses proper Accrual Basis Accounting with COGS instead of Purchase Invoices.
+     *
+     * Net Profit = Total Revenue - (COGS + Operating Expenses + Commissions + Discounts Allowed + Salaries + Depreciation)
      */
     public function getFinancialSummary(EquityPeriod $period): array
     {
@@ -81,51 +98,128 @@ class CapitalService
         $startDateTime = $period->start_date->copy();
         $endDateTime = $period->end_date ? $period->end_date->copy() : now();
 
-        // Revenue: Sales - Sales Returns + Other Revenue
+        // ============================================================
+        // REVENUE CALCULATION
+        // ============================================================
+
+        // Sales revenue from posted invoices
         $salesRevenue = SalesInvoice::where('status', 'posted')
             ->whereBetween('created_at', [$startDateTime, $endDateTime])
             ->sum('total');
 
+        // Sales returns reduce revenue (Accrual Basis - matches FinancialReportService)
         $salesReturns = SalesReturn::where('status', 'posted')
             ->whereBetween('created_at', [$startDateTime, $endDateTime])
             ->sum('total');
 
+        // Other revenue (non-sales income)
         $revenueOther = Revenue::whereBetween('revenue_date', [$startDateTime, $endDateTime])
             ->sum('amount');
 
-        $totalRevenue = $salesRevenue - $salesReturns + $revenueOther;
+        $totalRevenue = bcsub(bcadd((string) $salesRevenue, (string) $revenueOther, 4), (string) $salesReturns, 4);
 
-        // Expenses: Purchases - Purchase Returns + Operating Expenses + Manager Salaries + Depreciation
-        $purchases = PurchaseInvoice::where('status', 'posted')
+        // ============================================================
+        // EXPENSE CALCULATION (Accrual Basis with COGS)
+        // ============================================================
+
+        // COGS: Cost of Goods Sold (Gross - Returned)
+        // Gross COGS from posted sales invoices in the period
+        $grossCOGS = SalesInvoice::where('status', 'posted')
             ->whereBetween('created_at', [$startDateTime, $endDateTime])
-            ->sum('total');
+            ->sum('cost_total');
 
-        $purchaseReturns = PurchaseReturn::where('status', 'posted')
+        // Returned COGS from posted sales returns in the period
+        // Uses SalesReturn.created_at (when return happened), not original invoice date
+        $returnedCOGS = SalesReturn::where('status', 'posted')
             ->whereBetween('created_at', [$startDateTime, $endDateTime])
-            ->sum('total');
+            ->sum('cost_total');
 
+        // Net COGS = Gross COGS - Returned COGS (Periodicity Principle)
+        $cogs = bcsub((string) $grossCOGS, (string) $returnedCOGS, 4);
+
+        // Operating expenses from Expense model (exclude non-cash expenses like depreciation)
         $operatingExpenses = Expense::whereBetween('expense_date', [$startDateTime, $endDateTime])
+            ->where('is_non_cash', false)
             ->sum('amount');
+
+        // Commissions paid to salespeople (for consistency with FinancialReportService)
+        $commissionPayouts = TreasuryTransaction::where('type', TransactionType::COMMISSION_PAYOUT->value)
+            ->whereBetween('created_at', [$startDateTime, $endDateTime])
+            ->sum(DB::raw('ABS(amount)')); // Stored as negative, use ABS
+
+        $commissionReversals = TreasuryTransaction::where('type', TransactionType::COMMISSION_REVERSAL->value)
+            ->whereBetween('created_at', [$startDateTime, $endDateTime])
+            ->sum('amount'); // Stored as positive
+
+        $netCommissions = bcsub((string) $commissionPayouts, (string) $commissionReversals, 4);
+
+        // Settlement discounts allowed (payment-time discounts given to customers)
+        // Uses payment_date for consistency with FinancialReportService
+        $discountAllowed = InvoicePayment::whereHasMorph('payable', [SalesInvoice::class])
+            ->whereDate('payment_date', '>=', $startDateTime)
+            ->whereDate('payment_date', '<=', $endDateTime)
+            ->sum('discount');
 
         // Manager salaries (from salary_payment transactions)
         $managerSalaries = TreasuryTransaction::where('type', TransactionType::SALARY_PAYMENT->value)
             ->whereBetween('created_at', [$startDateTime, $endDateTime])
             ->sum(DB::raw('ABS(amount)'));
 
-        // Depreciation expenses
-        $depreciation = TreasuryTransaction::where('type', TransactionType::DEPRECIATION_EXPENSE->value)
-            ->whereBetween('created_at', [$startDateTime, $endDateTime])
-            ->sum(DB::raw('ABS(amount)'));
+        // Depreciation expenses (from Expense model, not Treasury - depreciation is NON-CASH)
+        $depreciation = Expense::where('is_non_cash', true)
+            ->whereNotNull('fixed_asset_id')
+            ->whereBetween('expense_date', [$startDateTime, $endDateTime])
+            ->sum('amount');
 
-        $totalExpenses = $purchases - $purchaseReturns + $operatingExpenses + $managerSalaries + $depreciation;
+        // Total Expenses = COGS + Operating Expenses + Commissions + Discounts + Salaries + Depreciation
+        $totalExpenses = bcadd(
+            bcadd(
+                bcadd(
+                    bcadd(
+                        bcadd((string) $cogs, (string) $operatingExpenses, 4),
+                        (string) $netCommissions,
+                        4
+                    ),
+                    (string) $discountAllowed,
+                    4
+                ),
+                (string) $managerSalaries,
+                4
+            ),
+            (string) $depreciation,
+            4
+        );
 
-        // Calculate net profit
-        $netProfit = $totalRevenue - $totalExpenses;
+        // ============================================================
+        // PROFIT CALCULATION
+        // ============================================================
+
+        $netSales = bcsub((string) $salesRevenue, (string) $salesReturns, 4);
+        $grossProfit = bcsub((string) $netSales, (string) $cogs, 4);
+        
+        // Net Profit = Total Revenue - Total Expenses
+        // Note: Total Revenue includes Other Revenue, while Gross Profit does not.
+        $netProfit = bcsub((string) $totalRevenue, (string) $totalExpenses, 4);
 
         return [
-            'total_revenue' => $totalRevenue,
-            'total_expenses' => $totalExpenses,
-            'net_profit' => $netProfit,
+            // Revenue breakdown
+            'total_revenue' => (float) $totalRevenue,
+            'sales_revenue' => (float) $salesRevenue,
+            'sales_returns' => (float) $salesReturns,
+            'other_revenue' => (float) $revenueOther,
+
+            // Expense breakdown
+            'total_expenses' => (float) $totalExpenses,
+            'cogs' => (float) $cogs,
+            'operating_expenses' => (float) $operatingExpenses,
+            'commissions' => (float) $netCommissions,
+            'discount_allowed' => (float) $discountAllowed,
+            'manager_salaries' => (float) $managerSalaries,
+            'depreciation' => (float) $depreciation,
+
+            // Profit metrics
+            'gross_profit' => (float) $grossProfit,
+            'net_profit' => (float) $netProfit,
         ];
     }
 
@@ -148,6 +242,8 @@ class CapitalService
 
     /**
      * Allocate profit to partners based on locked percentages
+     *
+     * CRITICAL-13 FIX: Uses BC Math for precise profit share calculation
      */
     public function allocateProfitToPartners(EquityPeriod $period): void
     {
@@ -160,18 +256,25 @@ class CapitalService
                 ->with('partner')
                 ->get();
 
+            // Get default treasury with null safety
+            $treasury = Treasury::where('type', 'cash')->first();
+            if (! $treasury) {
+                throw new \Exception('لا يوجد خزينة نقدية. يرجى إنشاء خزينة أولاً.');
+            }
+
             foreach ($periodPartners as $periodPartner) {
                 $partner = $periodPartner->partner;
-                $percentage = floatval($periodPartner->equity_percentage);
 
-                // Calculate profit share
-                $profitShare = $netProfit * ($percentage / 100);
+                // CRITICAL-13 FIX: Use BC Math for profit share calculation
+                // profitShare = netProfit * (percentage / 100)
+                $percentageDecimal = bcdiv((string) $periodPartner->equity_percentage, '100', 6);
+                $profitShare = bcmul((string) $netProfit, $percentageDecimal, 4);
 
                 // Create profit allocation transaction
                 $this->treasuryService->recordTransaction(
-                    Treasury::where('type', 'cash')->first()->id,
+                    $treasury->id,
                     TransactionType::PROFIT_ALLOCATION->value,
-                    (string)$profitShare, // Positive (increases capital)
+                    $profitShare, // Already a string from bcmul
                     "توزيع أرباح - الفترة #{$period->period_number}",
                     $partner->id,
                     EquityPeriod::class,
@@ -179,7 +282,7 @@ class CapitalService
                 );
 
                 // Update partner's current_capital
-                $partner->current_capital = bcadd((string)$partner->current_capital, (string)$profitShare, 4);
+                $partner->current_capital = bcadd((string) $partner->current_capital, $profitShare, 4);
                 $partner->save();
 
                 // Update period partner record
@@ -225,18 +328,28 @@ class CapitalService
 
     /**
      * Inject capital into a partner's account
+     *
+     * BLIND-15 FIX: Added validation to ensure partner is a shareholder
      */
     public function injectCapital(Partner $partner, float $amount, string $type = 'cash', ?array $metadata = null): void
     {
+        // BLIND-15 FIX: Validate partner is a shareholder before capital injection
+        if ($partner->type !== 'shareholder') {
+            throw new \Exception("لا يمكن إضافة رأس مال لغير الشركاء. نوع الشريك: {$partner->type}");
+        }
+
         DB::transaction(function () use ($partner, $amount, $type, $metadata) {
             // Step 1: Record the capital injection
             // For cash contributions, record a treasury transaction
             // For asset contributions, we don't record cash treasury transaction (the asset itself is tracked separately)
             if ($type === 'cash') {
+                // BLIND-14 FIX: Use helper method for safe treasury selection
+                $treasuryId = $metadata['treasury_id'] ?? $this->getDefaultCashTreasury()->id;
+
                 $this->treasuryService->recordTransaction(
-                    $metadata['treasury_id'] ?? Treasury::where('type', 'cash')->first()->id,
+                    $treasuryId,
                     TransactionType::CAPITAL_DEPOSIT->value,
-                    (string)$amount, // Positive (increases capital)
+                    (string) $amount, // Positive (increases capital)
                     $metadata['description'] ?? "Capital injection by {$partner->name}",
                     $partner->id,
                     $metadata['reference_type'] ?? null,
@@ -305,15 +418,22 @@ class CapitalService
 
     /**
      * Record partner drawing (withdrawal)
+     *
+     * BLIND-15 FIX: Added validation to ensure partner is a shareholder
      */
     public function recordDrawing(Partner $partner, float $amount, ?string $description = null): void
     {
+        // BLIND-15 FIX: Validate partner is a shareholder before recording drawing
+        if ($partner->type !== 'shareholder') {
+            throw new \Exception("لا يمكن تسجيل سحب لغير الشركاء. نوع الشريك: {$partner->type}");
+        }
+
         DB::transaction(function () use ($partner, $amount, $description) {
-            // Record transaction
+            // BLIND-14 FIX: Use helper method for safe treasury selection
             $this->treasuryService->recordTransaction(
-                Treasury::where('type', 'cash')->first()->id,
+                $this->getDefaultCashTreasury()->id,
                 TransactionType::PARTNER_DRAWING->value,
-                (string)(-$amount), // Negative (reduces treasury)
+                (string) (-$amount), // Negative (reduces treasury)
                 $description ?? "Partner drawing - {$partner->name}",
                 $partner->id
             );
@@ -339,25 +459,42 @@ class CapitalService
 
     /**
      * Recalculate equity percentages for all shareholders
+     *
+     * CRITICAL-14 FIX: Uses BC Math for precise percentage calculation
+     * BLIND-13 FIX: Added locking to prevent race conditions during recalculation
      */
     public function recalculateEquityPercentages(): array
     {
-        $shareholders = Partner::where('type', 'shareholder')->get();
-        $totalCapital = $shareholders->sum('current_capital');
+        return DB::transaction(function () {
+            // BLIND-13 FIX: Lock all shareholders to prevent concurrent modifications
+            $shareholders = Partner::where('type', 'shareholder')
+                ->lockForUpdate()
+                ->get();
 
-        if ($totalCapital <= 0) {
-            throw new \Exception('Total capital must be positive to calculate percentages');
-        }
+            // Calculate total capital using BC Math
+            $totalCapital = '0';
+            foreach ($shareholders as $partner) {
+                $totalCapital = bcadd($totalCapital, (string) $partner->current_capital, 4);
+            }
 
-        $percentages = [];
-        foreach ($shareholders as $partner) {
-            $percentage = ($partner->current_capital / $totalCapital) * 100;
-            $partner->equity_percentage = $percentage;
-            $partner->save();
-            $percentages[$partner->id] = $percentage;
-        }
+            if (bccomp($totalCapital, '0', 4) <= 0) {
+                throw new \Exception('Total capital must be positive to calculate percentages');
+            }
 
-        return $percentages;
+            $percentages = [];
+            foreach ($shareholders as $partner) {
+                // CRITICAL-14 FIX: Use BC Math for percentage calculation
+                // percentage = (current_capital / totalCapital) * 100
+                $ratio = bcdiv((string) $partner->current_capital, $totalCapital, 6);
+                $percentage = bcmul($ratio, '100', 4);
+
+                $partner->equity_percentage = $percentage;
+                $partner->save();
+                $percentages[$partner->id] = (float) $percentage;
+            }
+
+            return $percentages;
+        });
     }
 
     /**
