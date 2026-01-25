@@ -64,7 +64,7 @@ class ViewQuotation extends ViewRecord
                 ->label('إرسال عبر واتساب')
                 ->icon('heroicon-o-chat-bubble-left-right')
                 ->color('success')
-                ->url(fn () => $this->record->getWhatsAppUrl())
+                ->url(fn () => $this->record->getWhatsAppUrl($this->record->customer_phone))
                 ->openUrlInNewTab()
                 ->visible(fn () => $this->record->status !== 'converted'),
 
@@ -250,6 +250,8 @@ class ViewQuotation extends ViewRecord
 
             Actions\EditAction::make()
                 ->visible(fn () => $this->record->canBeEdited()),
+            Actions\DeleteAction::make()
+                ->visible(fn () => !$this->record->hasAssociatedRecords()),
         ];
     }
 }

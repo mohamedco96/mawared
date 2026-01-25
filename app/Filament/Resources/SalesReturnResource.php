@@ -516,6 +516,7 @@ class SalesReturnResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->action(function (SalesReturn $record) {
+                        $record->load(['items.product']);
                         if ($record->items()->count() === 0) {
                             Notification::make()
                                 ->danger()
@@ -554,6 +555,7 @@ class SalesReturnResource extends Resource
                     ->visible(fn (SalesReturn $record) => $record->isDraft()),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\DeleteAction::make()
+                    ->visible(fn (SalesReturn $record) => !$record->hasAssociatedRecords())
                     ->before(function (Tables\Actions\DeleteAction $action, SalesReturn $record) {
                         if ($record->hasAssociatedRecords()) {
                             Notification::make()
@@ -607,6 +609,7 @@ class SalesReturnResource extends Resource
         return [
             'index' => Pages\ListSalesReturns::route('/'),
             'create' => Pages\CreateSalesReturn::route('/create'),
+            'view' => Pages\ViewSalesReturn::route('/{record}'),
             'edit' => Pages\EditSalesReturn::route('/{record}/edit'),
         ];
     }

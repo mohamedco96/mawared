@@ -10,11 +10,25 @@ use Illuminate\Support\Facades\DB;
 class EditSalesReturn extends EditRecord
 {
     protected static string $resource = SalesReturnResource::class;
+    
+    protected function beforeSave(): void
+    {
+        if ($this->getRecord()->isPosted()) {
+            \Filament\Notifications\Notification::make()
+                ->warning()
+                ->title('لا يمكن تعديل المرتجع المؤكد')
+                ->body('نأسف، لا يمكن تعديل بيانات المرتجع بعد تأكيده')
+                ->send();
+
+            $this->halt();
+        }
+    }
 
     protected function getHeaderActions(): array
     {
         return [
             Actions\DeleteAction::make()
+                ->visible(fn () => !$this->getRecord()->hasAssociatedRecords())
                 ->before(function (Actions\DeleteAction $action) {
                     if ($this->getRecord()->hasAssociatedRecords()) {
                         \Filament\Notifications\Notification::make()
@@ -201,6 +215,7 @@ class EditSalesReturn extends EditRecord
                 ]);
 
                 // Also check product stock levels to see if they were rolled back
+                $record->load('items.product');
                 foreach ($record->items as $item) {
                     $product = $item->product;
                     $currentStock = app(\App\Services\StockService::class)->getCurrentStock($record->warehouse_id, $product->id);
@@ -239,8 +254,8 @@ class EditSalesReturn extends EditRecord
                     ->persistent()
                     ->send();
 
-                // Re-throw to prevent the page from showing success
-                throw $e;
+                // Re-throw to prevent the page from showing success (REMOVED to show toast instead of error page)
+                // throw $e;
             }
         }
     }

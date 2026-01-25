@@ -284,9 +284,11 @@ class WarehouseTransferResource extends Resource
                         }
                     })
                     ->visible(fn (WarehouseTransfer $record) => ! $record->stockMovements()->exists()),
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->visible(fn (WarehouseTransfer $record) => ! $record->stockMovements()->exists()),
                 Tables\Actions\ViewAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn (WarehouseTransfer $record) => !$record->stockMovements()->exists()),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -301,6 +303,7 @@ class WarehouseTransferResource extends Resource
         return [
             'index' => Pages\ListWarehouseTransfers::route('/'),
             'create' => Pages\CreateWarehouseTransfer::route('/create'),
+            'view' => Pages\ViewWarehouseTransfer::route('/{record}'),
             'edit' => Pages\EditWarehouseTransfer::route('/{record}/edit'),
         ];
     }

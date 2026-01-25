@@ -21,6 +21,8 @@ use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use App\Models\SalesReturn;
+use App\Models\SalesReturnItem;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -709,6 +711,11 @@ class SalesInvoiceResource extends Resource
                                                 Forms\Components\Toggle::make('has_installment_plan')
                                                     ->label('تفعيل خطة التقسيط للمبلغ المتبقي')
                                                     ->default(false)
+                                                    ->afterStateHydrated(function ($state, Set $set, $record) {
+                                                        if ($record && $record->installments()->exists()) {
+                                                            $set('has_installment_plan', true);
+                                                        }
+                                                    })
                                                     ->live()
                                                     ->afterStateUpdated(function ($state, Set $set) {
                                                         if (! $state) {
@@ -904,9 +911,9 @@ class SalesInvoiceResource extends Resource
                     ->label('المخزن')
                     ->sortable()
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('returns_count')
+                Tables\Columns\TextColumn::make('posted_returns_count')
                     ->label('المرتجعات')
-                    ->counts('returns')
+                    ->counts('postedReturns')
                     ->badge()
                     ->color(fn ($state) => $state > 0 ? 'warning' : 'gray')
                     ->formatStateUsing(fn ($state) => $state > 0 ? $state : '—')
@@ -1314,11 +1321,60 @@ class SalesInvoiceResource extends Resource
                         ! $record->commission_paid &&
                         $record->commission_amount > 0
                     ),
+                Tables\Actions\Action::make('create_return')
+                    ->label('إنشاء مرتجع')
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('warning')
+                    ->visible(fn (SalesInvoice $record) => $record->isPosted() && !$record->isPostedFullyReturned())
+                    ->requiresConfirmation()
+                    ->modalHeading('إنشاء مرتجع مبيعات')
+                    ->modalDescription(fn (SalesInvoice $record) => $record->returns()->where('status', 'draft')->exists()
+                        ? '⚠️ تنبيه: توجد مسودات مرتجعات سابقة لهذه الفاتورة. هل تريد إنشاء مسودة جديدة على أي حال؟ (سيتم تحميل الكميات المتبقية فقط)'
+                        : 'سيتم إنشاء مسودة مرتجع بناءً على هذه الفاتورة. هل أنت متأكد؟')
+                    ->action(function (SalesInvoice $record) {
+                        return DB::transaction(function () use ($record) {
+                            $return = SalesReturn::create([
+                                'return_number' => 'RET-SALE-' . now()->format('Ymd') . '-' . Str::random(6),
+                                'warehouse_id' => $record->warehouse_id,
+                                'partner_id' => $record->partner_id,
+                                'sales_invoice_id' => $record->id,
+                                'status' => 'draft',
+                                'payment_method' => $record->payment_method,
+                                'subtotal' => $record->subtotal,
+                                'discount' => $record->discount,
+                                'total' => $record->total,
+                                'notes' => 'مرتجع من الفاتورة: ' . $record->invoice_number,
+                                'created_by' => auth()->id(),
+                            ]);
 
+                            foreach ($record->items as $item) {
+                                $availableQty = $record->getAvailableReturnQuantity($item->product_id, $item->unit_type);
+                                if ($availableQty > 0) {
+                                    SalesReturnItem::create([
+                                        'sales_return_id' => $return->id,
+                                        'product_id' => $item->product_id,
+                                        'unit_type' => $item->unit_type,
+                                        'quantity' => $availableQty,
+                                        'unit_price' => $item->unit_price,
+                                        'discount' => $item->discount,
+                                        'total' => $item->unit_price * $availableQty,
+                                    ]);
+                                }
+                            }
+
+                            Notification::make()
+                                ->success()
+                                ->title('تم إنشاء مسودة المرتجع')
+                                ->send();
+
+                            return redirect()->route('filament.admin.resources.sales-returns.edit', ['record' => $return->id]);
+                        });
+                    }),
+                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make()
                     ->visible(fn (SalesInvoice $record) => $record->isDraft()),
                 Tables\Actions\ReplicateAction::make()
-                    ->excludeAttributes(['invoice_number', 'status', 'payments_sum_amount', 'returns_count'])
+                    ->excludeAttributes(['invoice_number', 'status', 'payments_sum_amount', 'posted_returns_count'])
                     ->beforeReplicaSaved(function ($replica) {
                         $replica->invoice_number = 'SI-'.now()->format('Ymd').'-'.\Illuminate\Support\Str::random(6);
                         $replica->status = 'draft';
@@ -1338,6 +1394,7 @@ class SalesInvoiceResource extends Resource
                         }
                     }),
                 Tables\Actions\DeleteAction::make()
+                    ->visible(fn (SalesInvoice $record) => !$record->hasAssociatedRecords())
                     ->before(function (Tables\Actions\DeleteAction $action, SalesInvoice $record) {
                         if ($record->hasAssociatedRecords()) {
                             Notification::make()
@@ -1453,6 +1510,7 @@ class SalesInvoiceResource extends Resource
         return [
             'index' => Pages\ListSalesInvoices::route('/'),
             'create' => Pages\CreateSalesInvoice::route('/create'),
+            'view' => Pages\ViewSalesInvoice::route('/{record}'),
             'edit' => Pages\EditSalesInvoice::route('/{record}/edit'),
         ];
     }

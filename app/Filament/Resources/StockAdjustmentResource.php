@@ -326,6 +326,7 @@ class StockAdjustmentResource extends Resource
                     ->visible(fn (StockAdjustment $record) => $record->isDraft()),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\DeleteAction::make()
+                    ->visible(fn (StockAdjustment $record) => !$record->hasAssociatedRecords())
                     ->before(function (Tables\Actions\DeleteAction $action, StockAdjustment $record) {
                         if ($record->hasAssociatedRecords()) {
                             Notification::make()
@@ -380,6 +381,7 @@ class StockAdjustmentResource extends Resource
         return [
             'index' => Pages\ListStockAdjustments::route('/'),
             'create' => Pages\CreateStockAdjustment::route('/create'),
+            'view' => Pages\ViewStockAdjustment::route('/{record}'),
             'edit' => Pages\EditStockAdjustment::route('/{record}/edit'),
         ];
     }

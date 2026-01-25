@@ -22,44 +22,56 @@ class EditSalesInvoice extends EditRecord
                 ->label('إنشاء مرتجع')
                 ->icon('heroicon-o-arrow-uturn-left')
                 ->color('warning')
-                ->visible(fn () => $this->record->isPosted())
+                ->visible(fn () => $this->record->isPosted() && !$this->record->isPostedFullyReturned())
+                ->requiresConfirmation()
+                ->modalHeading('إنشاء مرتجع مبيعات')
+                ->modalDescription(fn () => $this->record->returns()->where('status', 'draft')->exists()
+                    ? '⚠️ تنبيه: توجد مسودات مرتجعات سابقة لهذه الفاتورة. هل تريد إنشاء مسودة جديدة على أي حال؟ (سيتم تحميل الكميات المتبقية فقط)'
+                    : 'سيتم إنشاء مسودة مرتجع بناءً على هذه الفاتورة. هل أنت متأكد؟')
                 ->action(function () {
-                    // Create a new sales return based on this invoice
-                    $invoice = $this->record;
+                    return DB::transaction(function () {
+                        $invoice = $this->record;
 
-                    $return = SalesReturn::create([
-                        'return_number' => 'RET-SALE-' . now()->format('Ymd') . '-' . Str::random(6),
-                        'warehouse_id' => $invoice->warehouse_id,
-                        'partner_id' => $invoice->partner_id,
-                        'sales_invoice_id' => $invoice->id,
-                        'status' => 'draft',
-                        'payment_method' => $invoice->payment_method,
-                        'subtotal' => $invoice->subtotal,
-                        'discount' => $invoice->discount,
-                        'total' => $invoice->total,
-                        'notes' => 'مرتجع من الفاتورة: ' . $invoice->invoice_number,
-                        'created_by' => auth()->id(),
-                    ]);
-
-                    // Replicate items
-                    foreach ($invoice->items as $item) {
-                        SalesReturnItem::create([
-                            'sales_return_id' => $return->id,
-                            'product_id' => $item->product_id,
-                            'unit_type' => $item->unit_type,
-                            'quantity' => $item->quantity,
-                            'unit_price' => $item->unit_price,
-                            'discount' => $item->discount,
-                            'total' => $item->total,
+                        $return = SalesReturn::create([
+                            'return_number' => 'RET-SALE-' . now()->format('Ymd') . '-' . Str::random(6),
+                            'warehouse_id' => $invoice->warehouse_id,
+                            'partner_id' => $invoice->partner_id,
+                            'sales_invoice_id' => $invoice->id,
+                            'status' => 'draft',
+                            'payment_method' => $invoice->payment_method,
+                            'subtotal' => $invoice->subtotal,
+                            'discount' => $invoice->discount,
+                            'total' => $invoice->total,
+                            'notes' => 'مرتجع من الفاتورة: ' . $invoice->invoice_number,
+                            'created_by' => auth()->id(),
                         ]);
-                    }
 
-                    // Redirect to edit the return
-                    return redirect()->route('filament.admin.resources.sales-returns.edit', ['record' => $return->id]);
+                        foreach ($invoice->items as $item) {
+                            $availableQty = $invoice->getAvailableReturnQuantity($item->product_id, $item->unit_type);
+                            if ($availableQty > 0) {
+                                SalesReturnItem::create([
+                                    'sales_return_id' => $return->id,
+                                    'product_id' => $item->product_id,
+                                    'unit_type' => $item->unit_type,
+                                    'quantity' => $availableQty,
+                                    'unit_price' => $item->unit_price,
+                                    'discount' => $item->discount,
+                                    'total' => $item->unit_price * $availableQty,
+                                ]);
+                            }
+                        }
+
+                        Notification::make()
+                            ->success()
+                            ->title('تم إنشاء مسودة المرتجع')
+                            ->send();
+
+                        return redirect()->route('filament.admin.resources.sales-returns.edit', ['record' => $return->id]);
+                    });
                 }),
 
             Actions\DeleteAction::make()
-                ->hidden(fn () => $this->record->isPosted())
+                ->visible(fn () => !$this->getRecord()->hasAssociatedRecords())
                 ->before(function (Actions\DeleteAction $action) {
                     if ($this->getRecord()->hasAssociatedRecords()) {
                         Notification::make()
@@ -72,6 +84,19 @@ class EditSalesInvoice extends EditRecord
                     }
                 }),
         ];
+    }
+
+    protected function beforeSave(): void
+    {
+        if ($this->getRecord()->isPosted()) {
+            Notification::make()
+                ->warning()
+                ->title('لا يمكن تعديل فاتورة مؤكدة')
+                ->body('يرجى استخدام المرتجعات للتعديل على الفواتير المؤكدة')
+                ->send();
+
+            $this->halt();
+        }
     }
 
     protected function mutateFormDataBeforeSave(array $data): array
@@ -197,8 +222,8 @@ class EditSalesInvoice extends EditRecord
                     ->persistent()
                     ->send();
 
-                // Re-throw to prevent the page from showing success
-                throw $e;
+                // Re-throw to prevent the page from showing success (REMOVED to show toast instead of error page)
+                // throw $e;
             }
         }
     }

@@ -6,12 +6,27 @@ use App\Filament\Resources\PurchaseInvoiceResource;
 use App\Models\PurchaseReturn;
 use App\Models\PurchaseReturnItem;
 use Filament\Actions;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class EditPurchaseInvoice extends EditRecord
 {
     protected static string $resource = PurchaseInvoiceResource::class;
+
+    protected function beforeSave(): void
+    {
+        if ($this->getRecord()->isPosted()) {
+            Notification::make()
+                ->warning()
+                ->title('لا يمكن تعديل فاتورة مؤكدة')
+                ->body('نأسف، لا يمكن تعديل الفاتورة بعد الترحيل')
+                ->send();
+
+            $this->halt();
+        }
+    }
 
     protected function getHeaderActions(): array
     {
@@ -20,43 +35,56 @@ class EditPurchaseInvoice extends EditRecord
                 ->label('إنشاء مرتجع')
                 ->icon('heroicon-o-arrow-uturn-left')
                 ->color('warning')
-                ->visible(fn () => $this->record->isPosted())
+                ->visible(fn () => $this->record->isPosted() && !$this->record->isPostedFullyReturned())
+                ->requiresConfirmation()
+                ->modalHeading('إنشاء مرتجع مشتريات')
+                ->modalDescription(fn () => $this->record->returns()->where('status', 'draft')->exists()
+                    ? '⚠️ تنبيه: توجد مسودات مرتجعات سابقة لهذه الفاتورة. هل تريد إنشاء مسودة جديدة على أي حال؟ (سيتم تحميل الكميات المتبقية فقط)'
+                    : 'سيتم إنشاء مسودة مرتجع بناءً على هذه الفاتورة. هل أنت متأكد؟')
                 ->action(function () {
-                    // Create a new purchase return based on this invoice
-                    $invoice = $this->record;
+                    return DB::transaction(function () {
+                        $invoice = $this->record;
 
-                    $return = PurchaseReturn::create([
-                        'return_number' => 'RET-PURCHASE-' . now()->format('Ymd') . '-' . Str::random(6),
-                        'warehouse_id' => $invoice->warehouse_id,
-                        'partner_id' => $invoice->partner_id,
-                        'purchase_invoice_id' => $invoice->id,
-                        'status' => 'draft',
-                        'payment_method' => $invoice->payment_method,
-                        'subtotal' => $invoice->subtotal,
-                        'discount' => $invoice->discount,
-                        'total' => $invoice->total,
-                        'notes' => 'مرتجع من الفاتورة: ' . $invoice->invoice_number,
-                        'created_by' => auth()->id(),
-                    ]);
-
-                    // Replicate items (using unit_cost instead of unit_price)
-                    foreach ($invoice->items as $item) {
-                        PurchaseReturnItem::create([
-                            'purchase_return_id' => $return->id,
-                            'product_id' => $item->product_id,
-                            'unit_type' => $item->unit_type,
-                            'quantity' => $item->quantity,
-                            'unit_cost' => $item->unit_cost,
-                            'discount' => $item->discount,
-                            'total' => $item->total,
+                        $return = PurchaseReturn::create([
+                            'return_number' => 'RET-PURCHASE-' . now()->format('Ymd') . '-' . Str::random(6),
+                            'warehouse_id' => $invoice->warehouse_id,
+                            'partner_id' => $invoice->partner_id,
+                            'purchase_invoice_id' => $invoice->id,
+                            'status' => 'draft',
+                            'payment_method' => $invoice->payment_method,
+                            'subtotal' => $invoice->subtotal,
+                            'discount' => $invoice->discount,
+                            'total' => $invoice->total,
+                            'notes' => 'مرتجع من الفاتورة: ' . $invoice->invoice_number,
+                            'created_by' => auth()->id(),
                         ]);
-                    }
 
-                    // Redirect to edit the return
-                    return redirect()->route('filament.admin.resources.purchase-returns.edit', ['record' => $return->id]);
+                        foreach ($invoice->items as $item) {
+                            $availableQty = $invoice->getAvailableReturnQuantity($item->product_id, $item->unit_type);
+                            if ($availableQty > 0) {
+                                PurchaseReturnItem::create([
+                                    'purchase_return_id' => $return->id,
+                                    'product_id' => $item->product_id,
+                                    'unit_type' => $item->unit_type,
+                                    'quantity' => $availableQty,
+                                    'unit_cost' => $item->unit_cost,
+                                    'discount' => $item->discount,
+                                    'total' => $item->unit_cost * $availableQty,
+                                ]);
+                            }
+                        }
+
+                        Notification::make()
+                            ->success()
+                            ->title('تم إنشاء مسودة المرتجع')
+                            ->send();
+
+                        return redirect()->route('filament.admin.resources.purchase-returns.edit', ['record' => $return->id]);
+                    });
                 }),
 
             Actions\DeleteAction::make()
+                ->visible(fn () => !$this->getRecord()->hasAssociatedRecords())
                 ->before(function (Actions\DeleteAction $action) {
                     if ($this->getRecord()->hasAssociatedRecords()) {
                         \Filament\Notifications\Notification::make()
@@ -175,8 +203,8 @@ class EditPurchaseInvoice extends EditRecord
                     ->persistent()
                     ->send();
 
-                // Re-throw to prevent the page from showing success
-                throw $e;
+                // Re-throw to prevent the page from showing success (REMOVED to show toast instead of error page)
+                // throw $e;
             }
         }
     }

@@ -566,6 +566,7 @@ class PurchaseReturnResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->action(function (PurchaseReturn $record) {
+                        $record->load(['items.product']);
                         if ($record->items()->count() === 0) {
                             Notification::make()
                                 ->danger()
@@ -604,6 +605,7 @@ class PurchaseReturnResource extends Resource
                     ->visible(fn (PurchaseReturn $record) => $record->isDraft()),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\DeleteAction::make()
+                    ->visible(fn (PurchaseReturn $record) => !$record->hasAssociatedRecords())
                     ->before(function (Tables\Actions\DeleteAction $action, PurchaseReturn $record) {
                         if ($record->hasAssociatedRecords()) {
                             Notification::make()
@@ -657,6 +659,7 @@ class PurchaseReturnResource extends Resource
         return [
             'index' => Pages\ListPurchaseReturns::route('/'),
             'create' => Pages\CreatePurchaseReturn::route('/create'),
+            'view' => Pages\ViewPurchaseReturn::route('/{record}'),
             'edit' => Pages\EditPurchaseReturn::route('/{record}/edit'),
         ];
     }

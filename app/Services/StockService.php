@@ -461,9 +461,11 @@ class StockService
             throw new \Exception('المرتجع ليس في حالة مسودة');
         }
 
+        $return->load('items.product');
+
         // Validate return quantities if linked to an invoice
         if ($return->sales_invoice_id) {
-            $invoice = SalesInvoice::with(['items', 'returns.items'])->find($return->sales_invoice_id);
+            $invoice = SalesInvoice::with(['items.product', 'returns.items.product'])->find($return->sales_invoice_id);
 
             if ($invoice) {
                 // Check if adding this return would exceed the invoice total
@@ -530,9 +532,11 @@ class StockService
             throw new \Exception('المرتجع ليس في حالة مسودة');
         }
 
+        $return->load('items.product');
+
         // Validate return quantities if linked to an invoice
         if ($return->purchase_invoice_id) {
-            $invoice = PurchaseInvoice::with(['items', 'returns.items'])->find($return->purchase_invoice_id);
+            $invoice = PurchaseInvoice::with(['items.product', 'returns.items.product'])->find($return->purchase_invoice_id);
 
             if ($invoice) {
                 // Check if adding this return would exceed the invoice total

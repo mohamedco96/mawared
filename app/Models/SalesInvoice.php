@@ -110,6 +110,11 @@ class SalesInvoice extends Model
         return $this->hasMany(SalesReturn::class, 'sales_invoice_id');
     }
 
+    public function postedReturns(): HasMany
+    {
+        return $this->returns()->where('status', 'posted');
+    }
+
     public function salesperson(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sales_person_id');
@@ -243,13 +248,27 @@ class SalesInvoice extends Model
     }
 
     /**
+     * Check if invoice is fully returned (only counting confirmed returns)
+     */
+    public function isPostedFullyReturned(): bool
+    {
+        if (!$this->relationLoaded('postedReturns')) {
+            $this->loadSum('postedReturns', 'total');
+        }
+
+        $returnsTotal = floatval($this->posted_returns_sum_total ?? 0);
+
+        return bccomp((string) $returnsTotal, (string) $this->total, 4) >= 0;
+    }
+
+    /**
      * Get total quantity returned for a specific product and unit type
      */
     public function getReturnedQuantity(string $productId, string $unitType): int
     {
         return $this->returns()
             ->where('status', 'posted')
-            ->with('items')
+            ->with('items.product')
             ->get()
             ->flatMap(function ($return) {
                 return $return->items;

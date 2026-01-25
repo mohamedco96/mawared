@@ -127,11 +127,51 @@ class TreasuryResource extends Resource
             ], layout: FiltersLayout::Dropdown)
             ->actions([
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->before(function (Tables\Actions\DeleteAction $action, Treasury $record) {
+                        if ($record->hasAssociatedRecords()) {
+                            \Filament\Notifications\Notification::make()
+                                ->danger()
+                                ->title('لا يمكن حذف الخزينة')
+                                ->body('لا يمكن حذف الخزينة لوجود معاملات مالية أو مصروفات أو إيرادات أو أصول ثابتة مرتبطة بها.')
+                                ->send();
+
+                            $action->halt();
+                        }
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $skippedCount = 0;
+                            $deletedCount = 0;
+
+                            $records->each(function (Treasury $record) use (&$skippedCount, &$deletedCount) {
+                                if ($record->hasAssociatedRecords()) {
+                                    $skippedCount++;
+                                } else {
+                                    $record->delete();
+                                    $deletedCount++;
+                                }
+                            });
+
+                            if ($deletedCount > 0) {
+                                \Filament\Notifications\Notification::make()
+                                    ->success()
+                                    ->title('تم الحذف بنجاح')
+                                    ->body("تم حذف {$deletedCount} خزينة")
+                                    ->send();
+                            }
+
+                            if ($skippedCount > 0) {
+                                \Filament\Notifications\Notification::make()
+                                    ->warning()
+                                    ->title('تم تخطي بعض السجلات')
+                                    ->body("لم يتم حذف {$skippedCount} خزينة لوجود سجلات مرتبطة")
+                                    ->send();
+                            }
+                        }),
                 ]),
             ]);
     }

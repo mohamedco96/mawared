@@ -111,21 +111,33 @@ class Quotation extends Model
         return route('quotations.public', $this->public_token);
     }
 
-    public function getWhatsAppUrl(): string
+    public function getWhatsAppUrl(?string $targetPhone = null): string
     {
-        $companySettings = app(CompanySettings::class);
-        $phone = $companySettings->company_phone;
+        $isToCustomer = !empty($targetPhone);
 
-        // Clean phone number (remove spaces, dashes, etc.)
-        $phone = preg_replace('/[^0-9]/', '', $phone);
-
-        // Ensure international format (add country code if needed)
-        if (!str_starts_with($phone, '20')) {
-            $phone = '20' . ltrim($phone, '0');
+        // Default to company phone if no target specified (used for public page)
+        if (!$targetPhone) {
+            $companySettings = app(CompanySettings::class);
+            $targetPhone = $companySettings->company_phone;
         }
 
-        $message = "السلام عليكم، أرغب في الاستفسار عن عرض السعر رقم: {$this->quotation_number}\n\n";
-        $message .= "رابط العرض: {$this->getPublicUrl()}";
+        // Clean phone number (remove spaces, dashes, etc.)
+        $phone = preg_replace('/[^0-9]/', '', $targetPhone);
+
+        // Ensure international format (add country code if needed)
+        if (strlen($phone) === 11 && str_starts_with($phone, '01')) {
+            $phone = '20' . ltrim($phone, '0');
+        } elseif (strlen($phone) === 10 && !str_starts_with($phone, '20')) {
+             $phone = '20' . $phone;
+        }
+
+        if ($isToCustomer) {
+            $message = "السلام عليكم، عرض السعر الخاص بكم رقم: {$this->quotation_number}\n\n";
+            $message .= "رابط العرض: {$this->getPublicUrl()}";
+        } else {
+            $message = "السلام عليكم، أرغب في الاستفسار عن عرض السعر رقم: {$this->quotation_number}\n\n";
+            $message .= "رابط العرض: {$this->getPublicUrl()}";
+        }
 
         return "https://wa.me/{$phone}?text=" . urlencode($message);
     }
@@ -158,7 +170,7 @@ class Quotation extends Model
 
     public function hasAssociatedRecords(): bool
     {
-        return $this->status === 'converted' || $this->converted_invoice_id !== null;
+        return in_array($this->status, ['converted', 'accepted']) || $this->converted_invoice_id !== null;
     }
 
     // Model Events
@@ -192,7 +204,7 @@ class Quotation extends Model
 
         static::deleting(function (Quotation $quotation) {
             if ($quotation->hasAssociatedRecords()) {
-                throw new \Exception('لا يمكن حذف عرض سعر محول إلى فاتورة');
+                throw new \Exception('لا يمكن حذف عرض سعر مقبول أو محول إلى فاتورة');
             }
         });
     }

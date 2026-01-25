@@ -9,11 +9,25 @@ use Filament\Resources\Pages\EditRecord;
 class EditQuotation extends EditRecord
 {
     protected static string $resource = QuotationResource::class;
+    
+    protected function beforeSave(): void
+    {
+        if ($this->getRecord()->status === 'converted') {
+            \Filament\Notifications\Notification::make()
+                ->warning()
+                ->title('لا يمكن تعديل عرض السعر')
+                ->body('عرض السعر تم تحويله إلى فاتورة ولا يمكن تعديله')
+                ->send();
+
+            $this->halt();
+        }
+    }
 
     protected function getHeaderActions(): array
     {
         return [
             Actions\DeleteAction::make()
+                ->visible(fn () => !$this->getRecord()->hasAssociatedRecords())
                 ->before(function (Actions\DeleteAction $action) {
                     if ($this->getRecord()->hasAssociatedRecords()) {
                         \Filament\Notifications\Notification::make()

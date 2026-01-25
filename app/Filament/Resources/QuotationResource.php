@@ -10,6 +10,7 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Enums\FiltersLayout;
@@ -557,12 +558,13 @@ class QuotationResource extends Resource
                 Tables\Actions\EditAction::make()
                     ->visible(fn (Quotation $record) => $record->canBeEdited()),
                 Tables\Actions\DeleteAction::make()
+                    ->visible(fn (Quotation $record) => !$record->hasAssociatedRecords())
                     ->before(function (Tables\Actions\DeleteAction $action, Quotation $record) {
                         if ($record->hasAssociatedRecords()) {
                             Notification::make()
                                 ->danger()
                                 ->title('لا يمكن الحذف')
-                                ->body('لا يمكن حذف عرض السعر لأنه محول إلى فاتورة.')
+                                ->body('لا يمكن حذف عرض السعر لأنه مقبول أو محول إلى فاتورة.')
                                 ->send();
 
                             $action->halt();
@@ -597,7 +599,7 @@ class QuotationResource extends Resource
                                 Notification::make()
                                     ->warning()
                                     ->title('تم تخطي بعض السجلات')
-                                    ->body("لم يتم حذف {$skippedCount} عرض سعر لكونها محولة إلى فواتير")
+                                    ->body("لم يتم حذف {$skippedCount} عرض سعر لكونها مقبولة أو محولة إلى فواتير")
                                     ->send();
                             }
                         }),

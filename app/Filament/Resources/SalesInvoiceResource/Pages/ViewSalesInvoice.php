@@ -8,7 +8,10 @@ use Filament\Actions;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
+use App\Models\SalesReturn;
+use App\Models\SalesReturnItem;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class ViewSalesInvoice extends ViewRecord
 {
@@ -100,6 +103,52 @@ class ViewSalesInvoice extends ViewRecord
                 ->color('success'),
             Actions\EditAction::make()
                 ->visible(fn () => $this->record->isDraft()),
+            Actions\DeleteAction::make()
+                ->visible(fn () => !$this->record->hasAssociatedRecords()),
+            Actions\Action::make('create_return')
+                ->label('إنشاء مرتجع')
+                ->icon('heroicon-o-arrow-uturn-left')
+                ->color('warning')
+                ->visible(fn (SalesInvoice $record) => $record->isPosted() && !$record->isPostedFullyReturned())
+                ->requiresConfirmation()
+                ->modalHeading('إنشاء مرتجع مبيعات')
+                ->modalDescription(fn (SalesInvoice $record) => $record->returns()->where('status', 'draft')->exists()
+                    ? '⚠️ تنبيه: توجد مسودات مرتجعات سابقة لهذه الفاتورة. هل تريد إنشاء مسودة جديدة على أي حال؟ (سيتم تحميل الكميات المتبقية فقط)'
+                    : 'سيتم إنشاء مسودة مرتجع بناءً على هذه الفاتورة. هل أنت متأكد؟')
+                ->action(function (SalesInvoice $record) {
+                    return DB::transaction(function () use ($record) {
+                        $return = SalesReturn::create([
+                            'return_number' => 'RET-SALE-' . now()->format('Ymd') . '-' . Str::random(6),
+                            'warehouse_id' => $record->warehouse_id,
+                            'partner_id' => $record->partner_id,
+                            'sales_invoice_id' => $record->id,
+                            'status' => 'draft',
+                            'payment_method' => $record->payment_method,
+                            'subtotal' => $record->subtotal,
+                            'discount' => $record->discount,
+                            'total' => $record->total,
+                            'notes' => 'مرتجع من الفاتورة: ' . $record->invoice_number,
+                            'created_by' => auth()->id(),
+                        ]);
+
+                        foreach ($record->items as $item) {
+                            $availableQty = $record->getAvailableReturnQuantity($item->product_id, $item->unit_type);
+                            if ($availableQty > 0) {
+                                SalesReturnItem::create([
+                                    'sales_return_id' => $return->id,
+                                    'product_id' => $item->product_id,
+                                    'unit_type' => $item->unit_type,
+                                    'quantity' => $availableQty,
+                                    'unit_price' => $item->unit_price,
+                                    'discount' => $item->discount,
+                                    'total' => $item->unit_price * $availableQty,
+                                ]);
+                            }
+                        }
+
+                        return redirect()->route('filament.admin.resources.sales-returns.edit', ['record' => $return->id]);
+                    });
+                }),
         ];
     }
 }

@@ -33,9 +33,35 @@ class Treasury extends Model
         return $this->hasMany(Revenue::class);
     }
 
+    public function fixedAssets(): HasMany
+    {
+        return $this->hasMany(FixedAsset::class);
+    }
+
     // Accessors
     public function getBalanceAttribute(): float
     {
         return (float) $this->treasuryTransactions()->sum('amount');
+    }
+
+    /**
+     * Check if this treasury has any associated records that prevent deletion
+     */
+    public function hasAssociatedRecords(): bool
+    {
+        return $this->treasuryTransactions()->exists() ||
+            $this->expenses()->exists() ||
+            $this->revenues()->exists() ||
+            $this->fixedAssets()->exists();
+    }
+
+    // Model Events
+    protected static function booted(): void
+    {
+        static::deleting(function (Treasury $treasury) {
+            if ($treasury->hasAssociatedRecords()) {
+                throw new \Exception('لا يمكن حذف الخزينة لوجود معاملات مالية أو مصروفات أو إيرادات أو أصول ثابتة مرتبطة بها.');
+            }
+        });
     }
 }

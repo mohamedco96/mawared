@@ -124,8 +124,7 @@ class CollectPayments extends Page implements HasTable
                     ->sortable(),
                 Tables\Columns\TextColumn::make('days_overdue')
                     ->label('أيام التأخير')
-                    ->state(fn (SalesInvoice $record) => now()->diffInDays($record->created_at)
-                    )
+                    ->state(fn (SalesInvoice $record) => (int) max(0, $record->created_at->diffInDays(now(), false)))
                     ->badge()
                     ->color(fn ($state) => match (true) {
                         $state > 30 => 'danger',

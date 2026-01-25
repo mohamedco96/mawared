@@ -66,8 +66,10 @@ class Installment extends Model
 
         static::deleting(function (Installment $installment) {
             if ($installment->hasAssociatedRecords()) {
-                throw new \Exception('لا يمكن حذف قسط تم دفع مبلغ منه أو مرتبط بعملية دفع');
+                throw new \Exception('لا يمكن حذف قسط تم دفع مبلغ منه');
             }
+
+            throw new \Exception('لا يمكن حذف سجلات الأقساط. الأقساط مرتبطة بالفواتير ولا يمكن حذفها بشكل فردي.');
         });
     }
 

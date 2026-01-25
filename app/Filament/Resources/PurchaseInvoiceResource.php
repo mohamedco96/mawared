@@ -21,6 +21,8 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
+use App\Models\PurchaseReturn;
+use App\Models\PurchaseReturnItem;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -930,6 +932,55 @@ class PurchaseInvoiceResource extends Resource
                     ->visible(fn (PurchaseInvoice $record) => $record->isPosted() &&
                         ! $record->isFullyPaid()
                     ),
+                Tables\Actions\Action::make('create_return')
+                    ->label('إنشاء مرتجع')
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('warning')
+                    ->visible(fn (PurchaseInvoice $record) => $record->isPosted() && !$record->isPostedFullyReturned())
+                    ->requiresConfirmation()
+                    ->modalHeading('إنشاء مرتجع مشتريات')
+                    ->modalDescription(fn (PurchaseInvoice $record) => $record->returns()->where('status', 'draft')->exists()
+                        ? '⚠️ تنبيه: توجد مسودات مرتجعات سابقة لهذه الفاتورة. هل تريد إنشاء مسودة جديدة على أي حال؟ (سيتم تحميل الكميات المتبقية فقط)'
+                        : 'سيتم إنشاء مسودة مرتجع بناءً على هذه الفاتورة. هل أنت متأكد؟')
+                    ->action(function (PurchaseInvoice $record) {
+                        return DB::transaction(function () use ($record) {
+                            $return = PurchaseReturn::create([
+                                'return_number' => 'RET-PURCHASE-' . now()->format('Ymd') . '-' . Str::random(6),
+                                'warehouse_id' => $record->warehouse_id,
+                                'partner_id' => $record->partner_id,
+                                'purchase_invoice_id' => $record->id,
+                                'status' => 'draft',
+                                'payment_method' => $record->payment_method,
+                                'subtotal' => $record->subtotal,
+                                'discount' => $record->discount,
+                                'total' => $record->total,
+                                'notes' => 'مرتجع من الفاتورة: ' . $record->invoice_number,
+                                'created_by' => auth()->id(),
+                            ]);
+
+                            foreach ($record->items as $item) {
+                                $availableQty = $record->getAvailableReturnQuantity($item->product_id, $item->unit_type);
+                                if ($availableQty > 0) {
+                                    PurchaseReturnItem::create([
+                                        'purchase_return_id' => $return->id,
+                                        'product_id' => $item->product_id,
+                                        'unit_type' => $item->unit_type,
+                                        'quantity' => $availableQty,
+                                        'unit_cost' => $item->unit_cost,
+                                        'discount' => $item->discount,
+                                        'total' => $item->unit_cost * $availableQty,
+                                    ]);
+                                }
+                            }
+
+                            Notification::make()
+                                ->success()
+                                ->title('تم إنشاء مسودة المرتجع')
+                                ->send();
+
+                            return redirect()->route('filament.admin.resources.purchase-returns.edit', ['record' => $return->id]);
+                        });
+                    }),
 
                 Tables\Actions\EditAction::make()
                     ->visible(fn (PurchaseInvoice $record) => $record->isDraft()),
@@ -959,6 +1010,7 @@ class PurchaseInvoiceResource extends Resource
                     }),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\DeleteAction::make()
+                    ->visible(fn (PurchaseInvoice $record) => !$record->hasAssociatedRecords())
                     ->before(function (Tables\Actions\DeleteAction $action, PurchaseInvoice $record) {
                         if ($record->hasAssociatedRecords()) {
                             Notification::make()
@@ -1012,6 +1064,7 @@ class PurchaseInvoiceResource extends Resource
         return [
             'index' => Pages\ListPurchaseInvoices::route('/'),
             'create' => Pages\CreatePurchaseInvoice::route('/create'),
+            'view' => Pages\ViewPurchaseInvoice::route('/{record}'),
             'edit' => Pages\EditPurchaseInvoice::route('/{record}/edit'),
         ];
     }
