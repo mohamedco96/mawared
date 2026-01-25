@@ -306,7 +306,7 @@ class CapitalServiceTest extends TestCase
         // ASSERT
         // Net COGS = Gross COGS (500) - Returned COGS (200) = 300
         $this->assertEquals(300, $summary['cogs']);
-        $this->assertEquals(700, $summary['gross_profit']); // 1000 - 300
+        $this->assertEquals(300, $summary['gross_profit']); // 1000 (Sales) - 400 (Returns) - 300 (Net COGS) = 300
     }
 
     public function test_financial_summary_includes_discount_allowed(): void
